@@ -1,0 +1,75 @@
+.admin-chat-page { display: flex; height: 100vh; background: #f5f5f5; }
+.left { width: 220rpx; background: #fff; border-right: 1px solid #eee; overflow: auto; }
+.user-item { padding: 18rpx 14rpx; border-bottom: 1px solid #f1f1f1; display: flex; justify-content: space-between; align-items: center; }
+.user-item.active { background: #fff3ec; }
+.name { font-size: 24rpx; color: #333; }
+.unread { min-width: 32rpx; height: 32rpx; border-radius: 16rpx; background: #fa550f; color: #fff; font-size: 20rpx; text-align: center; line-height: 32rpx; padding: 0 6rpx; }
+.right { flex: 1; display: flex; flex-direction: column; }
+.msg-list { flex: 1; overflow: auto; padding: 16rpx; }
+.msg-item { display: flex; margin-bottom: 12rpx; }
+.msg-item.mine { justify-content: flex-end; }
+.msg-item.user { justify-content: flex-start; }
+.bubble { max-width: 78%; background: #fff; border-radius: 10rpx; padding: 12rpx 14rpx; color: #333; font-size: 24rpx; word-break: break-word; }
+.msg-item.mine .bubble { background: #95ec69; }
+.chat-img { max-width: 380rpx; border-radius: 10rpx; background: #eee; }
+.voice-bubble {
+  max-width: 78%;
+  min-width: 140rpx;
+  padding: 12rpx 14rpx;
+  border-radius: 10rpx;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.msg-item.mine .voice-bubble { background: #95ec69; }
+.voice-icon { font-size: 22rpx; color: #fa550f; }
+.voice-dur { font-size: 24rpx; color: #333; }
+.input-bar { display: flex; align-items: center; background: #fff; border-top: 1px solid #eee; padding: 12rpx; }
+.left-action {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10rpx;
+  font-size: 28rpx;
+  color: #666;
+  border: 1px solid #cdcdcd;
+  background: #fff;
+}
+.left-action.is-recording {
+  background: #ffe8d9;
+  border-color: #fa550f;
+}
+.input { flex: 1; height: 66rpx; border-radius: 10rpx; background: #fff; padding: 0 16rpx; border: 1px solid #ddd; }
+.hold-to-talk {
+  flex: 1;
+  height: 66rpx;
+  border-radius: 10rpx;
+  border: 1px solid #ddd;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  font-size: 24rpx;
+}
+.hold-to-talk.is-recording { background: #f1f1f1; }
+.right-action {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
+  border: 1px solid #cdcdcd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44rpx;
+  color: #666;
+  line-height: 1;
+  margin-left: 10rpx;
+  background: #fff;
+}
+.send { margin-left: 10rpx; background: #fa550f; color: #fff; border-radius: 10rpx; padding: 0 24rpx; height: 66rpx; line-height: 66rpx; }
+

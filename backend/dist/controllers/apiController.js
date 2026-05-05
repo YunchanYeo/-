@@ -1,0 +1,49 @@
+export function createApiController(services) {
+    return {
+        // middlewares
+        requireAuth: services.auth.requireAuth,
+        requireAdmin: services.auth.requireAdmin,
+        // public
+        health: services.health.health,
+        categories: services.category.categories,
+        wechatLogin: services.auth.wechatLogin,
+        publicProducts: services.product.publicProducts,
+        publicProductDetail: services.product.publicProductDetail,
+        // user
+        me: services.user.me,
+        updateMe: services.user.updateMe,
+        // addresses
+        listAddresses: services.address.listAddresses,
+        getAddress: services.address.getAddress,
+        createAddress: services.address.createAddress,
+        updateAddress: services.address.updateAddress,
+        deleteAddress: services.address.deleteAddress,
+        // orders
+        listOrders: services.order.listOrders,
+        ordersCount: services.order.ordersCount,
+        getOrderDetail: services.order.getOrderDetail,
+        refundOrder: services.order.refundOrder,
+        commitOrder: services.order.commitOrder,
+        // support chat
+        listMySupportMessages: services.support.listMyMessages,
+        createMySupportMessage: services.support.createMyMessage,
+        adminSupportConversations: services.support.adminConversations,
+        adminSupportMessagesByUser: services.support.adminMessagesByUser,
+        adminSupportReply: services.support.adminReply,
+        supportUploadMedia: services.support.uploadMyMedia,
+        adminSupportUploadMedia: services.support.uploadAdminMedia,
+        // admin
+        adminLogin: services.auth.adminLogin,
+        adminMe: services.admin.adminMe,
+        adminUpdatePassword: services.admin.adminUpdatePassword,
+        adminUpdateUsername: services.admin.adminUpdateUsername,
+        adminOrders: services.admin.adminOrders,
+        adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping,
+        adminProducts: services.product.adminProducts,
+        adminProductDetail: services.product.adminProductDetail,
+        adminCreateProduct: services.product.adminCreateProduct,
+        adminUpdateProduct: services.product.adminUpdateProduct,
+        adminUpdateProductStock: services.product.adminUpdateProductStock,
+        adminUploadImage: services.admin.adminUploadImage,
+    };
+}

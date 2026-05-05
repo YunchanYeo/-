@@ -1,0 +1,23 @@
+<view class="admin-login">
+  <view class="login-card">
+    <view class="title">管理员登录</view>
+
+    <t-input label="账号" placeholder="请输入管理员账号" value="{{username}}" data-key="username" bind:change="onInput" />
+    <t-input
+      label="密码"
+      placeholder="请输入管理员密码"
+      type="{{passwordVisible ? 'text' : 'password'}}"
+      value="{{password}}"
+      data-key="password"
+      bind:change="onInput"
+    >
+      <view slot="suffix" catch:tap="togglePasswordVisible">
+        <t-icon name="{{passwordVisible ? 'browse-off' : 'browse'}}" size="40rpx" color="#999999" />
+      </view>
+    </t-input>
+
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onSubmit">
+      登录
+    </t-button>
+  </view>
+</view>

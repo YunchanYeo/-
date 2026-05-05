@@ -1,0 +1,84 @@
+<view class="admin-page">
+  <view class="header">
+    <view class="title">管理员后台</view>
+    <view class="header-actions">
+      <t-button size="small" variant="outline" bind:tap="gotoSupportChat">客服会话</t-button>
+      <t-button size="small" variant="outline" bind:tap="gotoAdminSettings">账号设置</t-button>
+      <t-button size="small" variant="outline" bind:tap="onLogoutAdmin">退出</t-button>
+    </view>
+  </view>
+
+  <view class="tabs">
+    <view class="tab {{activeTab==='orders'?'active':''}}" data-tab="orders" bind:tap="onTabChange">订单管理</view>
+    <view class="tab {{activeTab==='products'?'active':''}}" data-tab="products" bind:tap="onTabChange">库存管理</view>
+  </view>
+
+  <view wx:if="{{activeTab==='orders'}}">
+    <view class="card" wx:for="{{orders}}" wx:key="orderNo" wx:for-item="item">
+      <view class="row"><text>订单号:</text><text>{{item.orderNo}}</text></view>
+      <view class="row"><text>买家:</text><text>{{item.nickName || '匿名用户'}} / {{item.phoneNumber || '-'}}</text></view>
+      <view class="row"><text>状态:</text><text>{{item.orderStatusName}}</text></view>
+      <view class="row"><text>运单:</text><text>{{item.logisticsCompanyName || '-'}} {{item.logisticsNo || ''}}</text></view>
+      <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">填写/更新运单</t-button>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab==='products'}}">
+    <view class="card form-card">
+      <view class="form-title">新增商品</view>
+      <t-input label="商品名" placeholder="必填" value="{{productForm.title}}" data-key="title" bind:change="onProductInput" />
+      <t-input
+        label="价格(元)"
+        type="number"
+        placeholder="必填，如 12.9"
+        value="{{productForm.price}}"
+        data-key="price"
+        bind:change="onProductInput"
+      />
+      <t-input
+        label="原价(元)"
+        type="number"
+        placeholder="选填"
+        value="{{productForm.originPrice}}"
+        data-key="originPrice"
+        bind:change="onProductInput"
+      />
+      <t-input
+        label="库存"
+        type="number"
+        placeholder="必填"
+        value="{{productForm.stock}}"
+        data-key="stock"
+        bind:change="onProductInput"
+      />
+      <t-button variant="outline" block bind:tap="pickCategory">
+        选择分类 {{productForm.category ? '(' + productForm.category + ')' : ''}}
+      </t-button>
+      <t-input label="图片URL" placeholder="选填" value="{{productForm.image}}" data-key="image" bind:change="onProductInput" />
+      <t-button variant="outline" block bind:tap="onPickImage">拍照/相册上传图片</t-button>
+      <image wx:if="{{productForm.image}}" class="image-preview" src="{{productForm.image}}" mode="aspectFill" />
+      <t-input label="品牌" placeholder="选填" value="{{productForm.brand}}" data-key="brand" bind:change="onProductInput" />
+      <t-input label="公司" placeholder="选填" value="{{productForm.company}}" data-key="company" bind:change="onProductInput" />
+      <t-input
+        label="描述"
+        placeholder="选填"
+        value="{{productForm.description}}"
+        data-key="description"
+        bind:change="onProductInput"
+      />
+      <t-button theme="primary" block loading="{{createSubmitting}}" disabled="{{createSubmitting}}" bind:tap="onCreateProduct">
+        新增商品并写入数据库
+      </t-button>
+    </view>
+
+    <view class="card" wx:for="{{products}}" wx:key="id" wx:for-item="item">
+      <view class="row"><text>商品:</text><text>{{item.title}}</text></view>
+      <view class="row"><text>库存:</text><text>{{item.stock}}</text></view>
+      <view class="btn-row">
+        <t-button size="small" theme="primary" bind:tap="onEditStock" data-item="{{item}}">改库存</t-button>
+        <t-button size="small" variant="outline" bind:tap="gotoEditProduct" data-id="{{item.id}}">编辑商品</t-button>
+      </view>
+    </view>
+  </view>
+</view>
+<t-toast id="t-toast" />

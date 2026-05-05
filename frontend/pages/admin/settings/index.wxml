@@ -1,0 +1,36 @@
+<view class="page" wx:if="{{!loading}}">
+  <view class="card">
+    <view class="title">账号设置</view>
+    <view class="sub">当前ID: {{me.username}}</view>
+
+    <t-input
+      label="当前密码"
+      type="password"
+      placeholder="用于验证身份"
+      value="{{currentPassword}}"
+      data-key="currentPassword"
+      bind:change="onInput"
+    />
+
+    <view class="divider" />
+
+    <t-input label="新ID" placeholder="至少4位" value="{{newUsername}}" data-key="newUsername" bind:change="onInput" />
+    <t-button variant="outline" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onChangeUsername">
+      修改ID（会强制重新登录）
+    </t-button>
+
+    <view class="divider" />
+
+    <t-input
+      label="新密码"
+      type="password"
+      placeholder="至少6位"
+      value="{{newPassword}}"
+      data-key="newPassword"
+      bind:change="onInput"
+    />
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onChangePassword">
+      修改密码（会强制重新登录）
+    </t-button>
+  </view>
+</view>

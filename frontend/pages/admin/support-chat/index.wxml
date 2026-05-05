@@ -1,0 +1,54 @@
+<view class="admin-chat-page">
+  <view class="left">
+    <view wx:for="{{conversations}}" wx:key="userId" class="user-item {{String(item.userId)===String(activeUserId)?'active':''}}" data-user-id="{{item.userId}}" bindtap="onSelectConversation">
+      <view class="name">{{item.nickName || ('用户' + item.userId)}}</view>
+      <view class="unread" wx:if="{{item.unreadCount>0}}">{{item.unreadCount}}</view>
+    </view>
+  </view>
+  <view class="right">
+    <view class="msg-list">
+      <view wx:for="{{messages}}" wx:key="id" class="msg-item {{item.fromRole==='admin'?'mine':'user'}}">
+        <view wx:if="{{item.msgType === 'text'}}" class="bubble">{{item.content}}</view>
+        <image
+          wx:elif="{{item.msgType === 'image'}}"
+          class="chat-img"
+          src="{{item.displayUrl}}"
+          mode="widthFix"
+          lazy-load="{{true}}"
+          bindtap="onPreviewImage"
+          data-url="{{item.displayUrl}}"
+        />
+        <view
+          wx:elif="{{item.msgType === 'voice'}}"
+          class="voice-bubble"
+          bindtap="onPlayVoice"
+          data-url="{{item.displayUrl}}"
+        >
+          <text class="voice-icon">▶</text>
+          <text class="voice-dur">{{item.voiceSec}}″</text>
+        </view>
+      </view>
+    </view>
+    <view class="input-bar">
+      <view
+        class="left-action"
+        bindtap="toggleInputMode"
+      >
+        {{inputMode === 'voice' ? '⌨' : '🎤'}}
+      </view>
+      <input wx:if="{{inputMode !== 'voice'}}" class="input" placeholder="发送消息" value="{{inputText}}" bindinput="onInput" />
+      <view
+        wx:else
+        class="hold-to-talk {{recording ? 'is-recording' : ''}}"
+        catchtouchstart="onRecordStart"
+        catchtouchend="onRecordEnd"
+        catchtouchcancel="onRecordCancel"
+      >
+        {{recording ? '松开发送，滑动取消' : '按住 说话'}}
+      </view>
+      <view class="right-action" bindtap="openMoreActions">+</view>
+      <button wx:if="{{inputMode !== 'voice' && !!inputText}}" class="send" loading="{{sending}}" bindtap="onSend">发送</button>
+    </view>
+  </view>
+</view>
+<t-toast id="t-toast" />

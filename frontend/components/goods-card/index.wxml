@@ -1,0 +1,72 @@
+<view
+  id="{{independentID}}"
+  class="goods-card"
+  bind:tap="clickHandle"
+  data-goods="{{ goods }}"
+>
+	<view class="goods-card__main">
+		<view class="goods-card__thumb" bind:tap="clickThumbHandle">
+			<image
+			  wx:if="{{ !!goods.thumb }}"
+			  class="goods-card__img"
+			  src="{{ goods.thumb }}"
+			  mode="aspectFill"
+			  lazy-load="{{true}}"
+			/>
+		</view>
+		<view class="goods-card__body">
+			<view class="goods-card__upper">
+				<view wx:if="{{ goods.title }}" class="goods-card__title">
+					{{ goods.title }}
+				</view>
+        <view wx:if="{{ goods.tags && goods.tags.length > 0 }}" class="goods-card__category">
+          分类：{{goods.tags[0]}}
+        </view>
+        <view wx:if="{{ goods.desc }}" class="goods-card__desc">
+          {{ goods.desc }}
+        </view>
+				<view wx:if="{{ goods.tags && !!goods.tags.length }}" class="goods-card__tags">
+					<view
+					  wx:for="{{ goods.tags }}"
+					  wx:key="index"
+					  wx:for-item="tag"
+					  class="goods-card__tag"
+					  data-index="{{index}}"
+					>
+						{{tag}}
+					</view>
+				</view>
+			</view>
+			<view class="goods-card__down">
+				<price
+				  wx:if="{{ goods.price }}"
+				  wr-class="spec-for-price"
+				  symbol-class="spec-for-symbol"
+				  symbol="{{currency}}"
+				  price="{{goods.price}}"
+				/>
+				<price
+				  wx:if="{{ goods.originPrice && isValidityLinePrice }}"
+				  wr-class="goods-card__origin-price"
+				  symbol="{{currency}}"
+				  price="{{goods.originPrice}}"
+				  type="delthrough"
+				/>
+				<t-icon
+				  class="goods-card__add-cart"
+				  prefix="wr"
+				  name="cartAdd"
+				  id="{{independentID}}-cart"
+				  data-id="{{independentID}}"
+				  catchtap="addCartHandle"
+				  size="48rpx"
+				  color="#FA550F"
+				/>
+			</view>
+      <view class="goods-card__stock" wx:if="{{goods.stock !== undefined && goods.stock !== null}}">
+        库存 {{goods.stock}}
+      </view>
+		</view>
+	</view>
+</view>
+

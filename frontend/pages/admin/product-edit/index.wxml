@@ -1,0 +1,23 @@
+<view class="page" wx:if="{{!loading}}">
+  <view class="card">
+    <view class="title">编辑商品</view>
+    <t-input label="商品名" value="{{form.title}}" data-key="title" bind:change="onInput" />
+    <t-input label="价格(元)" type="number" value="{{form.price}}" data-key="price" bind:change="onInput" />
+    <t-input label="原价(元)" type="number" value="{{form.originPrice}}" data-key="originPrice" bind:change="onInput" />
+    <t-input label="库存" type="number" value="{{form.stock}}" data-key="stock" bind:change="onInput" />
+
+    <t-button variant="outline" block bind:tap="pickCategory">
+      选择分类 {{form.category ? '(' + form.category + ')' : ''}}
+    </t-button>
+
+    <t-input label="图片URL" value="{{form.image}}" data-key="image" bind:change="onInput" />
+    <t-button variant="outline" block bind:tap="onPickImage">拍照/相册上传图片</t-button>
+    <image wx:if="{{form.image}}" class="image-preview" src="{{form.image}}" mode="aspectFill" />
+
+    <t-input label="品牌" value="{{form.brand}}" data-key="brand" bind:change="onInput" />
+    <t-input label="公司" value="{{form.company}}" data-key="company" bind:change="onInput" />
+    <t-input label="描述" value="{{form.description}}" data-key="description" bind:change="onInput" />
+
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onSubmit">保存</t-button>
+  </view>
+</view>
