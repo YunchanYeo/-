@@ -25,7 +25,10 @@ Page({
         tabIndex: 0,
     },
     onShow() {
-        this.getTabBar().init();
+        const tabBar = this.getTabBar && this.getTabBar();
+        if (tabBar && typeof tabBar.init === 'function') {
+            tabBar.init();
+        }
         const currentVersion = getProductDataVersion();
         if (this._lastProductVersion && this._lastProductVersion !== currentVersion) {
             this.loadGoodsList(true);
