@@ -1,139 +1,145 @@
-# 프론트 SDK 가이드 (초보자용)
+# 프론트엔드 데이터 연동 가이드 (초보자용)
 
-이 문서는 “미니프로그램 프론트( `frontend/` )가 백엔드(CloudBase 클라우드 함수, `backend/` )를 호출해서 DB 데이터를 가져오는 방법”을
-**당신 프로젝트 코드 기준으로** 설명합니다.
+이 문서는 `frontend` 코드가 백엔드 API와 어떻게 연결되는지, 실제 프로젝트 구조 기준으로 쉽게 설명합니다.
 
----
+## 1. 가장 중요한 원칙
 
-## 0) 한 줄 요약
+- 페이지(`pages/**`)는 화면과 이벤트 처리에 집중
+- 서비스(`services/**`)는 API 호출과 데이터 변환에 집중
+- 공통 요청은 `services/_utils/http.js`의 `requestJson()`만 사용
+- 페이지에서 `wx.request()`를 직접 호출하지 않기
 
-페이지(`pages/**`) → 서비스(`services/**`) → `requestJson()` → 우리 백엔드 서버(`backend/`) → DB 조회 → 결과 반환
+즉, 흐름은 아래처럼 고정하는 것이 좋습니다.
 
----
-
-## 1) 용어 정리(아주 쉽게)
-
-- **프론트(Frontend)**: 화면 코드. 사용자가 보는 페이지/버튼/리스트
-- **백엔드(Backend)**: 서버 역할. DB에서 데이터를 꺼내오거나 저장하는 코드
-- **CloudBase(云开发)**: 위챗이 제공하는 “클라우드 백엔드”
-- **클라우드 함수(Cloud Function)**: CloudBase에서 실행되는 서버 코드(= API)
-- **DB(数据库 / Database)**: 데이터를 저장하는 곳
-- **컬렉션(Collection)**: DB의 “테이블” 같은 것. 예: `products`, `orders`
-- **문서(Document)**: 테이블의 “행(row)” 같은 것. 예: 상품 1개 데이터
-- **action**: 우리 프로젝트에서 API를 구분하는 문자열 이름  
-  예: `'home.get'`, `'goods.list'`, `'order.list'`
-
----
-
-## 2) 왜 프론트가 DB를 직접 못 읽어?
-
-미니프로그램은 사용자 폰에서 실행되는 앱이에요.
-사용자 폰에서 DB 접속 정보를 들고 직접 DB에 붙으면:
-
-- 보안상 위험(누구나 DB를 해킹/조회 가능)
-- 권한/검증/로그를 통제하기 어려움
-
-그래서 **항상 “백엔드(클라우드 함수)”를 통해서만 DB를 읽고/쓴다**고 생각하면 됩니다.
-
----
-
-## 3) 이 프로젝트에서 “백엔드 호출”은 어디서 하나?
-
-공통 호출 래퍼는 여기입니다.
-
-- `frontend/services/_utils/http.js`
-
-여기에는 `requestJson(path, options)`가 있고, 내부에서:
-
-- `wx.request(...)` 실행
-- 서버 응답을 `{ ok: true, data }` 형태로 받으면 `data`만 반환
-- `{ ok: false, message }`면 에러로 처리
-
----
-
-## 4) 내가 페이지에서 뭘 호출해야 해?
-
-원칙: **페이지가 `wx.request()`를 직접 부르지 말고, 서비스 함수(`services/**`)만 부릅니다.**
-
-예를 들어 홈 화면은:
-
-- 서비스: `frontend/services/home/home.js`
-- 페이지: `frontend/pages/home/home.js` (페이지는 서비스만 호출)
-
-`frontend/services/good/fetchGoodsList.js`의 실데이터 모드 예시(개념):
-
-```js
-return requestJson('/api/products')
+```text
+Page -> Service -> requestJson -> Backend API -> DB
 ```
 
----
+## 2. 핵심 파일 역할
 
-## 5) 백엔드 URL은 어디서 정하나?
+### 2.1 공통 요청 유틸
 
-백엔드 서버 주소는 여기에서 정합니다.
+- 파일: `frontend/services/_utils/http.js`
+- 역할:
+  - 공통 헤더 주입 (`Authorization`)
+  - HTTP 에러를 사용자 메시지로 변환
+  - 백엔드 응답 형식 검증 (`ok`, `data`)
 
-- `frontend/config/index.js`의 `config.apiBaseUrl`
+### 2.2 로그인/세션
 
-예:
+- 파일: `frontend/services/auth/session.js`
+- 역할:
+  - 토큰 저장/조회/삭제
+  - 위챗 로그인 코드 발급(`wx.login`)
+  - 세션 검증(`wx.checkSession`)
+  - 로그아웃 시 선로딩 데이터까지 정리
 
-- 로컬 개발: `http://127.0.0.1:3000`
-- 배포 서버: `https://api.example.com`
+### 2.3 도메인별 서비스
 
----
+- 상품: `frontend/services/good/*.js`
+- 주문: `frontend/services/order/*.js`
+- 주소: `frontend/services/address/*.js`
+- 고객센터: `frontend/services/support/chat.js`
+- 장바구니: `frontend/services/cart/cart.js`
 
-## 6) “DB에서 상품 가져오기” 구현 흐름(예시)
+## 3. 실제 예시 1: 홈 상품 목록
 
-### 6-1) DB는 어디에 생기나?
+### 3.1 페이지
 
-지금 백엔드는 **SQLite**로 시작합니다.
+- `frontend/pages/home/home.js`
+- `onLoad`/`onShow`에서 `fetchGoodsList` 계열 서비스를 호출
 
-- DB 파일: `backend/data.sqlite`
-- 테이블: `products`
+### 3.2 서비스
 
-처음엔 서버를 실행한 뒤, 상품을 1개 생성 API로 넣는 방식이 제일 쉽습니다.
+- `frontend/services/good/fetchGoods.js`
+- `/api/products` 호출 후 UI 컴포넌트 형식으로 매핑
+- 이미지 URL 정규화(`localhost` -> 현재 `apiBaseUrl`) 처리
 
-### 6-2) 백엔드에서 products 조회하기
+### 3.3 백엔드
 
-백엔드는 여기입니다.
+- 라우트: `/api/products`
+- 구현: `backend/src/services/productService.ts`
 
-- `backend/src/index.js`
-- `backend/src/db.js`
+## 4. 실제 예시 2: 장바구니 동기화
 
-`GET /api/products`가 DB의 `products` 테이블을 읽어서 `{ ok: true, data: [...] }`로 반환합니다.
+기존 장바구니는 로컬 저장 기반입니다.  
+현재는 장바구니 진입 시 최신 DB 상품정보를 재동기화하도록 개선되어 있습니다.
 
-### 6-3) 프론트 서비스에서 products 호출하기
+- 위치: `frontend/services/cart/cart.js`
+- 동작:
+  1) 로컬 장바구니 아이템 로드
+  2) `/api/products` 최신 목록 조회
+  3) `spuId` 기준으로 가격/재고/제목/이미지 갱신
+  4) 수량/선택 상태는 로컬 값을 유지
 
-`frontend/services/good/fetchGoodsList.js`의 실데이터 분기에서:
+초보자 팁:
 
-- `requestJson('/api/products')`
+- 상품 기본정보는 서버 기준
+- 사용자 조작 상태(수량, 체크)는 로컬 기준
 
-로 연결합니다.
+이렇게 분리하면 UX와 데이터 정확도를 둘 다 잡을 수 있습니다.
 
-### 6-4) 페이지는 서비스 결과로 화면만 갱신
+## 5. 실제 예시 3: 고객센터 채팅
 
-페이지에서는:
+### 사용자
 
-- `fetchGoodsList()` 호출
-- 결과를 `this.setData({ ... })`로 렌더링
+- 페이지: `frontend/pages/user/support-chat`
+- 서비스: `frontend/services/support/chat.js`
+- API:
+  - `GET /api/support/messages`
+  - `POST /api/support/messages`
+  - `POST /api/support/upload-media`
 
-만 하면 됩니다.
+### 관리자
 
----
+- 페이지: `frontend/pages/admin/support-chat`
+- API:
+  - `GET /api/admin/support/conversations`
+  - `GET /api/admin/support/messages/:userId`
+  - `POST /api/admin/support/messages/:userId`
+  - `POST /api/admin/support/upload-media`
 
-## 7) 디버깅(문제 해결) 체크리스트
+### 메시지 타입
 
-서버 호출이 안 될 때는 아래를 순서대로 확인하세요.
+- `text`, `image`, `voice`
+- 음성은 `meta.durationMs` 사용
 
-1. 백엔드 서버가 실행 중인가? (`npm run dev` / 콘솔에 listening 로그)
-2. `frontend/config/index.js`의 `apiBaseUrl`이 맞나?
-3. DevTools에서 네트워크 요청이 차단되지 않나? (도메인/URL 검사 설정)
-4. 서버가 `{ ok: true, data }` 형태로 응답하고 있나?
+## 6. 설정 파일 이해하기
 
----
+### `frontend/config/index.js`
 
-## 8) 앞으로 우리가 추가할 API 예시(추천)
+- `useMock`
+  - `true`: 모델 mock 데이터 사용
+  - `false`: 실제 백엔드 API 호출
+- `apiBaseUrl`
+  - 로컬: `http://127.0.0.1:3000`
+  - 운영: 실제 API 도메인
 
-- 상품: `GET /api/products`, `GET /api/products/:id`, `POST /api/products`
-- 장바구니: `GET /api/cart`, `POST /api/cart`
-- 주문: `POST /api/orders`, `GET /api/orders`, `POST /api/orders/:id/ship`
+## 7. 초보자용 작업 패턴 (권장)
+
+기능을 하나 추가할 때 아래 순서로 작업하면 안정적입니다.
+
+1) 백엔드 라우트/API 먼저 준비  
+2) 프론트 `services` 함수 추가  
+3) 페이지에서 서비스 호출 연결  
+4) 에러 메시지/로딩 상태 처리  
+5) `ReadLints`/수동 테스트로 검증
+
+## 8. 자주 하는 실수
+
+- 페이지에서 직접 `wx.request` 호출
+- `apiBaseUrl`와 백엔드 포트 불일치
+- `useMock=true` 상태에서 실데이터가 안 나온다고 오해
+- 백엔드 응답 형식을 `{ ok, data }`로 맞추지 않음
+- 이미지 URL의 `localhost`를 그대로 저장해 기기에서 표시 실패
+
+## 9. 체크리스트
+
+기능 수정 후 아래를 확인하세요.
+
+- 콘솔에 401/404/500 에러가 없는가?
+- 로딩/실패 UI가 있는가?
+- 로그인 상태/비로그인 상태 둘 다 정상인가?
+- 관리자에서 수정한 내용이 사용자 화면에 반영되는가?
+
 

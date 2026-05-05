@@ -1,104 +1,123 @@
-# 위챗 미니프로그램 API 연동 가이드
+# 위챗 미니프로그램 API 연동 문서
 
-## 목적
-이 프로젝트는 위챗 미니프로그램 공식 API를 사용해  
-`사용자 동의 기반 로그인` + `백엔드 세션 인증` 구조로 동작합니다.
+이 문서는 현재 프로젝트에서 실제로 사용하는 `wx.*` API를 기능별로 정리하고, 초보자도 바로 적용할 수 있게 사용 흐름과 주의사항을 설명합니다.
 
-## 위챗 API 사용 전 꼭 알아둘 점
+## 1. 기본 개념
 
-- **기본 `wx.*` API는 설치/임포트가 필요 없습니다.**
-  - `wx`는 미니프로그램 런타임에서 제공되는 전역 객체라 바로 사용할 수 있습니다.
-  - 예: `wx.login`, `wx.request`, `wx.navigateTo`, `wx.showToast`
-- npm 패키지가 필요한 경우는 `wx` API 자체가 아니라, **추가 라이브러리**를 쓸 때입니다.
-  - 예: `tdesign-miniprogram`, `zod`, `axios` 등
-- 단, API 호출 권한/환경 설정은 필요합니다.
-  - 개발자도구의 `request 合法域名`(합법 도메인) 설정
-  - `app.json` 권한/페이지 등록
-  - 실제 결제/로그인 운영 시 서비스 계정(AppID/AppSecret/상점 정보) 설정
+- `wx` 객체는 미니프로그램 런타임이 제공하므로 별도 설치가 필요 없습니다.
+- 인증/결제 같은 민감 로직은 반드시 백엔드와 함께 사용해야 합니다.
+- 프론트는 사용자 동작을 받고, 백엔드는 권한/검증/DB 저장을 담당합니다.
 
-## 현재 사용 중인 핵심 API
+## 2. 프로젝트에서 사용하는 주요 API
 
-### 로그인/계정
+### 2.1 인증/세션
+
 - `wx.login`
-  - 백엔드 인증 교환에 필요한 1회성 `code`를 발급합니다.
+  - 위챗 로그인 `code` 획득
+  - 백엔드 `/api/auth/wechat-login`로 전달
 - `wx.getUserProfile`
-  - 사용자 클릭으로 동의를 받고 프로필 정보(`nickName`, `avatarUrl`, `gender`)를 획득합니다.
+  - 사용자 동의 기반 프로필 획득
+  - 자동 호출 금지(버튼/탭 등 사용자 액션 필요)
 - `wx.checkSession`
-  - 로컬 토큰 사용 전 위챗 세션 유효성을 확인합니다.
-- `wx.getAccountInfoSync`
-  - 런타임 정보(`appId`, `envVersion`, `version`)를 읽어 진단 로그에 사용합니다.
+  - 위챗 세션 유효성 확인
+  - 만료 시 로그아웃 후 재로그인 유도
 
-### 네트워크
+### 2.2 네트워크
+
 - `wx.request`
-  - 백엔드 API 호출의 기본 방식입니다.
+  - 프로젝트에서는 직접 호출보다 `requestJson` 래퍼 사용 권장
 
-### 로컬 저장소
+### 2.3 저장소
+
 - `wx.setStorageSync`, `wx.getStorageSync`, `wx.removeStorageSync`
-  - 인증 토큰, 사용자 정보, 선로딩 데이터(주소/주문/카트)를 저장/조회/삭제합니다.
+  - 토큰, 사용자 정보, 선로딩 데이터 저장
 
-### 페이지 이동
-- `wx.navigateTo`, `wx.redirectTo`, `wx.switchTab`, `wx.reLaunch`
-  - 일반 페이지/탭 페이지 전환에 사용합니다.
+### 2.4 미디어
 
-### 미디어
 - `wx.chooseMedia`
-  - 카메라/앨범에서 이미지 선택.
+  - 이미지 선택/촬영
+- `wx.getRecorderManager`
+  - 음성 녹음
+- `wx.createInnerAudioContext`
+  - 음성 재생
 - `wx.getFileSystemManager().readFile`
-  - 선택 파일을 base64로 변환해 업로드 데이터로 사용.
+  - 파일 -> base64 변환 후 업로드
 
-### 사용자 안내(UI/UX)
-- `wx.showModal`, `wx.showToast`, `wx.showActionSheet`
-  - 로그인 동의, 처리 결과 안내, 선택 UI 표시.
+### 2.5 페이지/UX
 
-### 런타임/성능
-- `wx.onMemoryWarning`, `wx.offMemoryWarning`
-  - 메모리 경고 시 대용량 임시 데이터를 비워 앱 안정성을 높입니다.
+- `wx.navigateTo`, `wx.redirectTo`, `wx.switchTab`
+- `wx.showToast`, `wx.showModal`, `wx.showActionSheet`
+- `wx.previewImage`
 
-## API 매트릭스 (필수/권장/선택)
+## 3. 로그인 흐름 (현재 프로젝트 기준)
 
-| 구분 | API | 현재 프로젝트 사용 여부 | 용도 |
-|---|---|---|---|
-| 필수 | `wx.login` | 사용 중 | 백엔드 세션 발급용 code 획득 |
-| 필수 | `wx.request` | 사용 중 | 프론트 <-> 백엔드 통신 |
-| 필수 | `wx.setStorageSync/getStorageSync` | 사용 중 | 토큰/사용자/카트 데이터 저장 |
-| 권장 | `wx.getUserProfile` | 사용 중 | 사용자 동의 기반 프로필 획득 |
-| 권장 | `wx.checkSession` | 사용 중 | 세션 만료 감지 후 재로그인 유도 |
-| 권장 | `wx.getAccountInfoSync` | 사용 중 | 환경 진단/버전 추적 |
-| 권장 | `wx.chooseLocation` | 사용 중 | 주소 자동 입력 보조 |
-| 권장 | `wx.chooseMedia` | 사용 중 | 관리자 상품 이미지 업로드 |
-| 선택 | `wx.requestPayment` | 구조 반영 | 실제 위챗 결제(운영 계정 필요) |
-| 선택 | `wx.requestVirtualPayment` | 구조 반영 | 가상 상품 결제 시나리오 |
-| 선택 | `wx.requestPluginPayment` | 구조 반영 | 플러그인 결제 확장 |
-| 선택 | `wx.requestCommonPayment` | 구조 반영 | 공통 결제 라우팅 확장 |
-| 선택 | `wx.createGlobalPayment` | 구조 반영 | 글로벌 결제 방식 확장 |
+1) 사용자 클릭으로 로그인 시작  
+2) `wx.login`으로 `code` 획득  
+3) 필요 시 `wx.getUserProfile`로 프로필 획득  
+4) `/api/auth/wechat-login` 호출  
+5) 백엔드에서 사용자 생성/갱신 + 세션 토큰 발급  
+6) 프론트에서 토큰 저장 + 부트스트랩 데이터 선로딩
 
-## 현재 로그인 아키텍처
+관련 코드:
 
-1. 사용자가 로그인 트리거 버튼/액션을 누릅니다. (동의 기반)
-2. `wx.getUserProfile`로 동의 및 프로필 정보를 획득합니다.
-3. `wx.login`으로 1회성 `code`를 받습니다.
-4. 프론트가 `code`(+선택적 프로필/계정 정보)를 백엔드 `/api/auth/wechat-login`에 전달합니다.
-5. 백엔드가 위챗 `code2session`을 호출해 `openid`를 획득합니다.
-6. 백엔드가 사용자 생성/갱신 후 프로젝트 세션 토큰을 발급합니다.
-7. 프론트가 토큰 저장 후 사용자 부트스트랩 데이터를 선로딩합니다.
-   - `/api/me`
-   - `/api/addresses`
-   - `/api/orders`
-   - `/api/orders/count`
+- 프론트: `frontend/services/auth/session.js`
+- 백엔드: `backend/src/services/authService.ts`
 
-## 중요한 보안/정책 규칙
+## 4. 고객센터(온라인 채팅) API 흐름
 
-- `wx.getUserProfile`은 앱 시작 시 자동 호출하면 안 됩니다. 반드시 사용자 동작 기반이어야 합니다.
-- `AppSecret`은 프론트에 노출하면 안 됩니다.
-- `code2session` 호출은 반드시 백엔드에서만 수행해야 합니다.
-- `wx.checkSession` 실패 시 로컬 세션을 정리하고 재동의 로그인을 유도해야 합니다.
+### 사용자
 
-## 운영 전 체크리스트
+- 메시지 목록 조회: `GET /api/support/messages`
+- 메시지 전송: `POST /api/support/messages`
+- 이미지/음성 업로드: `POST /api/support/upload-media`
 
-- 백엔드 환경변수 설정:
-  - `WECHAT_APPID`
-  - `WECHAT_APPSECRET`
-- 위챗 개발자도구/관리 콘솔에서 요청 도메인(합법 도메인) 설정.
-- 운영 전 개발용 fallback openid 로직 비활성화.
-- 토큰 만료/재발급 정책 및 인증 로그(audit) 체계 추가.
+### 관리자
+
+- 대화 목록: `GET /api/admin/support/conversations`
+- 특정 사용자 대화: `GET /api/admin/support/messages/:userId`
+- 답장 전송: `POST /api/admin/support/messages/:userId`
+- 이미지/음성 업로드: `POST /api/admin/support/upload-media`
+
+## 5. `app.json`에서 중요한 권한
+
+현재 프로젝트에서 특히 중요한 권한:
+
+- `scope.record`: 음성 메시지 녹음
+- `requiredPrivateInfos`의 주소 관련 설정
+
+권한이 빠지면 API가 정상 호출되어도 UX가 실패할 수 있습니다.
+
+## 6. 운영/보안 체크리스트
+
+### 필수
+
+- `WECHAT_APPID`, `WECHAT_APPSECRET`를 백엔드 환경변수로 설정
+- `AppSecret` 프론트 노출 금지
+- 도메인(허용 도메인) 설정 점검
+
+### 권장
+
+- 토큰 만료 처리 표준화
+- 인증 실패 로그 수집
+- 로그인 실패 횟수 제한(관리자)
+
+## 7. 자주 발생하는 문제
+
+### 로그인이 안 됨
+
+- `WECHAT_APPID/APPSECRET` 미설정 확인
+- 개발 중이면 dev fallback 동작 여부 확인
+- `wx.checkSession` 실패 후 토큰이 지워졌는지 확인
+
+### 이미지/음성 업로드 실패
+
+- 파일 크기/형식 확인
+- base64 변환 실패 여부 확인
+- 백엔드 `uploads` 정적 경로(`/uploads`) 확인
+
+### 실기기에서 API 실패
+
+- `apiBaseUrl`이 `localhost`로 되어 있지 않은지 확인
+- 합법 도메인/HTTPS 정책 확인
+
 

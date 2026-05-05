@@ -1,34 +1,83 @@
-## 模拟与数据
+# Mock 데이터 운영 가이드
 
-model 用于放置模拟后端数据返回的逻辑；假若接入真实后端接口，则本文件夹可改造为数据层适配。
-services 用于请求逻辑，根据 config.useMock 配置可控制返回 mock 数据或是真实接口数据
+이 문서는 프로젝트에서 mock 데이터를 어떻게 다뤄야 하는지 정리한 문서입니다.
 
-### 1 模拟策略
+## 1. 왜 Mock이 필요한가?
 
-1）只依靠 ID 规律进行关联
-大部分情况下推荐使用本方案，ID 为`1`的商品固定会关联 ID 为`1`的优惠券或者[ID 对 10 的模运算结果为 1](https://www.runoob.com/try/try.php?filename=tryjs_oper_mod)的优惠券（看需要 1 个还是多个了）。
+백엔드가 아직 준비되지 않았거나, 특정 화면을 빠르게 개발할 때 mock 데이터가 유용합니다.
 
-> 为保持关系稳定，模运算统一使用`10`为除数，`ID`为被除数；即`1%10`、`2%10`。
+- 장점
+  - 화면 개발 속도 향상
+  - API 장애와 무관하게 UI 작업 가능
+  - 테스트 데이터 재현 쉬움
 
-2）建立额外关联关系查询
-在无法使用简单数学关系维持关系的情况下，可以采用单独提供关系数据的方式进行关联（目前也没想到什么场景是数学关系稳定不了的了，先假定有，定下规范做法）。如数据 A 与数据 B 之间需要一个关联 AB，则需要提供`A数据mock`、`B数据mock`、以及`A查B与B反查A`共 4 个 mock 源。
+## 2. 기본 원칙
 
-### 2 使用数据
+### 2.1 페이지는 model을 직접 호출하지 않기
 
-使用数据源时应该在 services 文件夹中按照业务新建自己 fetch 函数导出，fetch 函数以 Promise 形式返回组合调用 model 逻辑得到的数据。
+- 금지: `pages/**`에서 `model/**` 직접 import
+- 권장: `services/**`를 통해서만 데이터 접근
 
-> 不允许直接在业务中调用、使用 model 数据。
+즉, 데이터 접근 순서는 아래처럼 통일합니다.
 
-## 接入真实 API 后
+```text
+Page -> Service -> (Mock 또는 Real API)
+```
 
-接入真实 API 后 model 文件夹逻辑可以反转层级，作为数据适配层继续为项目服务。举例说明:
+### 2.2 `useMock`로 분기하기
 
-1. 在没有接入 API 时（useMock 为 true）
-   1.1 业务调用 services 进行 fetch
-   1.2 fetch 逻辑调用 model 文件夹中对应的数据源，构造、返回业务需要的结构
+- 설정 파일: `frontend/config/index.js`
+- `useMock: true`이면 mock 반환
+- `useMock: false`이면 실제 API 호출
 
-2. 在接入 API 后（useMock 为 false）
-   2.1 业务调用 services 进行 fetch
-   2.2 fetch 逻辑调用接口得到真实后端数据
-   2.3 比对 model 文件夹中数据 mock 数据结构 export 一个数据结构转换函数，输入真实后端数据，输出与 mock 数据结构一致的新数据，返回给 fetch
-   2.4 fetch 函数 返回 转换后的 数据结构，业务层无需进行更改
+## 3. 서비스 함수 작성 규칙
+
+서비스 함수는 반드시 Promise를 반환하고, 화면에서 바로 쓰기 좋은 형태로 변환해서 반환합니다.
+
+예시 패턴:
+
+```js
+export function fetchSomething(params) {
+  if (config.useMock) return mockFetchSomething(params);
+  return requestJson('/api/xxx', { method: 'GET' }).then(adaptRealData);
+}
+```
+
+핵심:
+
+- mock/real 모두 같은 반환 구조를 유지
+- UI는 데이터 출처를 몰라도 동작해야 함
+
+## 4. 데이터 관계 설계 팁
+
+### 4.1 ID 규칙 기반 연결(권장)
+
+가능하면 단순한 ID 규칙으로 관계를 유지하세요.
+
+- 예: 상품 ID와 쿠폰 ID를 같은 규칙으로 연결
+- 장점: 데이터 생성/유지보수가 단순함
+
+### 4.2 별도 관계 테이블
+
+ID 규칙만으로 관계가 어렵다면 관계 mock을 별도로 둡니다.
+
+- A 목록
+- B 목록
+- A->B 매핑
+- B->A 매핑
+
+## 5. 실데이터 전환 시 체크리스트
+
+1) `useMock`를 `false`로 변경  
+2) 서비스 함수에서 실제 API 경로 연결  
+3) real 응답을 mock 구조로 변환(adapt)  
+4) 화면 코드 수정 없이 정상 동작 확인  
+
+## 6. 권장 개발 순서
+
+1. UI 컴포넌트 완성(mock 기반)  
+2. 서비스 레이어 분리  
+3. 백엔드 API 연결  
+4. adapt 함수로 응답 스키마 통일  
+5. `useMock` 전환 테스트  
+
