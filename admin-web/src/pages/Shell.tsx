@@ -63,6 +63,9 @@ export default function Shell() {
           <NavLink to="/categories" style={linkStyle}>
             分类
           </NavLink>
+          <NavLink to="/coupons" style={linkStyle}>
+            优惠券
+          </NavLink>
           <NavLink to="/support" style={linkStyle}>
             客服会话
           </NavLink>

@@ -130,6 +130,9 @@ Page({
     onRefresh() {
         this.init();
     },
+    onCloseToHome() {
+        wx.switchTab({ url: '/pages/home/home' });
+    },
     editLogistices() {
         this.setData({
             inputDialogVisible: true,

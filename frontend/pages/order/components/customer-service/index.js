@@ -26,9 +26,7 @@ Component({
             });
         },
         onCallOnlineService() {
-            wx.showToast({
-                title: '你点击了在线客服',
-            });
+            wx.navigateTo({ url: '/pages/user/support-chat/index' });
         },
     },
 });

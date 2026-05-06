@@ -27,6 +27,7 @@ function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) 
 }
 export const fetchAdminOrders = () => requestAdminJson('/api/admin/orders', { method: 'GET' });
 export const updateAdminOrderShipping = (orderNo, payload) => requestAdminJson(`/api/admin/orders/${orderNo}/shipping`, { method: 'POST', data: payload });
+export const updateAdminOrderStatus = (orderNo, payload) => requestAdminJson(`/api/admin/orders/${encodeURIComponent(orderNo)}/status`, { method: 'PUT', data: payload });
 export const fetchAdminLogisticsTrace = (orderNo) => requestAdminJson(`/api/admin/orders/${encodeURIComponent(orderNo)}/logistics-trace`, {
     method: 'GET',
     timeout: 25000,
@@ -45,3 +46,6 @@ export const fetchAdminCategories = () => requestAdminJson('/api/admin/categorie
 export const createAdminCategory = (payload) => requestAdminJson('/api/admin/categories', { method: 'POST', data: payload });
 export const updateAdminCategory = (id, payload) => requestAdminJson(`/api/admin/categories/${id}`, { method: 'PUT', data: payload });
 export const deleteAdminCategory = (id) => requestAdminJson(`/api/admin/categories/${id}`, { method: 'DELETE' });
+export const fetchAdminCoupons = () => requestAdminJson('/api/admin/coupons', { method: 'GET' });
+export const createAdminCoupon = (payload) => requestAdminJson('/api/admin/coupons', { method: 'POST', data: payload });
+export const grantAdminCoupon = (id, payload = { grantAllUsers: true }) => requestAdminJson(`/api/admin/coupons/${id}/grant`, { method: 'POST', data: payload });

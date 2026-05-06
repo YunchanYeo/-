@@ -1,6 +1,8 @@
 import Dialog from 'tdesign-miniprogram/dialog/index';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { dispatchCommitPay } from '../../../services/order/orderConfirm';
+import { requestJson } from '../../../services/_utils/http';
+import { removePurchasedFromLocalCart } from '../../../services/cart/cart';
 // 真实的提交支付
 export const commitPay = (params) => {
     return dispatchCommitPay({
@@ -23,7 +25,9 @@ export const commitPay = (params) => {
     });
 };
 export const paySuccess = (payOrderInfo) => {
-    const { payAmt, tradeNo, groupId, promotionId } = payOrderInfo;
+    const { payAmt, tradeNo, groupId, promotionId, goodsRequestList } = payOrderInfo;
+    requestJson(`/api/orders/${encodeURIComponent(tradeNo)}/paid`, { method: 'POST' }).catch(() => { });
+    removePurchasedFromLocalCart(Array.isArray(goodsRequestList) ? goodsRequestList : []);
     // 支付成功
     Toast({
         context: this,

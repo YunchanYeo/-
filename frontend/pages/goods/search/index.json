@@ -4,5 +4,6 @@
     "t-search": "tdesign-miniprogram/search/search",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-dialog": "tdesign-miniprogram/dialog/dialog"
-  }
+  },
+  "enablePullDownRefresh": true
 }

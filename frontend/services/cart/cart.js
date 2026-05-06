@@ -104,7 +104,7 @@ async function syncCartItemsWithServer(items) {
 export function fetchCartGroupData(params) {
     const items = readLocalCartItems();
     // 兼容旧数据：把历史存储里的图片 URL 统一迁移成当前 apiBaseUrl 域名，避免购物车图片加载失败。
-    const migrated = items.map((it) => ({ ...it, thumb: normalizeImageUrl(it.thumb || '') }));
+    const migrated = items.map((it) => ({ ...it, thumb: normalizeGoodsImageUrl(it.thumb || '') }));
     if (migrated.length > 0) {
         return syncCartItemsWithServer(migrated).then((synced) => {
             writeLocalCartItems(synced);
@@ -132,7 +132,7 @@ export function addItemToLocalCart(goods) {
             storeId: String(goods.storeId || '1'),
             storeName: goods.storeName || '默认门店',
             title: goods.title || goods.goodsName || '商品',
-            thumb: normalizeImageUrl(rawThumb),
+            thumb: normalizeGoodsImageUrl(rawThumb),
             price: Number(goods.price || 0),
             quantity: 1,
             isSelected: 1,
@@ -178,4 +178,17 @@ export function updateLocalCartStoreSelection({ storeId, isSelected }) {
         });
         return items;
     });
+}
+
+/**
+ * 结算成功后，从本地购物车中移除已购买商品（按 spuId+skuId 匹配）。
+ * @param {Array<Record<string, any>>} purchasedGoods
+ * @returns {Array<Record<string, any>>}
+ */
+export function removePurchasedFromLocalCart(purchasedGoods) {
+    if (!Array.isArray(purchasedGoods) || purchasedGoods.length === 0) {
+        return readLocalCartItems();
+    }
+    const keySet = new Set(purchasedGoods.map((g) => `${String(g.spuId || '')}__${String(g.skuId || '')}`));
+    return mutateLocalCartItems((items) => items.filter((item) => !keySet.has(`${String(item.spuId || '')}__${String(item.skuId || '')}`)));
 }

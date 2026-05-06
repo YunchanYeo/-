@@ -25,7 +25,7 @@ Component({
             if (!couponDTO) {
                 return;
             }
-            const statusInfo = statusMap[couponDTO.status];
+            const statusInfo = statusMap[couponDTO.status] || statusMap.default;
             this.setData({
                 btnText: statusInfo.text,
                 btnTheme: statusInfo.theme,
@@ -36,14 +36,20 @@ Component({
     methods: {
         // 跳转到详情页
         gotoDetail() {
+            const id = this.data.couponDTO?.id || this.data.couponDTO?.key;
+            if (!id)
+                return;
             wx.navigateTo({
-                url: `/pages/coupon/coupon-detail/index?id=${this.data.couponDTO.key}`,
+                url: `/pages/coupon/coupon-detail/index?id=${id}`,
             });
         },
         // 跳转到商品列表
         gotoGoodsList() {
+            const id = this.data.couponDTO?.couponId || this.data.couponDTO?.id || this.data.couponDTO?.key;
+            if (!id)
+                return;
             wx.navigateTo({
-                url: `/pages/coupon/coupon-activity-goods/index?id=${this.data.couponDTO.key}`,
+                url: `/pages/coupon/coupon-activity-goods/index?id=${id}`,
             });
         },
     },

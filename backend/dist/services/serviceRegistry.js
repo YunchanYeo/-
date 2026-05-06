@@ -7,6 +7,7 @@ import { createAddressService } from './addressService';
 import { createOrderService } from './orderService';
 import { createUserService } from './userService';
 import { createSupportService } from './supportService';
+import { createCouponService } from './couponService';
 export function createServices(ctx) {
     const health = createHealthService();
     const category = createCategoryService({ db: ctx.db });
@@ -17,5 +18,6 @@ export function createServices(ctx) {
     const order = createOrderService({ db: ctx.db, paymentMockMode: ctx.paymentMockMode });
     const user = createUserService({ db: ctx.db });
     const support = createSupportService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
-    return { health, category, auth, product, admin, address, order, user, support };
+    const coupon = createCouponService({ db: ctx.db });
+    return { health, category, auth, product, admin, address, order, user, support, coupon };
 }

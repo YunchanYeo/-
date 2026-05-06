@@ -31,6 +31,11 @@ Page({
         this.queryHistory();
         this.queryPopular();
     },
+    onPullDownRefresh() {
+        Promise.allSettled([this.queryHistory(), this.queryPopular()]).finally(() => {
+            wx.stopPullDownRefresh();
+        });
+    },
     async queryHistory() {
         try {
             const data = await getSearchHistory();

@@ -193,6 +193,9 @@ Page({
     onRefresh() {
         this.refreshList(this.data.curTab);
     },
+    onCloseToHome() {
+        wx.switchTab({ url: '/pages/home/home' });
+    },
     // 点击订单卡片
     onAfterServiceCardTap(e) {
         wx.navigateTo({

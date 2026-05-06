@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { couponsData } from './mock';
+import { fetchCouponList } from '../../../../services/coupon/index';
 const emptyCouponImg = `https://tdesign.gtimg.com/miniprogram/template/retail/coupon/ordersure-coupon-newempty.png`;
 Component({
     properties: {
@@ -43,11 +43,7 @@ Component({
                     this.setData({
                         products,
                     });
-                    this.coupons({
-                        products,
-                        selectedCoupons,
-                        storeId,
-                    }).then((res) => {
+                    this.coupons({ products, selectedCoupons, storeId }).then((res) => {
                         this.initData(res);
                     });
                 }
@@ -75,7 +71,7 @@ Component({
                         selectedNum++;
                         selectedList.push({
                             couponId,
-                            promotionId: ruleId,
+                            promotionId: String(couponId),
                             storeId: this.storeId,
                         });
                     }
@@ -83,7 +79,7 @@ Component({
                     return {
                         key: couponId,
                         title: name,
-                        isSelected: false,
+                        isSelected: status === 1,
                         timeLimit: `${dayjs(+startTime).format('YYYY-MM-DD')}-${dayjs(+endTime).format('YYYY-MM-DD')}`,
                         value: val,
                         status: status === -1 ? 'useless' : 'default',
@@ -107,13 +103,15 @@ Component({
                     coupon.isSelected = !coupon.isSelected;
                 }
             });
-            const couponSelected = couponsList.filter((coupon) => coupon.isSelected === true);
+            const couponSelected = couponsList
+                .filter((coupon) => coupon.isSelected === true)
+                .map((c) => ({ couponId: c.key, promotionId: String(c.key), storeId: this.storeId }));
             this.setData({
-                selectedList: [...selectedList, ...couponSelected],
+                selectedList: couponSelected,
                 couponsList: [...couponsList],
             });
             this.triggerEvent('sure', {
-                selectedList: [...selectedList, ...couponSelected],
+                selectedList: couponSelected,
             });
         },
         hide() {
@@ -122,17 +120,24 @@ Component({
             });
         },
         coupons(coupon = {}) {
-            return new Promise((resolve, reject) => {
-                if (coupon?.selectedCoupons) {
-                    resolve({
-                        couponResultList: couponsData.couponResultList,
-                        reduce: couponsData.reduce,
-                    });
-                }
-                return reject({
-                    couponResultList: [],
-                    reduce: undefined,
-                });
+            const selectedIds = new Set((coupon?.selectedCoupons || []).map((c) => Number(c.couponId)));
+            return fetchCouponList('default').then((rows) => {
+                const list = (Array.isArray(rows) ? rows : []).map((c) => ({
+                    status: selectedIds.has(Number(c.couponId || c.id)) ? 1 : 0,
+                    couponVO: {
+                        couponId: Number(c.couponId || c.id),
+                        condition: c.base ? `满${Number(c.base) / 100}元可用` : '无门槛',
+                        endTime: Number(c.endTime || 0),
+                        name: c.title || c.name || '优惠券',
+                        startTime: Number(c.startTime || 0),
+                        value: Number(c.value || 0),
+                        type: c.type === 'discount' ? 1 : 2,
+                    },
+                }));
+                const reduce = list
+                    .filter((x) => x.status === 1 && x.couponVO.type === 2)
+                    .reduce((sum, x) => sum + Number(x.couponVO.value || 0), 0);
+                return { couponResultList: list, reduce };
             });
         },
     },

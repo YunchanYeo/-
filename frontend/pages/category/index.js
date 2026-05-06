@@ -113,6 +113,11 @@ Page({
             this.refreshCategoriesFromApi();
         }
     },
+    onPullDownRefresh() {
+        Promise.resolve(this.refreshCategoriesFromApi()).finally(() => {
+            wx.stopPullDownRefresh();
+        });
+    },
     gotoGoodsDetail(e) {
         const { index } = e.detail;
         const item = this.data.goodsList[index];

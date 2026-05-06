@@ -1,0 +1,6 @@
+<view class="page">
+  <view class="card" wx:for="{{faqs}}" wx:key="q">
+    <view class="q">{{item.q}}</view>
+    <view class="a">{{item.a}}</view>
+  </view>
+</view>

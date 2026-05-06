@@ -1,0 +1,6 @@
+<view class="page">
+  <view class="panel">
+    <view class="label">当前积分</view>
+    <view class="value">{{points}}</view>
+  </view>
+</view>

@@ -43,6 +43,11 @@ function imageMogr(url, options) {
     return url;
   } //强制转https
 
+  // 本地开发后端(127.0.0.1/localhost)通常只有 http；若强转 https 会导致图片加载失败。
+  if (url.indexOf('http://127.0.0.1') === 0 || url.indexOf('http://localhost') === 0) {
+    return url;
+  }
+
   if (url.indexOf('http://') === 0) {
     url = url.replace('http://', 'https://');
   } else if (url.indexOf('//') === 0) {

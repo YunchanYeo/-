@@ -138,6 +138,18 @@ export function updateShipping(
   });
 }
 
+export function updateOrderStatus(
+  token: string,
+  orderNo: string,
+  body: { orderStatus: number; orderStatusName?: string },
+) {
+  return adminJson<unknown>(`/api/admin/orders/${encodeURIComponent(orderNo)}/status`, {
+    method: 'PUT',
+    token,
+    body,
+  });
+}
+
 export function fetchCategories(token: string) {
   return adminJson<CategoryRow[]>('/api/admin/categories', { token });
 }
@@ -247,4 +259,47 @@ export function uploadAdminSupportMedia(
     body: payload,
     timeoutMs: 120000,
   });
+}
+
+export type AdminCouponRow = {
+  id: number;
+  name: string;
+  type: 1 | 2;
+  value: number;
+  base: number;
+  status: 'enabled' | 'disabled';
+  startTime: number;
+  endTime: number;
+  totalCount: number;
+  issuedCount: number;
+};
+
+export function fetchAdminCoupons(token: string) {
+  return adminJson<AdminCouponRow[]>('/api/admin/coupons', { token });
+}
+
+export function createAdminCoupon(
+  token: string,
+  body: {
+    name: string;
+    type: 1 | 2;
+    value: number;
+    base?: number;
+    startTime: number;
+    endTime: number;
+    totalCount?: number;
+  },
+) {
+  return adminJson<AdminCouponRow>('/api/admin/coupons', { method: 'POST', token, body });
+}
+
+export function grantAdminCoupon(
+  token: string,
+  couponId: number,
+  body: { userIds?: number[]; grantAllUsers?: boolean } = { grantAllUsers: true },
+) {
+  return adminJson<{ grantedCount: number; requestedUsers: number }>(
+    `/api/admin/coupons/${couponId}/grant`,
+    { method: 'POST', token, body },
+  );
 }

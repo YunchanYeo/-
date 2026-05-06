@@ -12,6 +12,7 @@
     <view class="tab {{activeTab==='orders'?'active':''}}" data-tab="orders" bind:tap="onTabChange">订单管理</view>
     <view class="tab {{activeTab==='products'?'active':''}}" data-tab="products" bind:tap="onTabChange">库存管理</view>
     <view class="tab {{activeTab==='categories'?'active':''}}" data-tab="categories" bind:tap="onTabChange">分类管理</view>
+    <view class="tab {{activeTab==='coupons'?'active':''}}" data-tab="coupons" bind:tap="onTabChange">优惠券</view>
   </view>
 
   <view wx:if="{{activeTab==='orders'}}">
@@ -22,6 +23,7 @@
       <view class="row"><text>运单:</text><text>{{item.logisticsCompanyName || '-'}} {{item.logisticsNo || ''}}</text></view>
       <view class="btn-row">
         <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">填写/更新运单</t-button>
+        <t-button size="small" variant="outline" bind:tap="onChangeOrderStatus" data-item="{{item}}">修改状态</t-button>
         <t-button size="small" variant="outline" bind:tap="onViewLogisticsTrace" data-item="{{item}}">查看轨迹</t-button>
       </view>
     </view>
@@ -102,6 +104,31 @@
     </view>
     <view wx:if="{{adminCategories.length===0 && !categoriesLoading}}" class="card muted-card">暂无分类，请点击「新增分类」。</view>
     <view wx:if="{{categoriesLoading}}" class="card muted-card">加载中…</view>
+  </view>
+
+  <view wx:if="{{activeTab==='coupons'}}">
+    <view class="card form-card">
+      <view class="form-title">创建优惠券</view>
+      <t-input label="名称" placeholder="例如：新用户立减券" value="{{couponForm.name}}" data-key="name" bind:change="onCouponInput" />
+      <t-input label="类型(1折扣/2满减)" type="number" value="{{couponForm.type}}" data-key="type" bind:change="onCouponInput" />
+      <t-input label="面值/折扣值" type="number" value="{{couponForm.value}}" data-key="value" bind:change="onCouponInput" />
+      <t-input label="门槛(分)" type="number" value="{{couponForm.base}}" data-key="base" bind:change="onCouponInput" />
+      <t-input label="总量" type="number" value="{{couponForm.totalCount}}" data-key="totalCount" bind:change="onCouponInput" />
+      <t-input label="开始日期" placeholder="YYYY-MM-DD" value="{{couponForm.startDate}}" data-key="startDate" bind:change="onCouponInput" />
+      <t-input label="结束日期" placeholder="YYYY-MM-DD" value="{{couponForm.endDate}}" data-key="endDate" bind:change="onCouponInput" />
+      <t-button theme="primary" block bind:tap="onCreateCoupon">创建优惠券</t-button>
+    </view>
+    <view class="card" wx:for="{{coupons}}" wx:key="id" wx:for-item="item">
+      <view class="row"><text>ID:</text><text>{{item.id}}</text></view>
+      <view class="row"><text>名称:</text><text>{{item.name}}</text></view>
+      <view class="row"><text>类型:</text><text>{{item.type === 2 ? '满减' : '折扣'}}</text></view>
+      <view class="row"><text>库存:</text><text>{{item.issuedCount}} / {{item.totalCount}}</text></view>
+      <view class="btn-row">
+        <t-button size="small" variant="outline" bind:tap="onGrantCouponAll" data-item="{{item}}">发给全部用户</t-button>
+      </view>
+    </view>
+    <view wx:if="{{coupons.length===0 && !couponsLoading}}" class="card muted-card">暂无优惠券。</view>
+    <view wx:if="{{couponsLoading}}" class="card muted-card">加载中…</view>
   </view>
 </view>
 <t-toast id="t-toast" />

@@ -119,6 +119,12 @@ Page({
                         }
                     });
                 });
+                const couponCount = Number((countsData.find((c) => c.type === 'coupon') || {}).num || 0);
+                const nextMenu = menuData.map((group, gi) => {
+                    if (gi !== 0)
+                        return group;
+                    return group.filter((item) => item.type !== 'coupon' || couponCount > 0);
+                });
                 const info = orderTagInfos.map((v, index) => ({
                     ...v,
                     ...orderInfo[index],
@@ -126,7 +132,7 @@ Page({
                 const hasWechatProfile = !!(userInfo?.nickName || userInfo?.avatarUrl);
                 this.setData({
                     userInfo,
-                    menuData,
+                    menuData: nextMenu,
                     orderTagInfos: info,
                     customerServiceInfo,
                     currAuthStep: hasWechatProfile ? 3 : 1,
@@ -154,23 +160,11 @@ Page({
                 break;
             }
             case 'help-center': {
-                Toast({
-                    context: this,
-                    selector: '#t-toast',
-                    message: '你点击了帮助中心',
-                    icon: '',
-                    duration: 1000,
-                });
+                wx.navigateTo({ url: '/pages/user/help-center/index' });
                 break;
             }
             case 'point': {
-                Toast({
-                    context: this,
-                    selector: '#t-toast',
-                    message: '你点击了积分菜单',
-                    icon: '',
-                    duration: 1000,
-                });
+                wx.navigateTo({ url: '/pages/user/points/index' });
                 break;
             }
             case 'coupon': {

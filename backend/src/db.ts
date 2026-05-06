@@ -249,6 +249,39 @@ const ensureSupportColumn = (name: string, ddl: string) => {
 ensureSupportColumn('msgType', "msgType TEXT NOT NULL DEFAULT 'text'");
 ensureSupportColumn('metaJson', 'metaJson TEXT');
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS coupons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  type INTEGER NOT NULL DEFAULT 2, -- 2=满减(分), 1=折扣(如 85 = 8.5折)
+  value INTEGER NOT NULL,
+  base INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'enabled',
+  startTime INTEGER NOT NULL,
+  endTime INTEGER NOT NULL,
+  totalCount INTEGER NOT NULL DEFAULT 0,
+  issuedCount INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_coupons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL,
+  couponId INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'default',
+  assignedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  usedAt TEXT,
+  orderNo TEXT,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (couponId) REFERENCES coupons(id) ON DELETE CASCADE
+);
+`);
+
 // Default admin creation has been removed for security.
 // Use `npm run seed:admin` and environment variables instead.
 

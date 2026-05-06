@@ -1,6 +1,13 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth';
-import { fetchLogisticsTrace, fetchOrders, updateShipping, type OrderRow } from '../api/admin';
+import { fetchLogisticsTrace, fetchOrders, updateOrderStatus, updateShipping, type OrderRow } from '../api/admin';
+
+const ORDER_STATUS_OPTIONS = [
+  { value: 10, label: '待发货' },
+  { value: 40, label: '待收货' },
+  { value: 50, label: '已完成' },
+  { value: 60, label: '已取消' },
+] as const;
 
 export default function OrdersPage() {
   const { token } = useAuth();
@@ -17,6 +24,7 @@ export default function OrdersPage() {
   const [logisticsNo, setLogisticsNo] = useState('');
   const [remark, setRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState<string>('');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -79,6 +87,21 @@ export default function OrdersPage() {
     }
   }
 
+  async function onUpdateStatus(o: OrderRow, orderStatus: number) {
+    if (!token) return;
+    setStatusUpdating(o.orderNo);
+    setErr('');
+    try {
+      const label = ORDER_STATUS_OPTIONS.find((x) => x.value === orderStatus)?.label;
+      await updateOrderStatus(token, o.orderNo, { orderStatus, ...(label ? { orderStatusName: label } : {}) });
+      await load();
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : '更新状态失败');
+    } finally {
+      setStatusUpdating('');
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -127,6 +150,18 @@ export default function OrdersPage() {
                       <button type="button" className="btn btn-primary" style={{ padding: '0.35rem 0.55rem', fontSize: '0.8rem' }} onClick={() => openShip(o)}>
                         发货 / 改物流
                       </button>
+                      <select
+                        value={String(o.orderStatus)}
+                        disabled={statusUpdating === o.orderNo}
+                        onChange={(e) => onUpdateStatus(o, Number(e.target.value))}
+                        style={{ padding: '0.35rem 0.45rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.8rem' }}
+                      >
+                        {ORDER_STATUS_OPTIONS.map((it) => (
+                          <option key={it.value} value={it.value}>
+                            {it.label}
+                          </option>
+                        ))}
+                      </select>
                       <button type="button" className="btn btn-ghost" style={{ padding: '0.35rem 0.55rem', fontSize: '0.8rem' }} onClick={() => loadTrace(o)}>
                         轨迹
                       </button>

@@ -6,5 +6,6 @@
     "cart-bar": "./components/cart-bar/index",
     "t-toast": "tdesign-miniprogram/toast/toast",
     "t-dialog": "tdesign-miniprogram/dialog/dialog"
-  }
+  },
+  "enablePullDownRefresh": true
 }

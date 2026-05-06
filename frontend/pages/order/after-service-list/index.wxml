@@ -1,4 +1,7 @@
 <view class="page-container">
+  <view class="page-close" bindtap="onCloseToHome" aria-label="close">
+    <t-icon name="close" size="24px" />
+  </view>
   <t-pull-down-refresh
     id="t-pull-down-refresh"
     value="{{pullDownRefreshing}}"

@@ -1,6 +1,7 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
 import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
+import { OrderButtonTypes, OrderStatus } from '../../pages/order/config';
 function mockFetchOrders(params) {
     const { delay } = require('../_utils/delay');
     const { genOrders } = require('../../model/order/orderList');
@@ -21,6 +22,7 @@ export function fetchOrders(params) {
                 : rows;
         const orders = filtered.map((row) => {
             const items = Array.isArray(row.items) ? row.items : [];
+            const buttons = buildButtonsByOrder(row);
             return {
                 orderId: row.id,
                 orderNo: row.orderNo,
@@ -44,7 +46,7 @@ export function fetchOrders(params) {
                     actualPrice: Number(g.price || g.settlePrice || 0),
                     buyQuantity: Number(g.quantity || 1),
                 })),
-                buttonVOs: row.refundStatus ? [{ name: '查看退款', primary: false, type: 5 }] : [{ name: '申请售后', primary: false, type: 4 }],
+                buttonVOs: buttons,
             };
         });
         return { data: { orders } };
@@ -59,4 +61,40 @@ export function fetchOrdersCount(params) {
     if (config.useMock)
         return mockFetchOrdersCount(params);
     return requestJson('/api/orders/count', { method: 'GET' }).then((data) => ({ data }));
+}
+
+function buildButtonsByOrder(row) {
+    if (Number(row?.refundStatus) === 1) {
+        return [{ name: '查看退款', primary: false, type: OrderButtonTypes.VIEW_REFUND }];
+    }
+    const status = Number(row?.orderStatus || 0);
+    if (status === OrderStatus.PENDING_PAYMENT) {
+        return [
+            { name: '取消订单', primary: false, type: OrderButtonTypes.CANCEL },
+            { name: '去支付', primary: true, type: OrderButtonTypes.PAY },
+        ];
+    }
+    if (status === OrderStatus.PENDING_RECEIPT || status === 20) {
+        return [
+            { name: '查看物流', primary: false, type: OrderButtonTypes.DELIVERY },
+            { name: '确认收货', primary: true, type: OrderButtonTypes.CONFIRM },
+        ];
+    }
+    if (status === OrderStatus.COMPLETE) {
+        return [
+            { name: '删除订单', primary: false, type: OrderButtonTypes.DELETE },
+            { name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND },
+            { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
+        ];
+    }
+    if (status === OrderStatus.PENDING_DELIVERY) {
+        return [{ name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND }];
+    }
+    if (status === OrderStatus.CANCELED_NOT_PAYMENT) {
+        return [
+            { name: '删除订单', primary: false, type: OrderButtonTypes.DELETE },
+            { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
+        ];
+    }
+    return [{ name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND }];
 }
