@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth';
-import { fetchLogisticsTrace, fetchOrders, updateOrderStatus, updateShipping, type OrderRow } from '../api/admin';
+import { deleteAdminOrder, fetchLogisticsTrace, fetchOrders, updateOrderStatus, updateShipping, type OrderRow } from '../api/admin';
+import * as XLSX from 'xlsx';
 
 const ORDER_STATUS_OPTIONS = [
   { value: 10, label: '待发货' },
@@ -25,6 +26,9 @@ export default function OrdersPage() {
   const [remark, setRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<string>('');
+  const [deletingNo, setDeletingNo] = useState<string>('');
+  const [importing, setImporting] = useState(false);
+  const [importLog, setImportLog] = useState('');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -102,15 +106,163 @@ export default function OrdersPage() {
     }
   }
 
+  async function onDeleteOrder(o: OrderRow) {
+    if (!token) return;
+    if (!window.confirm(`确定删除订单 ${o.orderNo}？此操作不可恢复。`)) return;
+    setDeletingNo(o.orderNo);
+    setErr('');
+    try {
+      await deleteAdminOrder(token, o.orderNo);
+      await load();
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : '删除失败');
+    } finally {
+      setDeletingNo('');
+    }
+  }
+
+  function exportOrders() {
+    const data = rows.map((o) => ({
+      orderNo: o.orderNo,
+      userId: o.userId,
+      nickName: o.nickName ?? '',
+      phoneNumber: o.phoneNumber ?? '',
+      paymentAmount: o.paymentAmount,
+      orderStatus: o.orderStatus,
+      orderStatusName: o.orderStatusName,
+      logisticsCompanyCode: o.logisticsCompanyCode ?? '',
+      logisticsCompanyName: o.logisticsCompanyName ?? '',
+      logisticsNo: o.logisticsNo ?? '',
+      logisticsRemark: o.logisticsRemark ?? '',
+      shippedAt: o.shippedAt ?? '',
+      createdAt: o.createdAt ?? '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'orders');
+    XLSX.writeFile(wb, `orders_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  function exportImportTemplate() {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        orderNo: '订单号(必填)',
+        logisticsCompanyCode: '快递公司代码(可空)',
+        logisticsCompanyName: '快递公司名称(可空)',
+        logisticsNo: '运单号(可空)',
+        logisticsRemark: '备注(可空)',
+        orderStatus: '订单状态(可空:10/40/50/60)',
+        orderStatusName: '订单状态名称(可空)',
+      },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'template');
+    XLSX.writeFile(wb, 'orders_import_template.xlsx');
+  }
+
+  async function onImportExcel(file: File) {
+    if (!token) return;
+    setImporting(true);
+    setImportLog('');
+    setErr('');
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const first = wb.SheetNames[0];
+      if (!first) throw new Error('Excel 无工作表');
+      const ws = wb.Sheets[first];
+      const rowsIn = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' });
+      const logs: string[] = [];
+      for (let i = 0; i < rowsIn.length; i++) {
+        const r = rowsIn[i];
+        const orderNo = String(r.orderNo || r.订单号 || '').trim();
+        if (!orderNo) {
+          logs.push(`#${i + 2} 跳过：缺少 orderNo`);
+          continue;
+        }
+        const logisticsCompanyName = String(r.logisticsCompanyName || '').trim();
+        const logisticsNo = String(r.logisticsNo || '').trim();
+        const logisticsCompanyCode = String(r.logisticsCompanyCode || '').trim();
+        const logisticsRemark = String(r.logisticsRemark || '').trim();
+        const orderStatusRaw = String(r.orderStatus || '').trim();
+        const orderStatusName = String(r.orderStatusName || '').trim();
+
+        try {
+          if (logisticsCompanyName && logisticsNo) {
+            await updateShipping(token, orderNo, {
+              logisticsCompanyName,
+              logisticsNo,
+              ...(logisticsCompanyCode ? { logisticsCompanyCode } : {}),
+              ...(logisticsRemark ? { logisticsRemark } : {}),
+            });
+            logs.push(`#${i + 2} ${orderNo} 发货信息已更新`);
+          }
+          if (orderStatusRaw) {
+            const st = Number(orderStatusRaw);
+            if (!Number.isFinite(st)) throw new Error('orderStatus 无效');
+            await updateOrderStatus(token, orderNo, { orderStatus: st, ...(orderStatusName ? { orderStatusName } : {}) });
+            logs.push(`#${i + 2} ${orderNo} 状态已更新`);
+          }
+          if (!logisticsCompanyName && !logisticsNo && !orderStatusRaw) {
+            logs.push(`#${i + 2} ${orderNo} 跳过：无可处理字段`);
+          }
+        } catch (e: unknown) {
+          logs.push(`#${i + 2} ${orderNo} 失败：${e instanceof Error ? e.message : '处理失败'}`);
+        }
+      }
+      setImportLog(logs.join('\n'));
+      await load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '导入失败');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>订单与发货</h2>
-        <button type="button" className="btn btn-ghost" onClick={() => load()} disabled={loading}>
-          刷新
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-ghost" onClick={exportOrders} disabled={loading}>
+            导出 Excel
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={exportImportTemplate}>
+            下载导入模板
+          </button>
+          <label className="btn btn-primary" style={{ cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.6 : 1 }}>
+            {importing ? '导入中…' : '导入 Excel'}
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              hidden
+              disabled={importing}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) onImportExcel(f);
+              }}
+            />
+          </label>
+          <button type="button" className="btn btn-ghost" onClick={() => load()} disabled={loading}>
+            刷新
+          </button>
+        </div>
       </div>
       {err ? <div className="err-banner">{err}</div> : null}
+      {importLog ? (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <strong>导入结果</strong>
+            <button type="button" className="btn btn-ghost" onClick={() => setImportLog('')}>
+              清空
+            </button>
+          </div>
+          <pre style={{ margin: '0.75rem 0 0', fontSize: '0.78rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--muted)' }}>
+            {importLog}
+          </pre>
+        </div>
+      ) : null}
 
       <div className="card table-wrap">
         {loading ? (
@@ -124,7 +276,8 @@ export default function OrdersPage() {
                 <th>金额</th>
                 <th>状态</th>
                 <th>物流</th>
-                <th style={{ width: 200 }} />
+                <th style={{ width: 220 }}>操作</th>
+                <th style={{ width: 110, textAlign: 'center' }}>删除</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +319,17 @@ export default function OrdersPage() {
                         轨迹
                       </button>
                     </div>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 700 }}
+                      disabled={deletingNo === o.orderNo}
+                      onClick={() => onDeleteOrder(o)}
+                    >
+                      {deletingNo === o.orderNo ? '删除中…' : '删除订单'}
+                    </button>
                   </td>
                 </tr>
               ))}

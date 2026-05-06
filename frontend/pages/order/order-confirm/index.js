@@ -39,6 +39,7 @@ Page({
         submitCouponList: [], //所有门店所选优惠券
         currentStoreId: null, //当前优惠券storeId
         userAddress: null,
+        usePoints: false,
     },
     payLock: false,
     noteInfo: [],
@@ -107,6 +108,7 @@ Page({
             storeInfoList,
             userAddressReq: this.userAddressReq,
             couponList,
+            usePoints: this.data.usePoints,
         };
         fetchSettleDetail(params).then((res) => {
             this.setData({
@@ -352,6 +354,7 @@ Page({
             goodsRequestList: goodsRequestList,
             userName: settleDetailData.userAddress.name || userAddressReq.name,
             totalAmount: settleDetailData.totalPayAmount, //取优惠后的结算金额
+            pointsToUse: Number(settleDetailData.pointsDiscount || 0),
             invoiceRequest: null,
             storeInfoList,
             couponList: resSubmitCouponList,
@@ -510,6 +513,23 @@ Page({
             const goodsRequestList = this.goodsRequestList.map((item, i) => i === index ? { ...item, quantity: value } : item);
             this.handleOptionsParams({ goodsRequestList });
         }
+    },
+    onPointsSwitchChange(e) {
+        const checked = !!e.detail.value;
+        const threshold = Number(this.data.settleDetailData?.pointsThreshold || 1000);
+        const available = Number(this.data.settleDetailData?.availablePoints || 0);
+        if (checked && available < threshold) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: `积分满 ${threshold} 才可抵扣`,
+                icon: '',
+            });
+            this.setData({ usePoints: false });
+            return;
+        }
+        this.setData({ usePoints: checked });
+        this.handleOptionsParams({ goodsRequestList: this.goodsRequestList });
     },
     onPopupChange() {
         this.setData({

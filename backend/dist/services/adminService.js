@@ -19,6 +19,34 @@ export function createAdminService({ db, uploadsDir }) {
         const admin = db.prepare(`SELECT id, username, createdAt, updatedAt FROM admins WHERE id = ?`).get(adminId);
         return res.json({ ok: true, data: admin });
     }
+    function getPointPolicy() {
+        const rows = db
+            .prepare(`SELECT key, value FROM app_settings WHERE key IN ('pointsEarnRatePercent', 'pointsUseThreshold')`)
+            .all();
+        const map = new Map(rows.map((x) => [x.key, x.value]));
+        const pointsEarnRatePercent = Math.max(0, Number(map.get('pointsEarnRatePercent') ?? 1));
+        const pointsUseThreshold = Math.max(0, Math.floor(Number(map.get('pointsUseThreshold') ?? 1000)));
+        return { pointsEarnRatePercent, pointsUseThreshold };
+    }
+    function adminGetPointPolicy(req, res) {
+        return res.json({ ok: true, data: getPointPolicy() });
+    }
+    function adminUpdatePointPolicy(req, res) {
+        const schema = z.object({
+            pointsEarnRatePercent: z.number().min(0).max(100),
+            pointsUseThreshold: z.number().int().min(0),
+        });
+        const parsed = schema.safeParse(req.body || {});
+        if (!parsed.success)
+            return res.status(400).json({ ok: false, message: 'Invalid point policy body', issues: parsed.error.issues });
+        const { pointsEarnRatePercent, pointsUseThreshold } = parsed.data;
+        const tx = db.transaction(() => {
+            db.prepare(`UPDATE app_settings SET value = ?, updatedAt = datetime('now') WHERE key = 'pointsEarnRatePercent'`).run(String(pointsEarnRatePercent));
+            db.prepare(`UPDATE app_settings SET value = ?, updatedAt = datetime('now') WHERE key = 'pointsUseThreshold'`).run(String(pointsUseThreshold));
+        });
+        tx();
+        return res.json({ ok: true, data: getPointPolicy() });
+    }
     /**
      * Update admin password using bcrypt hash storage.
      */
@@ -146,6 +174,16 @@ export function createAdminService({ db, uploadsDir }) {
             .get(orderNo);
         return res.json({ ok: true, data: updated });
     }
+    function adminDeleteOrder(req, res) {
+        const orderNo = String(req.params.orderNo || '').trim();
+        if (!orderNo)
+            return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+        const row = db.prepare(`SELECT id FROM orders WHERE orderNo = ?`).get(orderNo);
+        if (!row)
+            return res.status(404).json({ ok: false, message: 'Order not found' });
+        db.prepare(`DELETE FROM orders WHERE id = ?`).run(row.id);
+        return res.json({ ok: true, data: { ok: true } });
+    }
     /**
      * 管理端：按订单查询物流轨迹（后端调用快递100，见文档 https://api.kuaidi100.com/document/5f0ffb5ebc8da837cbd8aefc.html ）
      */
@@ -258,7 +296,10 @@ export function createAdminService({ db, uploadsDir }) {
         adminOrders,
         adminUpdateOrderShipping,
         adminUpdateOrderStatus,
+        adminDeleteOrder,
         adminOrderLogisticsTrace,
         adminUploadImage,
+        adminGetPointPolicy,
+        adminUpdatePointPolicy,
     };
 }

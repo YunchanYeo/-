@@ -1,6 +1,7 @@
 import { adminJson } from './client';
 
 export type AdminMe = { id: number; username: string };
+export type PointPolicy = { pointsEarnRatePercent: number; pointsUseThreshold: number };
 
 export type ProductRow = {
   id: number;
@@ -59,6 +60,40 @@ export function loginAdmin(body: { username: string; password: string }) {
 
 export function fetchAdminMe(token: string) {
   return adminJson<AdminMe>('/api/admin/me', { token });
+}
+
+export function updateAdminPassword(
+  token: string,
+  body: { currentPassword: string; newPassword: string },
+) {
+  return adminJson<{ ok: true }>('/api/admin/me/password', {
+    method: 'PUT',
+    token,
+    body,
+  });
+}
+
+export function updateAdminUsername(
+  token: string,
+  body: { currentPassword: string; newUsername: string },
+) {
+  return adminJson<AdminMe>('/api/admin/me/username', {
+    method: 'PUT',
+    token,
+    body,
+  });
+}
+
+export function fetchPointPolicy(token: string) {
+  return adminJson<PointPolicy>('/api/admin/point-policy', { token });
+}
+
+export function updatePointPolicy(token: string, body: PointPolicy) {
+  return adminJson<PointPolicy>('/api/admin/point-policy', {
+    method: 'PUT',
+    token,
+    body,
+  });
 }
 
 export function fetchProducts(token: string) {
@@ -147,6 +182,13 @@ export function updateOrderStatus(
     method: 'PUT',
     token,
     body,
+  });
+}
+
+export function deleteAdminOrder(token: string, orderNo: string) {
+  return adminJson<{ ok: true }>(`/api/admin/orders/${encodeURIComponent(orderNo)}`, {
+    method: 'DELETE',
+    token,
   });
 }
 
@@ -291,6 +333,34 @@ export function createAdminCoupon(
   },
 ) {
   return adminJson<AdminCouponRow>('/api/admin/coupons', { method: 'POST', token, body });
+}
+
+export function updateAdminCoupon(
+  token: string,
+  couponId: number,
+  body: Partial<{
+    name: string;
+    type: 1 | 2;
+    value: number;
+    base: number;
+    startTime: number;
+    endTime: number;
+    totalCount: number;
+    status: 'enabled' | 'disabled';
+  }>,
+) {
+  return adminJson<AdminCouponRow>(`/api/admin/coupons/${couponId}`, {
+    method: 'PUT',
+    token,
+    body,
+  });
+}
+
+export function deleteAdminCoupon(token: string, couponId: number) {
+  return adminJson<{ ok: true }>(`/api/admin/coupons/${couponId}`, {
+    method: 'DELETE',
+    token,
+  });
 }
 
 export function grantAdminCoupon(

@@ -1,0 +1,25 @@
+<view class="page" wx:if="{{!loading}}">
+  <view class="card">
+    <view class="title">积分规则设置</view>
+    <view class="sub">用于控制每笔订单积分奖励和积分可用门槛</view>
+    <t-input
+      label="积分奖励比例(%)"
+      type="number"
+      placeholder="例如 1"
+      value="{{pointsEarnRatePercent}}"
+      data-key="pointsEarnRatePercent"
+      bind:change="onInput"
+    />
+    <t-input
+      label="积分使用门槛"
+      type="number"
+      placeholder="例如 1000"
+      value="{{pointsUseThreshold}}"
+      data-key="pointsUseThreshold"
+      bind:change="onInput"
+    />
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onSavePointPolicy">
+      保存积分规则
+    </t-button>
+  </view>
+</view>

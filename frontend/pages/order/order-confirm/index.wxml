@@ -78,6 +78,26 @@
         <t-icon name="chevron-right" size="32rpx" color="#BBBBBB" />
       </view>
     </view>
+    <view class="pay-item">
+      <text>积分抵扣</text>
+      <view class="pay-item__right">
+        <text wx:if="{{(settleDetailData.availablePoints || 0) < (settleDetailData.pointsThreshold || 1000)}}">
+          可用{{settleDetailData.availablePoints || 0}}，满{{settleDetailData.pointsThreshold || 1000}}可用
+        </text>
+        <block wx:else>
+          <view wx:if="{{(settleDetailData.pointsDiscount || 0) > 0}}">
+            -<price fill decimalSmaller price="{{settleDetailData.pointsDiscount || 0}}" />
+          </view>
+          <text wx:else>可用{{settleDetailData.availablePoints || 0}}</text>
+          <switch
+            style="transform:scale(0.8);margin-left:12rpx;"
+            color="#07c160"
+            checked="{{usePoints}}"
+            bindchange="onPointsSwitchChange"
+          />
+        </block>
+      </view>
+    </view>
     <view class="pay-item" wx:if="{{settleDetailData.invoiceSupport}}">
       <text>发票</text>
       <view class="pay-item__right" catchtap="onReceipt">

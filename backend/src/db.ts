@@ -204,6 +204,8 @@ ensureOrderColumn('logisticsCompanyName', 'logisticsCompanyName TEXT');
 ensureOrderColumn('logisticsNo', 'logisticsNo TEXT');
 ensureOrderColumn('logisticsRemark', 'logisticsRemark TEXT');
 ensureOrderColumn('shippedAt', 'shippedAt TEXT');
+ensureOrderColumn('pointsUsed', "pointsUsed INTEGER NOT NULL DEFAULT 0");
+ensureOrderColumn('pointsEarned', "pointsEarned INTEGER NOT NULL DEFAULT 0");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS admins (
@@ -281,6 +283,25 @@ CREATE TABLE IF NOT EXISTS user_coupons (
   FOREIGN KEY (couponId) REFERENCES coupons(id) ON DELETE CASCADE
 );
 `);
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
+const pointsRateSetting = db.prepare(`SELECT key FROM app_settings WHERE key = 'pointsEarnRatePercent'`).get() as { key: string } | undefined;
+if (!pointsRateSetting) {
+  db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run('pointsEarnRatePercent', '1');
+}
+const pointsThresholdSetting = db
+  .prepare(`SELECT key FROM app_settings WHERE key = 'pointsUseThreshold'`)
+  .get() as { key: string } | undefined;
+if (!pointsThresholdSetting) {
+  db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run('pointsUseThreshold', '1000');
+}
 
 // Default admin creation has been removed for security.
 // Use `npm run seed:admin` and environment variables instead.

@@ -9,6 +9,7 @@ import OrdersPage from './pages/Orders';
 import CategoriesPage from './pages/Categories';
 import SupportChatPage from './pages/SupportChat';
 import CouponsPage from './pages/Coupons';
+import SettingsPage from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="support" element={<SupportChatPage />} />
         <Route path="coupons" element={<CouponsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

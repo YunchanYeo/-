@@ -36,6 +36,7 @@ export function createApiController(services: Services) {
     cancelOrder: services.order.cancelOrder as RequestHandler,
     confirmOrderReceived: services.order.confirmOrderReceived as RequestHandler,
     deleteOrder: services.order.deleteOrder as RequestHandler,
+    pointsConfig: services.order.pointsConfig as RequestHandler,
 
     // support chat
     listMySupportMessages: services.support.listMyMessages as RequestHandler,
@@ -52,6 +53,8 @@ export function createApiController(services: Services) {
     adminListCoupons: services.coupon.adminListCoupons as RequestHandler,
     adminCreateCoupon: services.coupon.adminCreateCoupon as RequestHandler,
     adminGrantCoupon: services.coupon.adminGrantCoupon as RequestHandler,
+    adminUpdateCoupon: services.coupon.adminUpdateCoupon as RequestHandler,
+    adminDeleteCoupon: services.coupon.adminDeleteCoupon as RequestHandler,
 
     // admin
     adminLogin: services.auth.adminLogin as RequestHandler,
@@ -62,6 +65,9 @@ export function createApiController(services: Services) {
     adminOrderLogisticsTrace: services.admin.adminOrderLogisticsTrace as RequestHandler,
     adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping as RequestHandler,
     adminUpdateOrderStatus: services.admin.adminUpdateOrderStatus as RequestHandler,
+    adminDeleteOrder: services.admin.adminDeleteOrder as RequestHandler,
+    adminGetPointPolicy: services.admin.adminGetPointPolicy as RequestHandler,
+    adminUpdatePointPolicy: services.admin.adminUpdatePointPolicy as RequestHandler,
     adminProducts: services.product.adminProducts as RequestHandler,
     adminProductDetail: services.product.adminProductDetail as RequestHandler,
     adminCreateProduct: services.product.adminCreateProduct as RequestHandler,

@@ -54,9 +54,6 @@ export default function Shell() {
           <NavLink to="/products" style={linkStyle}>
             商品与库存
           </NavLink>
-          <NavLink to="/products/new" style={linkStyle}>
-            新建商品
-          </NavLink>
           <NavLink to="/orders" style={linkStyle}>
             订单发货
           </NavLink>
@@ -65,6 +62,9 @@ export default function Shell() {
           </NavLink>
           <NavLink to="/coupons" style={linkStyle}>
             优惠券
+          </NavLink>
+          <NavLink to="/settings" style={linkStyle}>
+            账号设置
           </NavLink>
           <NavLink to="/support" style={linkStyle}>
             客服会话

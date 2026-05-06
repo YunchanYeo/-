@@ -155,19 +155,20 @@ export default function ProductFormPage() {
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link to="/products" style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-          ← 返回列表
-        </Link>
-      </div>
-      <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem' }}>{isNew ? '新建商品' : '编辑商品'}</h2>
-      {err ? <div className="err-banner">{err}</div> : null}
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ width: '100%', maxWidth: 680 }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <Link to="/products" style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+            ← 返回列表
+          </Link>
+        </div>
+        <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem' }}>{isNew ? '新建商品' : '编辑商品'}</h2>
+        {err ? <div className="err-banner">{err}</div> : null}
 
-      {loading ? (
-        <p style={{ color: 'var(--muted)' }}>加载中…</p>
-      ) : (
-        <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: '1rem', maxWidth: 560 }}>
+        {loading ? (
+          <p style={{ color: 'var(--muted)' }}>加载中…</p>
+        ) : (
+          <form className="card" onSubmit={onSubmit} style={{ display: 'grid', gap: '1rem', maxWidth: 560, margin: '0 auto' }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>标题</span>
             <input value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -247,8 +248,9 @@ export default function ProductFormPage() {
               取消
             </button>
           </div>
-        </form>
-      )}
+          </form>
+        )}
+      </div>
     </div>
   );
 }

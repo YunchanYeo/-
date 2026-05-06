@@ -2,8 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  // Electron(file://)에서는 절대경로(/assets)가 깨지므로 상대경로를 사용한다.
-  base: process.env.ELECTRON_BUILD ? './' : '/',
+  base: '/',
   plugins: [react()],
   server: {
     port: 5174,

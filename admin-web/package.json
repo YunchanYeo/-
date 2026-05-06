@@ -3,53 +3,22 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "electron/main.mjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
-    "preview": "vite preview",
-    "desktop:dev": "concurrently -k \"vite --port 5180 --strictPort\" \"wait-on http://127.0.0.1:5180 && ELECTRON_START_URL=http://127.0.0.1:5180 electron .\"",
-    "desktop:build": "ELECTRON_BUILD=1 VITE_API_BASE_URL=http://127.0.0.1:3000 npm run build && electron-builder"
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^9.2.0",
-    "electron": "^37.4.0",
-    "electron-builder": "^26.0.12",
     "typescript": "~5.6.3",
-    "vite": "^6.0.1",
-    "wait-on": "^8.0.3"
-  },
-  "build": {
-    "appId": "com.wechatmini.admin",
-    "productName": "Admin Web",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**",
-      "electron/**",
-      "package.json"
-    ],
-    "mac": {
-      "identity": null,
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "target": [
-        "dmg"
-      ]
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    }
+    "vite": "^6.0.1"
   }
 }

@@ -28,6 +28,7 @@ function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) 
 export const fetchAdminOrders = () => requestAdminJson('/api/admin/orders', { method: 'GET' });
 export const updateAdminOrderShipping = (orderNo, payload) => requestAdminJson(`/api/admin/orders/${orderNo}/shipping`, { method: 'POST', data: payload });
 export const updateAdminOrderStatus = (orderNo, payload) => requestAdminJson(`/api/admin/orders/${encodeURIComponent(orderNo)}/status`, { method: 'PUT', data: payload });
+export const deleteAdminOrder = (orderNo) => requestAdminJson(`/api/admin/orders/${encodeURIComponent(orderNo)}`, { method: 'DELETE' });
 export const fetchAdminLogisticsTrace = (orderNo) => requestAdminJson(`/api/admin/orders/${encodeURIComponent(orderNo)}/logistics-trace`, {
     method: 'GET',
     timeout: 25000,
@@ -38,6 +39,8 @@ export const uploadAdminImage = ({ fileName, mimeType, base64Data }) => requestA
 export const fetchAdminMe = () => requestAdminJson('/api/admin/me', { method: 'GET' });
 export const updateAdminPassword = ({ currentPassword, newPassword }) => requestAdminJson('/api/admin/me/password', { method: 'PUT', data: { currentPassword, newPassword } });
 export const updateAdminUsername = ({ currentPassword, newUsername }) => requestAdminJson('/api/admin/me/username', { method: 'PUT', data: { currentPassword, newUsername } });
+export const fetchAdminPointPolicy = () => requestAdminJson('/api/admin/point-policy', { method: 'GET' });
+export const updateAdminPointPolicy = (payload) => requestAdminJson('/api/admin/point-policy', { method: 'PUT', data: payload });
 export const fetchAdminProduct = (productId) => requestAdminJson(`/api/admin/products/${productId}`, { method: 'GET' });
 export const updateAdminProduct = (productId, payload) => requestAdminJson(`/api/admin/products/${productId}`, { method: 'PUT', data: payload });
 export const updateAdminProductStock = (productId, stock) => requestAdminJson(`/api/admin/products/${productId}/stock`, { method: 'PUT', data: { stock: Number(stock) } });
@@ -49,3 +52,5 @@ export const deleteAdminCategory = (id) => requestAdminJson(`/api/admin/categori
 export const fetchAdminCoupons = () => requestAdminJson('/api/admin/coupons', { method: 'GET' });
 export const createAdminCoupon = (payload) => requestAdminJson('/api/admin/coupons', { method: 'POST', data: payload });
 export const grantAdminCoupon = (id, payload = { grantAllUsers: true }) => requestAdminJson(`/api/admin/coupons/${id}/grant`, { method: 'POST', data: payload });
+export const updateAdminCoupon = (id, payload) => requestAdminJson(`/api/admin/coupons/${id}`, { method: 'PUT', data: payload });
+export const deleteAdminCoupon = (id) => requestAdminJson(`/api/admin/coupons/${id}`, { method: 'DELETE' });
