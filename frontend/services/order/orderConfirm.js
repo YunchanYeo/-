@@ -13,6 +13,7 @@ async function realFetchSettleDetail(params = {}) {
     const selectedCouponIds = Array.isArray(params.couponList)
         ? params.couponList.map((c) => Number(c.couponId || c.id)).filter((n) => Number.isFinite(n))
         : [];
+    const usePoints = !!params.usePoints;
     const goodsWithPrice = await Promise.all(goodsRequestList.map(async (goods, index) => {
         let product = null;
         const spuId = goods.spuId || goods.id;
@@ -77,7 +78,22 @@ async function realFetchSettleDetail(params = {}) {
     const totalDeliveryFee = 0;
     const totalPromotionAmount = 0;
     const totalCouponAmount = Math.min(selectedReduce, totalSalePrice);
-    const totalPayAmount = totalSalePrice + totalDeliveryFee - totalPromotionAmount - totalCouponAmount;
+    let availablePoints = 0;
+    let pointsThreshold = 1000;
+    try {
+        const me = await requestJson('/api/me', { method: 'GET' });
+        availablePoints = Number(me?.points || 0);
+        const policy = await requestJson('/api/points/config', { method: 'GET' });
+        pointsThreshold = Math.max(0, Math.floor(Number(policy?.pointsUseThreshold || 1000)));
+    }
+    catch (_) {
+        availablePoints = 0;
+        pointsThreshold = 1000;
+    }
+    const canUsePoints = availablePoints >= pointsThreshold;
+    const basePayAmount = totalSalePrice + totalDeliveryFee - totalPromotionAmount - totalCouponAmount;
+    const pointsDiscount = usePoints && canUsePoints ? Math.min(availablePoints, basePayAmount) : 0;
+    const totalPayAmount = Math.max(0, basePayAmount - pointsDiscount);
     return {
         data: {
             storeGoodsList,
@@ -93,6 +109,10 @@ async function realFetchSettleDetail(params = {}) {
             totalDeliveryFee,
             totalPromotionAmount,
             totalCouponAmount,
+            availablePoints,
+            pointsDiscount,
+            pointsThreshold,
+            usePointsApplied: pointsDiscount > 0,
             totalAmount: totalPayAmount,
             totalPayAmount,
             settleType: totalGoodsCount > 0 ? 1 : 0,

@@ -160,12 +160,71 @@ export function createCouponService({ db }: { db: Db }) {
     return res.json({ ok: true, data: { grantedCount: granted, requestedUsers: userIds.length } });
   }
 
+  function adminUpdateCoupon(req: Request, res: Response) {
+    const couponId = Number(req.params.id);
+    if (!Number.isFinite(couponId)) return res.status(400).json({ ok: false, message: 'Invalid coupon id' });
+    const schema = z.object({
+      name: z.string().min(1).max(64).optional(),
+      type: z.union([z.literal(1), z.literal(2)]).optional(),
+      value: z.number().int().positive().optional(),
+      base: z.number().int().nonnegative().optional(),
+      startTime: z.number().int().positive().optional(),
+      endTime: z.number().int().positive().optional(),
+      totalCount: z.number().int().positive().optional(),
+      status: z.enum(['enabled', 'disabled']).optional(),
+    });
+    const parsed = schema.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid coupon body', issues: parsed.error.issues });
+    const existing = db.prepare(`SELECT * FROM coupons WHERE id = ?`).get(couponId) as CouponRow | undefined;
+    if (!existing) return res.status(404).json({ ok: false, message: 'Coupon not found' });
+    const next = {
+      name: parsed.data.name?.trim() ?? existing.name,
+      type: parsed.data.type ?? existing.type,
+      value: parsed.data.value ?? existing.value,
+      base: parsed.data.base ?? existing.base,
+      startTime: parsed.data.startTime ?? existing.startTime,
+      endTime: parsed.data.endTime ?? existing.endTime,
+      totalCount: parsed.data.totalCount ?? existing.totalCount,
+      status: parsed.data.status ?? existing.status,
+    };
+    if (next.endTime <= next.startTime) {
+      return res.status(400).json({ ok: false, message: 'endTime must be greater than startTime' });
+    }
+    if (next.totalCount < Number(existing.issuedCount || 0)) {
+      return res.status(400).json({ ok: false, message: 'totalCount cannot be less than issuedCount' });
+    }
+    db.prepare(
+      `UPDATE coupons
+       SET name = ?, type = ?, value = ?, base = ?, status = ?, startTime = ?, endTime = ?, totalCount = ?, updatedAt = datetime('now')
+       WHERE id = ?`,
+    ).run(next.name, next.type, next.value, next.base, next.status, next.startTime, next.endTime, next.totalCount, couponId);
+    const updated = db
+      .prepare(`SELECT id, name, type, value, base, status, startTime, endTime, totalCount, issuedCount FROM coupons WHERE id = ?`)
+      .get(couponId);
+    return res.json({ ok: true, data: updated });
+  }
+
+  function adminDeleteCoupon(req: Request, res: Response) {
+    const couponId = Number(req.params.id);
+    if (!Number.isFinite(couponId)) return res.status(400).json({ ok: false, message: 'Invalid coupon id' });
+    const existing = db.prepare(`SELECT id FROM coupons WHERE id = ?`).get(couponId) as { id: number } | undefined;
+    if (!existing) return res.status(404).json({ ok: false, message: 'Coupon not found' });
+    const tx = db.transaction(() => {
+      db.prepare(`DELETE FROM user_coupons WHERE couponId = ?`).run(couponId);
+      db.prepare(`DELETE FROM coupons WHERE id = ?`).run(couponId);
+    });
+    tx();
+    return res.json({ ok: true, data: { ok: true } });
+  }
+
   return {
     listMyCoupons,
     getMyCouponDetail,
     adminListCoupons,
     adminCreateCoupon,
     adminGrantCoupon,
+    adminUpdateCoupon,
+    adminDeleteCoupon,
   };
 }
 

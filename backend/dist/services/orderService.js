@@ -7,10 +7,23 @@ function genTradeNo() {
     return `${ts}${rand}`;
 }
 export function createOrderService({ db, paymentMockMode }) {
+    function getPointPolicy() {
+        const rows = db
+            .prepare(`SELECT key, value FROM app_settings WHERE key IN ('pointsEarnRatePercent', 'pointsUseThreshold')`)
+            .all();
+        const map = new Map(rows.map((x) => [x.key, x.value]));
+        const pointsEarnRatePercent = Math.max(0, Number(map.get('pointsEarnRatePercent') ?? 1));
+        const pointsUseThreshold = Math.max(0, Math.floor(Number(map.get('pointsUseThreshold') ?? 1000)));
+        return { pointsEarnRatePercent, pointsUseThreshold };
+    }
+    function pointsConfig(req, res) {
+        return res.json({ ok: true, data: getPointPolicy() });
+    }
     function commitOrder(req, res) {
         const userId = req.user?.id;
         const schema = z.object({
             totalAmount: z.number().nonnegative().optional(),
+            pointsToUse: z.number().int().nonnegative().optional(),
             goodsRequestList: z.array(z.any()).optional(),
             userName: z.string().optional(),
             paymentMethod: z
@@ -22,15 +35,29 @@ export function createOrderService({ db, paymentMockMode }) {
             return res.status(400).json({ ok: false, message: 'Invalid order body', issues: parsed.error.issues });
         const tradeNo = genTradeNo();
         const totalAmount = parsed.data.totalAmount ?? 0;
+        const pointsToUseRequested = parsed.data.pointsToUse ?? 0;
         const paymentMethod = parsed.data.paymentMethod || 'requestPayment';
         const orderItemsRaw = parsed.data.goodsRequestList ?? [];
         const orderItems = hydrateOrderItemsWithProduct(db, orderItemsRaw);
         const orderAddress = req.body?.userAddressReq ?? {};
         if (userId) {
+            const user = db.prepare(`SELECT points FROM users WHERE id = ?`).get(userId);
+            const userPoints = Number(user?.points || 0);
+            let pointsToUse = 0;
+            if (pointsToUseRequested > 0) {
+                const policy = getPointPolicy();
+                if (userPoints < policy.pointsUseThreshold) {
+                    return res.status(400).json({ ok: false, message: `积分满 ${policy.pointsUseThreshold} 才可抵扣` });
+                }
+                if (pointsToUseRequested > userPoints) {
+                    return res.status(400).json({ ok: false, message: '积分不足，无法抵扣' });
+                }
+                pointsToUse = Math.min(pointsToUseRequested, totalAmount);
+            }
             db.prepare(`INSERT INTO orders (
           orderNo, userId, totalAmount, paymentAmount, refundAmount, refundStatus, orderStatus, orderStatusName,
-          itemsJson, addressJson, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`).run(tradeNo, userId, totalAmount, totalAmount, 0, 0, 10, '待发货', JSON.stringify(orderItems), JSON.stringify(orderAddress));
+          itemsJson, addressJson, pointsUsed, pointsEarned, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`).run(tradeNo, userId, totalAmount, totalAmount, 0, 0, 5, '待付款', JSON.stringify(orderItems), JSON.stringify(orderAddress), pointsToUse, 0);
         }
         const payInfo = {
             timeStamp: String(Math.floor(Date.now() / 1000)),
@@ -60,11 +87,117 @@ export function createOrderService({ db, paymentMockMode }) {
             msg: null,
         });
     }
+    function markOrderPaid(req, res) {
+        const userId = req.user?.id;
+        const orderNo = String(req.params.orderNo || '').trim();
+        if (!orderNo)
+            return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+        const order = db
+            .prepare(`SELECT id, orderStatus, paymentAmount, pointsUsed FROM orders WHERE userId = ? AND orderNo = ?`)
+            .get(userId, orderNo);
+        if (!order)
+            return res.status(404).json({ ok: false, message: 'Order not found' });
+        if (order.orderStatus === 10 || order.orderStatus === 40 || order.orderStatus === 50) {
+            return res.json({ ok: true, data: { ok: true } });
+        }
+        if (order.orderStatus !== 5) {
+            return res.status(409).json({ ok: false, message: '当前订单状态不可支付' });
+        }
+        const pointsUsed = Number(order.pointsUsed || 0);
+        const policy = getPointPolicy();
+        const pointsEarned = Math.floor((Number(order.paymentAmount || 0) * Number(policy.pointsEarnRatePercent || 0)) / 100);
+        const txn = db.transaction(() => {
+            if (pointsUsed > 0) {
+                const user = db.prepare(`SELECT points FROM users WHERE id = ?`).get(userId);
+                const userPoints = Number(user?.points || 0);
+                if (userPoints < pointsUsed) {
+                    throw new Error('积分不足，无法完成支付');
+                }
+            }
+            db.prepare(`UPDATE users
+         SET points = MAX(points - ?, 0) + ?,
+             updatedAt = datetime('now')
+         WHERE id = ?`).run(pointsUsed, pointsEarned, userId);
+            db.prepare(`UPDATE orders
+         SET orderStatus = 10,
+             orderStatusName = '待发货',
+             pointsEarned = ?,
+             updatedAt = datetime('now')
+         WHERE id = ?`).run(pointsEarned, order.id);
+        });
+        try {
+            txn();
+        }
+        catch (e) {
+            return res.status(409).json({ ok: false, message: String(e?.message || '支付失败') });
+        }
+        return res.json({ ok: true, data: { ok: true } });
+    }
+    function cancelOrder(req, res) {
+        const userId = req.user?.id;
+        const orderNo = String(req.params.orderNo || '').trim();
+        if (!orderNo)
+            return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+        const order = db
+            .prepare(`SELECT id, orderStatus, refundStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+            .get(userId, orderNo);
+        if (!order)
+            return res.status(404).json({ ok: false, message: 'Order not found' });
+        if (order.refundStatus === 1)
+            return res.status(409).json({ ok: false, message: 'Order already refunded' });
+        if (order.orderStatus !== 5) {
+            return res.status(409).json({ ok: false, message: '仅待付款订单可取消' });
+        }
+        db.prepare(`UPDATE orders
+       SET orderStatus = 80,
+           orderStatusName = '已取消',
+           updatedAt = datetime('now')
+       WHERE id = ?`).run(order.id);
+        return res.json({ ok: true, data: { ok: true } });
+    }
+    function confirmOrderReceived(req, res) {
+        const userId = req.user?.id;
+        const orderNo = String(req.params.orderNo || '').trim();
+        if (!orderNo)
+            return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+        const order = db
+            .prepare(`SELECT id, orderStatus, refundStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+            .get(userId, orderNo);
+        if (!order)
+            return res.status(404).json({ ok: false, message: 'Order not found' });
+        if (order.refundStatus === 1)
+            return res.status(409).json({ ok: false, message: 'Order already refunded' });
+        if (order.orderStatus !== 20 && order.orderStatus !== 40) {
+            return res.status(409).json({ ok: false, message: '仅待收货订单可确认收货' });
+        }
+        db.prepare(`UPDATE orders
+       SET orderStatus = 50,
+           orderStatusName = '已完成',
+           updatedAt = datetime('now')
+       WHERE id = ?`).run(order.id);
+        return res.json({ ok: true, data: { ok: true } });
+    }
+    function deleteOrder(req, res) {
+        const userId = req.user?.id;
+        const orderNo = String(req.params.orderNo || '').trim();
+        if (!orderNo)
+            return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+        const order = db
+            .prepare(`SELECT id, orderStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+            .get(userId, orderNo);
+        if (!order)
+            return res.status(404).json({ ok: false, message: 'Order not found' });
+        if (order.orderStatus !== 80 && order.orderStatus !== 50) {
+            return res.status(409).json({ ok: false, message: '仅已完成或已取消订单可删除' });
+        }
+        db.prepare(`DELETE FROM orders WHERE id = ?`).run(order.id);
+        return res.json({ ok: true, data: { ok: true } });
+    }
     function listOrders(req, res) {
         const userId = req.user?.id;
         const rows = db
             .prepare(`SELECT id, orderNo, totalAmount, paymentAmount, refundAmount, refundStatus, refundReason, refundedAt,
-                orderStatus, orderStatusName, itemsJson, addressJson, createdAt,
+                orderStatus, orderStatusName, itemsJson, addressJson, pointsUsed, pointsEarned, createdAt,
                 logisticsCompanyCode, logisticsCompanyName, logisticsNo, logisticsRemark, shippedAt
          FROM orders
          WHERE userId = ?
@@ -102,7 +235,7 @@ export function createOrderService({ db, paymentMockMode }) {
         const userId = req.user?.id;
         const row = db
             .prepare(`SELECT id, orderNo, totalAmount, paymentAmount, refundAmount, refundStatus, refundReason, refundedAt,
-                orderStatus, orderStatusName, itemsJson, addressJson, createdAt,
+                orderStatus, orderStatusName, itemsJson, addressJson, pointsUsed, pointsEarned, createdAt,
                 logisticsCompanyCode, logisticsCompanyName, logisticsNo, logisticsRemark, shippedAt
          FROM orders
          WHERE userId = ? AND orderNo = ?`)
@@ -154,5 +287,16 @@ export function createOrderService({ db, paymentMockMode }) {
             },
         });
     }
-    return { commitOrder, listOrders, ordersCount, getOrderDetail, refundOrder };
+    return {
+        commitOrder,
+        markOrderPaid,
+        cancelOrder,
+        confirmOrderReceived,
+        deleteOrder,
+        pointsConfig,
+        listOrders,
+        ordersCount,
+        getOrderDetail,
+        refundOrder,
+    };
 }

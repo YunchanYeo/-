@@ -1,5 +1,9 @@
 import { clearAdminSession } from '../../../services/admin/session';
-import { fetchAdminMe, updateAdminPassword, updateAdminUsername } from '../../../services/admin/adminApi';
+import {
+    fetchAdminMe,
+    updateAdminPassword,
+    updateAdminUsername,
+} from '../../../services/admin/adminApi';
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
     wx.showToast({ title: message || '', icon, duration: 1600 });
@@ -14,13 +18,16 @@ Page({
         newUsername: '',
     },
     onLoad() {
-        this.loadMe();
+        this.loadData();
     },
-    async loadMe() {
+    async loadData() {
         try {
             this.setData({ loading: true });
             const me = await fetchAdminMe();
-            this.setData({ me, newUsername: me?.username || '' });
+            this.setData({
+                me,
+                newUsername: me?.username || '',
+            });
         }
         catch (e) {
             showMessage(e?.message || '加载失败', 'error');
@@ -41,9 +48,8 @@ Page({
         try {
             this.setData({ submitting: true });
             await updateAdminPassword({ currentPassword, newPassword });
-            showMessage('密码已更新，请重新登录', 'success');
             clearAdminSession();
-            setTimeout(() => wx.reLaunch({ url: '/pages/admin/login/index' }), 600);
+            wx.reLaunch({ url: '/pages/admin/login/index' });
         }
         catch (e) {
             showMessage(e?.message || '修改失败', 'error');
@@ -59,9 +65,8 @@ Page({
         try {
             this.setData({ submitting: true });
             await updateAdminUsername({ currentPassword, newUsername: newUsername.trim() });
-            showMessage('ID已更新，请重新登录', 'success');
             clearAdminSession();
-            setTimeout(() => wx.reLaunch({ url: '/pages/admin/login/index' }), 600);
+            wx.reLaunch({ url: '/pages/admin/login/index' });
         }
         catch (e) {
             showMessage(e?.message || '修改失败', 'error');

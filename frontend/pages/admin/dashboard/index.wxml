@@ -4,6 +4,7 @@
     <view class="header-actions">
       <t-button size="small" variant="outline" bind:tap="gotoSupportChat">客服会话</t-button>
       <t-button size="small" variant="outline" bind:tap="gotoAdminSettings">账号设置</t-button>
+      <t-button size="small" variant="outline" bind:tap="gotoPointSettings">积分设置</t-button>
       <t-button size="small" variant="outline" bind:tap="onLogoutAdmin">退出</t-button>
     </view>
   </view>
@@ -25,6 +26,7 @@
         <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">填写/更新运单</t-button>
         <t-button size="small" variant="outline" bind:tap="onChangeOrderStatus" data-item="{{item}}">修改状态</t-button>
         <t-button size="small" variant="outline" bind:tap="onViewLogisticsTrace" data-item="{{item}}">查看轨迹</t-button>
+        <t-button size="small" variant="outline" bind:tap="onDeleteOrder" data-item="{{item}}">删除订单</t-button>
       </view>
     </view>
   </view>
@@ -118,13 +120,35 @@
       <t-input label="结束日期" placeholder="YYYY-MM-DD" value="{{couponForm.endDate}}" data-key="endDate" bind:change="onCouponInput" />
       <t-button theme="primary" block bind:tap="onCreateCoupon">创建优惠券</t-button>
     </view>
+
+    <view class="card form-card" wx:if="{{couponEditingId}}">
+      <view class="form-title">编辑优惠券 #{{couponEditingId}}</view>
+      <t-input label="名称" value="{{couponEditForm.name}}" data-key="name" bind:change="onCouponEditInput" />
+      <t-input label="类型(1折扣/2满减)" type="number" value="{{couponEditForm.type}}" data-key="type" bind:change="onCouponEditInput" />
+      <t-input label="面值/折扣值" type="number" value="{{couponEditForm.value}}" data-key="value" bind:change="onCouponEditInput" />
+      <t-input label="门槛(分)" type="number" value="{{couponEditForm.base}}" data-key="base" bind:change="onCouponEditInput" />
+      <t-input label="总量" type="number" value="{{couponEditForm.totalCount}}" data-key="totalCount" bind:change="onCouponEditInput" />
+      <t-input label="开始日期" placeholder="YYYY-MM-DD" value="{{couponEditForm.startDate}}" data-key="startDate" bind:change="onCouponEditInput" />
+      <t-input label="结束日期" placeholder="YYYY-MM-DD" value="{{couponEditForm.endDate}}" data-key="endDate" bind:change="onCouponEditInput" />
+      <t-input label="状态(enabled/disabled)" value="{{couponEditForm.status}}" data-key="status" bind:change="onCouponEditInput" />
+      <view class="btn-row">
+        <t-button size="small" theme="primary" bind:tap="onSaveCouponEdit">保存</t-button>
+        <t-button size="small" variant="outline" bind:tap="cancelEditCoupon">取消</t-button>
+      </view>
+    </view>
     <view class="card" wx:for="{{coupons}}" wx:key="id" wx:for-item="item">
       <view class="row"><text>ID:</text><text>{{item.id}}</text></view>
       <view class="row"><text>名称:</text><text>{{item.name}}</text></view>
       <view class="row"><text>类型:</text><text>{{item.type === 2 ? '满减' : '折扣'}}</text></view>
+      <view class="row"><text>面值:</text><text>{{item.value}}</text></view>
+      <view class="row"><text>门槛:</text><text>{{item.base}}</text></view>
+      <view class="row"><text>有效期:</text><text>{{item.startTime}} ~ {{item.endTime}}</text></view>
+      <view class="row"><text>状态:</text><text>{{item.status}}</text></view>
       <view class="row"><text>库存:</text><text>{{item.issuedCount}} / {{item.totalCount}}</text></view>
       <view class="btn-row">
         <t-button size="small" variant="outline" bind:tap="onGrantCouponAll" data-item="{{item}}">发给全部用户</t-button>
+        <t-button size="small" variant="outline" bind:tap="openEditCoupon" data-item="{{item}}">编辑</t-button>
+        <t-button size="small" variant="outline" bind:tap="onDeleteCoupon" data-item="{{item}}">删除</t-button>
       </view>
     </view>
     <view wx:if="{{coupons.length===0 && !couponsLoading}}" class="card muted-card">暂无优惠券。</view>

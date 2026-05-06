@@ -8,7 +8,7 @@ import './index.css';
 function isElectron() {
   return (
     typeof window !== 'undefined' &&
-    // preload 에서 window.platform.isElectron 주입
+    // 由 preload 注入 window.platform.isElectron
     !!(window as any)?.platform?.isElectron
   );
 }

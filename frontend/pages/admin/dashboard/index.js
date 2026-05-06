@@ -1,4 +1,4 @@
-import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, } from '../../../services/admin/adminApi';
+import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/index';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
@@ -34,6 +34,17 @@ Page({
         categoriesLoading: false,
         coupons: [],
         couponsLoading: false,
+        couponEditingId: null,
+        couponEditForm: {
+            name: '',
+            type: '2',
+            value: '',
+            base: '',
+            totalCount: '100',
+            startDate: '',
+            endDate: '',
+            status: 'enabled',
+        },
         couponForm: {
             name: '',
             type: '2',
@@ -137,6 +148,10 @@ Page({
         const { key } = e.currentTarget.dataset;
         this.setData({ [`couponForm.${key}`]: e.detail.value });
     },
+    onCouponEditInput(e) {
+        const { key } = e.currentTarget.dataset;
+        this.setData({ [`couponEditForm.${key}`]: e.detail.value });
+    },
     async onCreateCoupon() {
         const { couponForm } = this.data;
         const startTime = new Date(couponForm.startDate).getTime();
@@ -176,6 +191,72 @@ Page({
             showMessage(e?.message || '创建失败', 'error');
         }
     },
+    openEditCoupon(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        const startDate = item.startTime ? new Date(Number(item.startTime)).toISOString().slice(0, 10) : '';
+        const endDate = item.endTime ? new Date(Number(item.endTime)).toISOString().slice(0, 10) : '';
+        this.setData({
+            couponEditingId: item.id,
+            couponEditForm: {
+                name: item.name || '',
+                type: String(item.type === 1 ? 1 : 2),
+                value: String(item.value ?? ''),
+                base: String(item.base ?? 0),
+                totalCount: String(item.totalCount ?? 100),
+                startDate,
+                endDate,
+                status: item.status === 'disabled' ? 'disabled' : 'enabled',
+            },
+        });
+    },
+    cancelEditCoupon() {
+        this.setData({ couponEditingId: null });
+    },
+    async onSaveCouponEdit() {
+        const id = this.data.couponEditingId;
+        if (!id)
+            return;
+        const f = this.data.couponEditForm;
+        const startTime = new Date(f.startDate).getTime();
+        const endTime = new Date(f.endDate).getTime();
+        const value = Math.floor(Number(f.value));
+        const base = Math.floor(Number(f.base || 0));
+        const totalCount = Math.floor(Number(f.totalCount || 100));
+        const type = Number(f.type) === 1 ? 1 : 2;
+        const status = f.status === 'disabled' ? 'disabled' : 'enabled';
+        if (!f.name || !Number.isFinite(value) || value <= 0 || !Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+            showMessage('请检查优惠券参数');
+            return;
+        }
+        if (!Number.isFinite(base) || base < 0) {
+            showMessage('门槛需为非负整数');
+            return;
+        }
+        if (!Number.isFinite(totalCount) || totalCount <= 0) {
+            showMessage('总量需大于0');
+            return;
+        }
+        try {
+            await updateAdminCoupon(id, {
+                name: f.name.trim(),
+                type,
+                value,
+                base,
+                totalCount,
+                startTime,
+                endTime,
+                status,
+            });
+            showMessage('优惠券已更新', 'success');
+            this.setData({ couponEditingId: null });
+            this.loadAdminCoupons();
+        }
+        catch (e) {
+            showMessage(e?.message || '更新失败', 'error');
+        }
+    },
     async onGrantCouponAll(e) {
         const item = e.currentTarget.dataset.item;
         if (!item?.id)
@@ -187,6 +268,29 @@ Page({
         }
         catch (e) {
             showMessage(e?.message || '发放失败', 'error');
+        }
+    },
+    async onDeleteCoupon(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        const confirm = await new Promise((resolve) => {
+            wx.showModal({
+                title: '删除优惠券',
+                content: `确定删除「${item.name}」？已领取记录也会一并删除。`,
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!confirm.confirm)
+            return;
+        try {
+            await deleteAdminCoupon(item.id);
+            showMessage('优惠券已删除', 'success');
+            this.loadAdminCoupons();
+        }
+        catch (e) {
+            showMessage(e?.message || '删除失败', 'error');
         }
     },
     async loadAdminCategories() {
@@ -471,6 +575,29 @@ Page({
             showMessage(e?.message || '保存失败', 'error');
         }
     },
+    async onDeleteOrder(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.orderNo)
+            return;
+        const confirm = await new Promise((resolve) => {
+            wx.showModal({
+                title: '删除订单',
+                content: `确定删除订单 ${item.orderNo}？此操作不可恢复。`,
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!confirm.confirm)
+            return;
+        try {
+            await deleteAdminOrder(item.orderNo);
+            showMessage('订单已删除', 'success');
+            this.refreshAll();
+        }
+        catch (e) {
+            showMessage(e?.message || '删除失败', 'error');
+        }
+    },
     async onChangeOrderStatus(e) {
         const item = e.currentTarget.dataset.item;
         if (!item?.orderNo)
@@ -507,6 +634,9 @@ Page({
     },
     gotoAdminSettings() {
         wx.navigateTo({ url: '/pages/admin/settings/index' });
+    },
+    gotoPointSettings() {
+        wx.navigateTo({ url: '/pages/admin/point-settings/index' });
     },
     gotoSupportChat() {
         wx.navigateTo({ url: '/pages/admin/support-chat/index' });

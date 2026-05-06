@@ -184,6 +184,13 @@ npm run desktop:build
 - `POST /api/orders/:orderNo/cancel` (대기 결제 주문 취소)
 - `POST /api/orders/:orderNo/confirm` (대기 수령 주문 확인 수령)
 - `DELETE /api/orders/:orderNo` (완료/취소 주문 삭제)
+
+포인트 규칙:
+
+- 결제 성공 시 `floor(paymentAmount * pointsEarnRatePercent / 100)` 만큼 적립
+- 결제 시 보유 포인트가 `pointsUseThreshold` 이상이면 포인트 사용(결제금액 차감) 가능
+- 사용 포인트는 주문에 기록되고 결제 성공 시 차감/적립이 함께 반영
+- 관리자 설정 페이지에서 적립 비율(%)과 사용 시작 포인트를 변경 가능
 - 고객센터: `GET/POST /api/support/messages`, `POST /api/support/upload-media`
 
 ### Admin (`requireAdmin`, 헤더 `x-admin-token`)
@@ -195,6 +202,7 @@ npm run desktop:build
 - 상품: `GET/POST/PUT /api/admin/products`, `GET /api/admin/products/:id`, `PUT /api/admin/products/:id/stock`
 - 업로드: `POST /api/admin/upload-image`
 - 분류: `GET/POST/PUT/DELETE /api/admin/categories`
+- 优惠券: `GET/POST /api/admin/coupons`, `POST /api/admin/coupons/:id/grant`, `PUT /api/admin/coupons/:id`, `DELETE /api/admin/coupons/:id`
 - 고객센터: `GET /api/admin/support/conversations`, `GET /api/admin/support/messages/:userId`, `POST`(답변), `POST /api/admin/support/upload-media`
 
 ## 7) 운영 시 주의사항

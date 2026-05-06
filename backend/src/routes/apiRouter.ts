@@ -28,6 +28,7 @@ export function createApiRouter(controller: any) {
   router.post('/orders/:orderNo/cancel', controller.requireAuth, controller.cancelOrder);
   router.post('/orders/:orderNo/confirm', controller.requireAuth, controller.confirmOrderReceived);
   router.delete('/orders/:orderNo', controller.requireAuth, controller.deleteOrder);
+  router.get('/points/config', controller.requireAuth, controller.pointsConfig);
   router.post('/orders/commit', controller.requireAuth, controller.commitOrder);
 
   // support chat (user)
@@ -47,6 +48,9 @@ export function createApiRouter(controller: any) {
   router.get('/admin/orders/:orderNo/logistics-trace', controller.requireAdmin, controller.adminOrderLogisticsTrace);
   router.post('/admin/orders/:orderNo/shipping', controller.requireAdmin, controller.adminUpdateOrderShipping);
   router.put('/admin/orders/:orderNo/status', controller.requireAdmin, controller.adminUpdateOrderStatus);
+  router.delete('/admin/orders/:orderNo', controller.requireAdmin, controller.adminDeleteOrder);
+  router.get('/admin/point-policy', controller.requireAdmin, controller.adminGetPointPolicy);
+  router.put('/admin/point-policy', controller.requireAdmin, controller.adminUpdatePointPolicy);
 
   router.get('/admin/products', controller.requireAdmin, controller.adminProducts);
   router.get('/admin/products/:id', controller.requireAdmin, controller.adminProductDetail);
@@ -62,6 +66,8 @@ export function createApiRouter(controller: any) {
   router.get('/admin/coupons', controller.requireAdmin, controller.adminListCoupons);
   router.post('/admin/coupons', controller.requireAdmin, controller.adminCreateCoupon);
   router.post('/admin/coupons/:id/grant', controller.requireAdmin, controller.adminGrantCoupon);
+  router.put('/admin/coupons/:id', controller.requireAdmin, controller.adminUpdateCoupon);
+  router.delete('/admin/coupons/:id', controller.requireAdmin, controller.adminDeleteCoupon);
 
   router.get('/admin/support/conversations', controller.requireAdmin, controller.adminSupportConversations);
   router.get('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportMessagesByUser);

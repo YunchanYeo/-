@@ -59,9 +59,14 @@ export default function ProductsPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>商品与库存</h2>
-        <button type="button" className="btn btn-ghost" onClick={() => load()} disabled={loading}>
-          刷新
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <Link to="/products/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+            新建商品
+          </Link>
+          <button type="button" className="btn btn-ghost" onClick={() => load()} disabled={loading}>
+            刷新
+          </button>
+        </div>
       </div>
       {err ? <div className="err-banner">{err}</div> : null}
       <div className="card table-wrap">
