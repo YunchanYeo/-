@@ -5,6 +5,8 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
+import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
+import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
 
 export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: string }) {
   function adminMe(req: Request, res: Response) {
@@ -99,7 +101,7 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
            logisticsNo = ?,
            logisticsRemark = ?,
            shippedAt = datetime('now'),
-           orderStatus = CASE WHEN orderStatus < 20 THEN 20 ELSE orderStatus END,
+           orderStatus = CASE WHEN orderStatus IN (10, 20) THEN 40 ELSE orderStatus END,
            orderStatusName = CASE WHEN orderStatusName = '待发货' THEN '待收货' ELSE orderStatusName END,
            updatedAt = datetime('now')
        WHERE orderNo = ?`,
@@ -118,6 +120,101 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
       )
       .get(req.params.orderNo);
     return res.json({ ok: true, data: updated });
+  }
+
+  /**
+   * 管理端：按订单查询物流轨迹（后端调用快递100，见文档 https://api.kuaidi100.com/document/5f0ffb5ebc8da837cbd8aefc.html ）
+   */
+  async function adminOrderLogisticsTrace(req: Request, res: Response) {
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: '缺少订单号' });
+
+    const row = db
+      .prepare(
+        `SELECT orderNo, logisticsCompanyCode, logisticsCompanyName, logisticsNo, addressJson FROM orders WHERE orderNo = ?`,
+      )
+      .get(orderNo) as
+      | {
+          orderNo: string;
+          logisticsCompanyCode: string | null;
+          logisticsCompanyName: string | null;
+          logisticsNo: string | null;
+          addressJson: string | null;
+        }
+      | undefined;
+    if (!row) return res.status(404).json({ ok: false, message: '订单不存在' });
+
+    const logisticsNo = String(row.logisticsNo || '').trim();
+    if (!logisticsNo) {
+      return res.status(400).json({ ok: false, message: '该订单尚未填写运单号' });
+    }
+
+    const key = process.env.KUAIDI100_KEY || '';
+    const customer = process.env.KUAIDI100_CUSTOMER || '';
+    if (!key || !customer) {
+      return res.json({
+        ok: true,
+        data: {
+          configured: false,
+          hint: '请在服务器环境变量中配置 KUAIDI100_KEY、KUAIDI100_CUSTOMER（快递100企业版）后重启后端。',
+          orderNo,
+          logisticsCompanyName: row.logisticsCompanyName || '',
+          logisticsNo,
+          traces: [],
+          polylinePoints: [],
+        },
+      });
+    }
+
+    const com = resolveKuaidiCom({
+      logisticsCompanyCode: row.logisticsCompanyCode || '',
+      logisticsCompanyName: row.logisticsCompanyName || '',
+    });
+    if (!com) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          '无法匹配快递公司编码。请在填写运单时使用常见名称（如：顺丰快递、中通快递）或在 logisticsCompanyCode 中填写快递100编码（如 shunfeng）。',
+      });
+    }
+
+    let phone = '';
+    try {
+      const addr = JSON.parse(row.addressJson || '{}') as Record<string, unknown>;
+      phone = String(addr.phone || addr.phoneNumber || addr.tel || addr.mobile || '').trim();
+    } catch (_) {
+      phone = '';
+    }
+
+    try {
+      const result = await queryKuaidi100RealTime({
+        key,
+        customer,
+        com,
+        num: logisticsNo,
+        ...(phone ? { phone } : {}),
+      });
+      return res.json({
+        ok: true,
+        data: {
+          configured: true,
+          orderNo,
+          logisticsCompanyName: row.logisticsCompanyName || '',
+          logisticsNo,
+          requestedCom: com,
+          state: result.state,
+          resolvedCom: result.com,
+          nu: result.nu,
+          traces: result.traces,
+          polylinePoints: result.polylinePoints,
+          routeInfo: result.routeInfo,
+          kuaidiMessage: result.rawMessage,
+        },
+      });
+    } catch (e: any) {
+      const msg = String(e?.message || '快递查询失败');
+      return res.status(502).json({ ok: false, message: msg });
+    }
   }
 
   function adminUploadImage(req: Request, res: Response) {
@@ -149,6 +246,7 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     adminUpdateUsername,
     adminOrders,
     adminUpdateOrderShipping,
+    adminOrderLogisticsTrace,
     adminUploadImage,
   };
 }

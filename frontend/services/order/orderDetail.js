@@ -1,5 +1,6 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchOrderDetail(params) {
     const { delay } = require('../_utils/delay');
     const { genOrderDetail } = require('../../model/order/orderDetail');
@@ -39,7 +40,7 @@ export function fetchOrderDetail(params) {
                 },
                 orderItemVOs: items.map((g, index) => ({
                     id: index + 1,
-                    goodsPictureUrl: g.primaryImage || g.thumb || g.image || '',
+                    goodsPictureUrl: normalizeGoodsImageUrl(g.primaryImage || g.thumb || g.image || ''),
                     goodsName: g.goodsName || g.title || '商品',
                     skuId: g.skuId || '',
                     spuId: g.spuId || '',

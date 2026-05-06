@@ -5,6 +5,7 @@ const PREFETCH_ME_KEY = 'prefetch.me';
 const PREFETCH_ADDRESSES_KEY = 'prefetch.addresses';
 const PREFETCH_ORDERS_KEY = 'prefetch.orders';
 const PREFETCH_ORDER_COUNTS_KEY = 'prefetch.order.counts';
+const PREFETCH_SUPPORT_MESSAGES_KEY = 'prefetch.support.messages';
 export const getToken = () => wx.getStorageSync(TOKEN_KEY) || '';
 export const setToken = (token) => wx.setStorageSync(TOKEN_KEY, token || '');
 export const clearToken = () => wx.removeStorageSync(TOKEN_KEY);
@@ -18,6 +19,7 @@ export function logout() {
     wx.removeStorageSync(PREFETCH_ADDRESSES_KEY);
     wx.removeStorageSync(PREFETCH_ORDERS_KEY);
     wx.removeStorageSync(PREFETCH_ORDER_COUNTS_KEY);
+    wx.removeStorageSync(PREFETCH_SUPPORT_MESSAGES_KEY);
 }
 function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
     return new Promise((resolve, reject) => {
@@ -63,16 +65,18 @@ async function prefetchUserBootstrapData(token) {
     if (!token)
         return;
     try {
-        const [me, addresses, orders, orderCounts] = await Promise.all([
+        const [me, addresses, orders, orderCounts, supportMsgs] = await Promise.all([
             requestAuth('/api/me', { method: 'GET', token }),
             requestAuth('/api/addresses', { method: 'GET', token }),
             requestAuth('/api/orders', { method: 'GET', token }),
             requestAuth('/api/orders/count', { method: 'GET', token }),
+            requestAuth('/api/support/messages', { method: 'GET', token }).catch(() => []),
         ]);
         wx.setStorageSync(PREFETCH_ME_KEY, me || null);
         wx.setStorageSync(PREFETCH_ADDRESSES_KEY, Array.isArray(addresses) ? addresses : []);
         wx.setStorageSync(PREFETCH_ORDERS_KEY, Array.isArray(orders) ? orders : []);
         wx.setStorageSync(PREFETCH_ORDER_COUNTS_KEY, Array.isArray(orderCounts) ? orderCounts : []);
+        wx.setStorageSync(PREFETCH_SUPPORT_MESSAGES_KEY, Array.isArray(supportMsgs) ? supportMsgs : []);
     }
     catch (e) {
         console.warn('prefetch user data failed', e);
@@ -94,6 +98,14 @@ export function getPrefetchedUserData() {
         orders: wx.getStorageSync(PREFETCH_ORDERS_KEY) || [],
         orderCounts: wx.getStorageSync(PREFETCH_ORDER_COUNTS_KEY) || [],
     };
+}
+/** 在线客服 DB 消息列表（登录 prefetch 시 채움; 채팅 페이지 첫 프레임용） */
+export function getPrefetchedSupportMessages() {
+    const raw = wx.getStorageSync(PREFETCH_SUPPORT_MESSAGES_KEY);
+    return Array.isArray(raw) ? raw : [];
+}
+export function setPrefetchedSupportMessages(list) {
+    wx.setStorageSync(PREFETCH_SUPPORT_MESSAGES_KEY, Array.isArray(list) ? list : []);
 }
 export async function loginWithWeChat(userInfo = null) {
     const loginRes = await new Promise((resolve, reject) => {

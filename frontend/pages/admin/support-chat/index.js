@@ -5,7 +5,17 @@ import {
   createAdminSupportReply,
   uploadAdminSupportMedia,
   enrichSupportMessages,
+  normalizeChatMediaUrl,
 } from '../../../services/support/chat';
+
+/** 与微信文档示例一致：https://developers.weixin.qq.com/miniprogram/dev/api/media/recorder/RecorderManager.html */
+const RECORDER_OPTIONS = {
+  duration: 60000,
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  encodeBitRate: 96000,
+  format: 'aac',
+};
 
 Page({
   data: {
@@ -15,38 +25,51 @@ Page({
     inputText: '',
     sending: false,
     recording: false,
+    recordWillCancel: false,
     inputMode: 'text',
+    scrollIntoView: '',
+    playingVoiceId: '',
   },
   _timer: null,
   _recorder: null,
   _audio: null,
   _cancelVoiceSend: false,
+  _recordStartY: 0,
+
+  noop() {},
 
   onLoad() {
     const recorder = wx.getRecorderManager();
     this._recorder = recorder;
+    recorder.onStart(() => {
+      this.setData({ recordWillCancel: false });
+    });
     recorder.onStop((res) => {
       if (this._cancelVoiceSend) {
         this._cancelVoiceSend = false;
+        this.setData({ recording: false, recordWillCancel: false });
         return;
       }
-      const duration = typeof res.duration === 'number' ? res.duration : 0;
-      if (duration < 400) {
+      const durationMs = typeof res.duration === 'number' ? res.duration : 0;
+      if (durationMs < 500) {
         wx.showToast({ title: '录音太短', icon: 'none' });
+        this.setData({ recording: false, recordWillCancel: false });
         return;
       }
-      if (!this.data.activeUserId) return;
-      this.sendVoiceMessage(this.data.activeUserId, res.tempFilePath, duration);
+      this.setData({ recording: false, recordWillCancel: false });
+      const uid = this.data.activeUserId;
+      if (!uid) return;
+      this.sendVoiceMessage(uid, res.tempFilePath, durationMs);
     });
     recorder.onError(() => {
       wx.showToast({ title: '录音失败', icon: 'none' });
-      this.setData({ recording: false });
+      this.setData({ recording: false, recordWillCancel: false });
     });
   },
 
   onShow() {
     this.refresh();
-    this._timer = setInterval(() => this.refresh(), 3000);
+    this._timer = setInterval(() => this.refresh(), 4000);
   },
 
   onUnload() {
@@ -54,6 +77,10 @@ Page({
       clearInterval(this._timer);
       this._timer = null;
     }
+    this.stopAudio();
+  },
+
+  stopAudio() {
     if (this._audio) {
       try {
         this._audio.stop();
@@ -61,6 +88,18 @@ Page({
       } catch (_) {}
       this._audio = null;
     }
+    this.setData({ playingVoiceId: '' });
+  },
+
+  scrollToBottom(list) {
+    const arr = Array.isArray(list) ? list : [];
+    if (arr.length === 0) {
+      this.setData({ scrollIntoView: 'msg-bottom' });
+      return;
+    }
+    const last = arr[arr.length - 1];
+    const id = last && last.id != null ? `msg-${last.id}` : 'msg-bottom';
+    this.setData({ scrollIntoView: id });
   },
 
   async refresh() {
@@ -74,6 +113,10 @@ Page({
         const msgs = await listAdminSupportMessagesByUser(activeUserId);
         const messages = enrichSupportMessages(Array.isArray(msgs) ? msgs : []);
         this.setData({ messages });
+        wx.nextTick(() => this.scrollToBottom(messages));
+      } else {
+        this.setData({ messages: [] });
+        wx.nextTick(() => this.scrollToBottom([]));
       }
     } catch (e) {}
   },
@@ -89,9 +132,6 @@ Page({
     this.setData({ inputText: e.detail.value || '' });
   },
 
-  /**
-   * 切换输入模式（语音/键盘）。
-   */
   toggleInputMode() {
     this.setData({ inputMode: this.data.inputMode === 'voice' ? 'text' : 'voice' });
   },
@@ -111,62 +151,12 @@ Page({
     }
   },
 
-  async chooseImage() {
-    if (!this.data.activeUserId) {
-      wx.showToast({ title: '请先选择用户', icon: 'none' });
-      return;
-    }
-    const uid = this.data.activeUserId;
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['album', 'camera'],
-      success: async (res) => {
-        const f = res.tempFiles[0];
-        if (!f?.tempFilePath) return;
-        wx.showLoading({ title: '发送中', mask: true });
-        try {
-          const mime = 'image/jpeg';
-          const url = await uploadAdminSupportMedia({
-            kind: 'image',
-            filePath: f.tempFilePath,
-            mimeType: mime,
-            fileName: 'chat.jpg',
-          });
-          await createAdminSupportReply(uid, { msgType: 'image', content: url });
-          await this.refresh();
-        } catch (e) {
-          Toast({ context: this, selector: '#t-toast', message: e?.message || '图片发送失败' });
-        } finally {
-          wx.hideLoading();
-        }
-      },
-    });
-  },
-
-  /**
-   * 点击“+”打开图片来源菜单。
-   */
-  openMoreActions() {
-    if (!this.data.activeUserId) {
-      wx.showToast({ title: '请先选择用户', icon: 'none' });
-      return;
-    }
-    wx.showActionSheet({
-      itemList: ['拍照', '从相册选择'],
-      success: (res) => {
-        const sourceType = res.tapIndex === 0 ? ['camera'] : ['album'];
-        this.chooseImageBySource(sourceType);
-      },
-    });
-  },
-
-  /**
-   * 按指定来源选择并发送图片。
-   * @param {Array<'camera'|'album'>} sourceType
-   */
   chooseImageBySource(sourceType) {
     const uid = this.data.activeUserId;
+    if (!uid) {
+      wx.showToast({ title: '请先选择用户', icon: 'none' });
+      return;
+    }
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -193,21 +183,33 @@ Page({
     });
   },
 
-  onRecordStart() {
+  openMoreActions() {
     if (!this.data.activeUserId) {
       wx.showToast({ title: '请先选择用户', icon: 'none' });
       return;
     }
+    wx.showActionSheet({
+      itemList: ['拍照', '从相册选择'],
+      success: (res) => {
+        const sourceType = res.tapIndex === 0 ? ['camera'] : ['album'];
+        this.chooseImageBySource(sourceType);
+      },
+    });
+  },
+
+  onRecordStart(e) {
+    if (!this.data.activeUserId) {
+      wx.showToast({ title: '请先选择用户', icon: 'none' });
+      return;
+    }
+    if (!e.touches || !e.touches[0]) return;
+    this._recordStartY = e.touches[0].clientY;
     wx.authorize({
       scope: 'scope.record',
       success: () => {
         this._cancelVoiceSend = false;
-        this.setData({ recording: true });
-        this._recorder.start({
-          duration: 60000,
-          format: 'mp3',
-          sampleRate: 16000,
-        });
+        this.setData({ recording: true, recordWillCancel: false });
+        this._recorder.start(RECORDER_OPTIONS);
       },
       fail: () => {
         wx.showModal({
@@ -219,16 +221,26 @@ Page({
     });
   },
 
+  onRecordMove(e) {
+    if (!this.data.recording || !e.touches || !e.touches[0]) return;
+    const dy = this._recordStartY - e.touches[0].clientY;
+    const cancel = dy > 70;
+    if (cancel !== this.data.recordWillCancel) {
+      this.setData({ recordWillCancel: cancel });
+    }
+  },
+
   onRecordEnd() {
     if (!this.data.recording) return;
-    this.setData({ recording: false });
+    this._cancelVoiceSend = this.data.recordWillCancel;
+    this.setData({ recording: false, recordWillCancel: false });
     this._recorder.stop();
   },
 
   onRecordCancel() {
     if (!this.data.recording) return;
     this._cancelVoiceSend = true;
-    this.setData({ recording: false });
+    this.setData({ recording: false, recordWillCancel: false });
     this._recorder.stop();
   },
 
@@ -238,8 +250,8 @@ Page({
       const url = await uploadAdminSupportMedia({
         kind: 'voice',
         filePath: tempFilePath,
-        mimeType: 'audio/mpeg',
-        fileName: 'voice.mp3',
+        mimeType: 'audio/mp4',
+        fileName: 'voice.m4a',
       });
       await createAdminSupportReply(userId, {
         msgType: 'voice',
@@ -255,24 +267,22 @@ Page({
   },
 
   onPlayVoice(e) {
-    const url = e.currentTarget.dataset.url;
+    const url = normalizeChatMediaUrl(e.currentTarget.dataset.url || '');
+    const id = e.currentTarget.dataset.id;
     if (!url) return;
-    if (this._audio) {
-      try {
-        this._audio.stop();
-        this._audio.destroy();
-      } catch (_) {}
-    }
+    this.stopAudio();
+    this.setData({ playingVoiceId: id != null && id !== '' ? id : '' });
     const audio = wx.createInnerAudioContext();
     this._audio = audio;
+    audio.obeyMuteSwitch = false;
     audio.src = url;
-    audio.play();
-    audio.onEnded(() => {
-      try {
-        audio.destroy();
-      } catch (_) {}
-      if (this._audio === audio) this._audio = null;
+    audio.onError((err) => {
+      console.warn('voice play', err);
+      wx.showToast({ title: '无法播放语音', icon: 'none' });
+      this.stopAudio();
     });
+    audio.play();
+    audio.onEnded(() => this.stopAudio());
   },
 
   onPreviewImage(e) {

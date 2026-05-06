@@ -69,21 +69,26 @@
                 <view slot="thumb-cover" class="stock-mask" wx:if="{{goods.shortageStock || goods.stockQuantity <= 3}}">
                   仅剩{{goods.stockQuantity}}件
                 </view>
-                <view slot="append-body" class="goods-stepper">
+                <view slot="append-body" class="goods-actions-row">
                   <view class="stepper-tip" wx:if="{{goods.shortageStock}}">库存不足</view>
-                  <t-stepper
-                    classname="stepper-info"
-                    value="{{goods.quantity}}"
-                    min="{{1}}"
-                    max="{{999}}"
-                    data-goods="{{goods}}"
-                    data-gi="{{gi}}"
-                    data-si="{{si}}"
-                    catchchange="changeStepper"
-                    catchblur="input"
-                    catchoverlimit="overlimit"
-                    theme="filled"
-                  />
+                  <view class="goods-stepper" wx:if="{{goods.stockQuantity > 0}}">
+                    <t-stepper
+                      classname="stepper-info"
+                      value="{{goods.quantity}}"
+                      min="{{1}}"
+                      max="{{999}}"
+                      data-goods="{{goods}}"
+                      data-gi="{{gi}}"
+                      data-si="{{si}}"
+                      catchchange="changeStepper"
+                      catchblur="input"
+                      catchoverlimit="overlimit"
+                      theme="filled"
+                    />
+                  </view>
+                  <view class="goods-delete-icon" catchtap="deleteGoods" data-goods="{{goods}}">
+                    <t-icon name="delete" size="44rpx" color="#999999" />
+                  </view>
                 </view>
               </goods-card>
             </view>
@@ -124,6 +129,11 @@
               >
                 <view slot="thumb-cover" class="no-storage-mask" wx:if="{{goods.stockQuantity <=0}}">
                   <view class="no-storage-content">无货</view>
+                </view>
+                <view slot="append-body" class="goods-actions-row goods-actions-row--shortage">
+                  <view class="goods-delete-icon" catchtap="deleteGoods" data-goods="{{goods}}">
+                    <t-icon name="delete" size="44rpx" color="#999999" />
+                  </view>
                 </view>
               </goods-card>
             </view>

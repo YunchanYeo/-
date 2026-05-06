@@ -42,7 +42,7 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }) {
         if (!token)
             return res.status(401).json({ ok: false, message: 'Missing Authorization token' });
         const user = db
-            .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+            .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE sessionToken = ?`)
             .get(token);
         if (!user)
@@ -113,7 +113,7 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }) {
                     .run(openid, unionid || null, token, userInfo?.nickName ?? '', userInfo?.avatarUrl ?? '', userInfo?.gender ?? 0));
             }
             const me = db
-                .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+                .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
            FROM users WHERE openid = ?`)
                 .get(openid);
             return res.json({
@@ -127,15 +127,15 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }) {
         }
     }
     /**
-     * Admin login with bcrypt hash verification.
-     * Supports legacy plaintext password once and upgrades it to hash.
+     * 管理员登录：校验 SQLite `admins` 表中的 passwordHash（bcrypt）或明文 password（首次登录后会升级为哈希）。
      */
     async function adminLogin(req, res) {
         const schema = z.object({ username: z.string().min(1), password: z.string().min(1) });
         const parsed = schema.safeParse(req.body || {});
         if (!parsed.success)
             return res.status(400).json({ ok: false, message: 'Invalid admin login body', issues: parsed.error.issues });
-        const { username, password } = parsed.data;
+        const username = parsed.data.username.trim();
+        const { password } = parsed.data;
         const admin = db.prepare(`SELECT id, username, password, passwordHash FROM admins WHERE username = ?`).get(username);
         if (!admin)
             return res.status(401).json({ ok: false, message: '管理员账号或密码错误' });

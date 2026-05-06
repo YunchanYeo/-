@@ -30,6 +30,7 @@ export function createApiRouter(controller) {
     router.put('/admin/me/password', controller.requireAdmin, controller.adminUpdatePassword);
     router.put('/admin/me/username', controller.requireAdmin, controller.adminUpdateUsername);
     router.get('/admin/orders', controller.requireAdmin, controller.adminOrders);
+    router.get('/admin/orders/:orderNo/logistics-trace', controller.requireAdmin, controller.adminOrderLogisticsTrace);
     router.post('/admin/orders/:orderNo/shipping', controller.requireAdmin, controller.adminUpdateOrderShipping);
     router.get('/admin/products', controller.requireAdmin, controller.adminProducts);
     router.get('/admin/products/:id', controller.requireAdmin, controller.adminProductDetail);
@@ -37,6 +38,10 @@ export function createApiRouter(controller) {
     router.put('/admin/products/:id', controller.requireAdmin, controller.adminUpdateProduct);
     router.put('/admin/products/:id/stock', controller.requireAdmin, controller.adminUpdateProductStock);
     router.post('/admin/upload-image', controller.requireAdmin, controller.adminUploadImage);
+    router.get('/admin/categories', controller.requireAdmin, controller.adminListCategories);
+    router.post('/admin/categories', controller.requireAdmin, controller.adminCreateCategory);
+    router.put('/admin/categories/:id', controller.requireAdmin, controller.adminUpdateCategory);
+    router.delete('/admin/categories/:id', controller.requireAdmin, controller.adminDeleteCategory);
     router.get('/admin/support/conversations', controller.requireAdmin, controller.adminSupportConversations);
     router.get('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportMessagesByUser);
     router.post('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportReply);

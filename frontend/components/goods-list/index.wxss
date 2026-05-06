@@ -5,3 +5,19 @@
   padding: 0;
   background: #fff;
 }
+
+.goods-list-wrap.goods-list--cols2 {
+  display: grid;
+  flex-flow: unset;
+  justify-content: stretch;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16rpx;
+  row-gap: 24rpx;
+  align-content: start;
+  box-sizing: border-box;
+}
+
+.goods-list--cols2 .goods-card-inside {
+  width: 100%;
+  min-width: 0;
+}

@@ -32,9 +32,10 @@ export function fetchGoodsList(params) {
         return mockFetchGoodsList(params);
     const category = params?.category ? `?category=${encodeURIComponent(params.category)}` : '';
     return requestJson(`/api/products${category}`, { method: 'GET' }).then((rows) => {
+        const list = Array.isArray(rows) ? rows : [];
         const fallbackThumb = `${cdnBase}/activity/banner.png`;
         return {
-            spuList: rows.map((p) => ({
+            spuList: list.map((p) => ({
                 spuId: String(p.id),
                 thumb: p.thumb || normalizeImageUrl(p.image) || fallbackThumb,
                 title: p.title,
@@ -44,7 +45,7 @@ export function fetchGoodsList(params) {
                 tags: p.category ? [p.category] : [],
                 stock: Number(p.stock ?? 0),
             })),
-            totalCount: rows.length,
+            totalCount: list.length,
         };
     });
 }

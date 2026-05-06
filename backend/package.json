@@ -11,6 +11,7 @@
     "seed:admin": "tsx src/scripts/seedAdmin.ts"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "better-sqlite3": "latest",
     "cors": "latest",
     "express": "latest",

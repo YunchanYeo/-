@@ -1,6 +1,6 @@
 <view
   id="{{independentID}}"
-  class="goods-card"
+  class="goods-card {{layout === 'grid' ? 'goods-card--grid' : ''}}"
   bind:tap="clickHandle"
   data-goods="{{ goods }}"
 >

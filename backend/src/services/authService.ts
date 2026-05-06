@@ -45,7 +45,7 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
     if (!token) return res.status(401).json({ ok: false, message: 'Missing Authorization token' });
     const user = db
       .prepare(
-        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE sessionToken = ?`,
       )
       .get(token) as AuthedUser | undefined;
@@ -124,7 +124,7 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
 
       const me = db
         .prepare(
-          `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+          `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
            FROM users WHERE openid = ?`,
         )
         .get(openid);
@@ -139,14 +139,14 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
   }
 
   /**
-   * Admin login with bcrypt hash verification.
-   * Supports legacy plaintext password once and upgrades it to hash.
+   * 管理员登录：校验 SQLite `admins` 表中的 passwordHash（bcrypt）或明文 password（首次登录后会升级为哈希）。
    */
   async function adminLogin(req: Request, res: Response) {
     const schema = z.object({ username: z.string().min(1), password: z.string().min(1) });
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid admin login body', issues: parsed.error.issues });
-    const { username, password } = parsed.data;
+    const username = parsed.data.username.trim();
+    const { password } = parsed.data;
     const admin = db.prepare(`SELECT id, username, password, passwordHash FROM admins WHERE username = ?`).get(username) as
       | { id: number; username: string; password: string | null; passwordHash: string | null }
       | undefined;

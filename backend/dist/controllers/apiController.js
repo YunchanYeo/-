@@ -38,6 +38,7 @@ export function createApiController(services) {
         adminUpdatePassword: services.admin.adminUpdatePassword,
         adminUpdateUsername: services.admin.adminUpdateUsername,
         adminOrders: services.admin.adminOrders,
+        adminOrderLogisticsTrace: services.admin.adminOrderLogisticsTrace,
         adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping,
         adminProducts: services.product.adminProducts,
         adminProductDetail: services.product.adminProductDetail,
@@ -45,5 +46,9 @@ export function createApiController(services) {
         adminUpdateProduct: services.product.adminUpdateProduct,
         adminUpdateProductStock: services.product.adminUpdateProductStock,
         adminUploadImage: services.admin.adminUploadImage,
+        adminListCategories: services.category.adminListCategories,
+        adminCreateCategory: services.category.adminCreateCategory,
+        adminUpdateCategory: services.category.adminUpdateCategory,
+        adminDeleteCategory: services.category.adminDeleteCategory,
     };
 }

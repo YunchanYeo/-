@@ -16,6 +16,17 @@
   background-color: white;
 }
 
+.goods-category__right--embed-scroll {
+  overflow: hidden;
+}
+
+.goods-category-custom-right {
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .flex {
   display: flex;
 }

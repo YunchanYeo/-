@@ -7,7 +7,7 @@ export function createUserService({ db }: { db: Db }) {
     const userId = (req as any).user?.id;
     const user = db
       .prepare(
-        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE id = ?`,
       )
       .get(userId);
@@ -36,7 +36,7 @@ export function createUserService({ db }: { db: Db }) {
     ).run(nickName ?? null, avatarUrl ?? null, gender ?? null, phoneNumber ?? null, userId);
     const meRow = db
       .prepare(
-        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE id = ?`,
       )
       .get(userId);

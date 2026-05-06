@@ -1,41 +1,109 @@
-export function createCategoryService() {
-    function categories(req, res) {
-        const keywordThumbMap = [
-            { keywords: ['方便面', '拌面', '挂面', '面食'], url: 'https://img.icons8.com/color/240/noodles.png' },
-            { keywords: ['米线', '粉', '自热饭', '八宝粥', '即食粥'], url: 'https://img.icons8.com/color/240/rice-bowl.png' },
-            { keywords: ['水饺', '馄饨', '面点'], url: 'https://img.icons8.com/color/240/dumpling.png' },
-            { keywords: ['罐头'], url: 'https://img.icons8.com/color/240/tin-can.png' },
-            { keywords: ['薯片', '膨化'], url: 'https://img.icons8.com/color/240/potato-chips.png' },
-            { keywords: ['饼干'], url: 'https://img.icons8.com/color/240/cookies.png' },
-            { keywords: ['蛋糕', '面包'], url: 'https://img.icons8.com/color/240/cupcake.png' },
-            { keywords: ['月饼'], url: 'https://img.icons8.com/color/240/mooncake.png' },
-            { keywords: ['坚果', '瓜子', '花生'], url: 'https://img.icons8.com/color/240/almond.png' },
-            { keywords: ['巧克力', '糖果', '糖巧'], url: 'https://img.icons8.com/color/240/chocolate-bar.png' },
-            { keywords: ['肉干', '肉脯', '卤味'], url: 'https://img.icons8.com/color/240/steak.png' },
-        ];
-        const fallbackThumb = 'https://img.icons8.com/color/240/shopping-basket-2.png';
-        const cdnThumb = (name) => {
-            const target = keywordThumbMap.find((row) => row.keywords.some((kw) => String(name || '').includes(kw)));
-            return target?.url || fallbackThumb;
-        };
-        const leaf = (id, name) => ({ id, name, thumbnail: cdnThumb(name) });
-        const level2 = (name, children) => ({ name, children });
-        const level1 = (name, children) => ({ name, children });
-        const data = [
-            level1('方便速食', [
-                level2('面食', [leaf('方便面', '方便面'), leaf('拌面', '拌面'), leaf('粉/米线', '粉/米线'), leaf('挂面', '挂面')]),
-                level2('速食料理', [leaf('自热饭', '自热饭'), leaf('速冻水饺/馄饨', '速冻水饺/馄饨'), leaf('速冻面点', '速冻面点')]),
-                level2('罐头/即食', [leaf('罐头', '罐头'), leaf('八宝粥', '八宝粥'), leaf('即食粥', '即食粥')]),
-            ]),
-            level1('零食', [
-                level2('膨化/薯片', [leaf('薯片', '薯片'), leaf('膨化食品', '膨化食品')]),
-                level2('饼干糕点', [leaf('饼干', '饼干'), leaf('蛋糕/面包', '蛋糕/面包'), leaf('月饼', '月饼')]),
-                level2('坚果炒货', [leaf('坚果', '坚果'), leaf('瓜子/花生', '瓜子/花生')]),
-                level2('糖巧', [leaf('巧克力', '巧克力'), leaf('糖果', '糖果')]),
-                level2('肉类零食', [leaf('肉干肉脯', '肉干肉脯'), leaf('卤味零食', '卤味零食')]),
-            ]),
-        ];
+import { z } from 'zod';
+const DEFAULT_THUMB_BY_NAME = {
+    面: 'https://img.icons8.com/color/240/noodles.png',
+    零食: 'https://img.icons8.com/color/240/potato-chips.png',
+    饮料: 'https://img.icons8.com/color/240/water-bottle.png',
+    饭: 'https://img.icons8.com/color/240/rice-bowl.png',
+    罐头: 'https://img.icons8.com/color/240/tin-can.png',
+};
+const FALLBACK_THUMB = 'https://img.icons8.com/color/240/shopping-basket-2.png';
+function resolveThumbnail(name, stored) {
+    const s = stored?.trim();
+    if (s)
+        return s;
+    return DEFAULT_THUMB_BY_NAME[name] || FALLBACK_THUMB;
+}
+export function createCategoryService({ db }) {
+    /** 客户端与管理员共用：扁平列表，新增分类后立即出现在小程序分类页 */
+    function categories(_req, res) {
+        const rows = db
+            .prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories ORDER BY sortOrder ASC, id ASC`)
+            .all();
+        const data = rows.map((row) => ({
+            ...row,
+            thumb: resolveThumbnail(row.name, row.thumbnail),
+        }));
         res.json({ ok: true, data });
     }
-    return { categories };
+    function adminListCategories(_req, res) {
+        const rows = db
+            .prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories ORDER BY sortOrder ASC, id ASC`)
+            .all();
+        res.json({ ok: true, data: rows });
+    }
+    function adminCreateCategory(req, res) {
+        const schema = z.object({
+            name: z.string().min(1).max(32),
+            thumbnail: z.string().optional(),
+            sortOrder: z.number().int().optional(),
+        });
+        const parsed = schema.safeParse(req.body || {});
+        if (!parsed.success)
+            return res.status(400).json({ ok: false, message: '无效的分类数据', issues: parsed.error.issues });
+        const maxRow = db.prepare(`SELECT COALESCE(MAX(sortOrder), -1) as m FROM product_categories`).get();
+        const sortOrder = parsed.data.sortOrder ?? maxRow.m + 1;
+        try {
+            const info = db.prepare(`INSERT INTO product_categories (name, sortOrder, thumbnail) VALUES (?, ?, ?)`).run(parsed.data.name.trim(), sortOrder, parsed.data.thumbnail?.trim() || null);
+            const row = db
+                .prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories WHERE id = ?`)
+                .get(Number(info.lastInsertRowid));
+            return res.json({ ok: true, data: row });
+        }
+        catch (e) {
+            if (String(e?.message || '').includes('UNIQUE')) {
+                return res.status(409).json({ ok: false, message: '分类名称已存在' });
+            }
+            throw e;
+        }
+    }
+    function adminUpdateCategory(req, res) {
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id))
+            return res.status(400).json({ ok: false, message: '无效的分类 ID' });
+        const schema = z.object({
+            name: z.string().min(1).max(32).optional(),
+            thumbnail: z.union([z.string(), z.null()]).optional(),
+            sortOrder: z.number().int().optional(),
+        });
+        const parsed = schema.safeParse(req.body || {});
+        if (!parsed.success)
+            return res.status(400).json({ ok: false, message: '无效的分类数据', issues: parsed.error.issues });
+        const existing = db
+            .prepare(`SELECT id, name, thumbnail, sortOrder FROM product_categories WHERE id = ?`)
+            .get(id);
+        if (!existing)
+            return res.status(404).json({ ok: false, message: '分类不存在' });
+        const nextName = parsed.data.name !== undefined ? parsed.data.name.trim() : existing.name;
+        const nextThumb = parsed.data.thumbnail !== undefined
+            ? parsed.data.thumbnail === null || parsed.data.thumbnail === ''
+                ? null
+                : String(parsed.data.thumbnail).trim() || null
+            : existing.thumbnail;
+        const nextSort = parsed.data.sortOrder !== undefined ? parsed.data.sortOrder : existing.sortOrder;
+        if (nextName !== existing.name) {
+            const clash = db.prepare(`SELECT id FROM product_categories WHERE name = ? AND id != ?`).get(nextName, id);
+            if (clash)
+                return res.status(409).json({ ok: false, message: '分类名称已存在' });
+            db.prepare(`UPDATE products SET category = ?, updatedAt = datetime('now') WHERE category = ? OR categoryId = ?`).run(nextName, existing.name, id);
+        }
+        db.prepare(`UPDATE product_categories SET name = ?, thumbnail = ?, sortOrder = ? WHERE id = ?`).run(nextName, nextThumb, nextSort, id);
+        const row = db.prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories WHERE id = ?`).get(id);
+        return res.json({ ok: true, data: row });
+    }
+    function adminDeleteCategory(req, res) {
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id))
+            return res.status(400).json({ ok: false, message: '无效的分类 ID' });
+        const existing = db.prepare(`SELECT id, name FROM product_categories WHERE id = ?`).get(id);
+        if (!existing)
+            return res.status(404).json({ ok: false, message: '分类不存在' });
+        const cnt = db
+            .prepare(`SELECT COUNT(*) as c FROM products WHERE category = ? OR categoryId = ?`)
+            .get(existing.name, existing.id).c;
+        if (cnt > 0)
+            return res.status(409).json({ ok: false, message: `该分类下还有 ${cnt} 个商品，无法删除` });
+        db.prepare(`DELETE FROM product_categories WHERE id = ?`).run(id);
+        return res.json({ ok: true, data: { ok: true } });
+    }
+    return { categories, adminListCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory };
 }

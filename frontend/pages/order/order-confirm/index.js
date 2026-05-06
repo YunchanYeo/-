@@ -1,5 +1,6 @@
 import Toast from 'tdesign-miniprogram/toast/index';
-import { fetchSettleDetail } from '../../../services/order/orderConfirm';
+import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
+import { fetchSettleDetail, deriveGoodsRequestListFromSettleDetail } from '../../../services/order/orderConfirm';
 import { commitPay, wechatPayOrder } from './pay';
 import { getAddressPromise } from '../../../services/address/list';
 const stripeImg = `https://tdesign.gtimg.com/miniprogram/template/retail/order/stripe.png`;
@@ -111,7 +112,12 @@ Page({
             this.setData({
                 loading: false,
             });
-            this.initData(res.data);
+            const settlePayload = res.data || res;
+            this.initData(settlePayload);
+            const nextGoods = deriveGoodsRequestListFromSettleDetail(settlePayload);
+            if (nextGoods.length > 0) {
+                this.goodsRequestList = nextGoods;
+            }
         }, () => {
             //接口异常处理
             this.handleError();
@@ -206,7 +212,7 @@ Page({
                 ele.skuDetailVos.forEach((item, index) => {
                     orderCard.goodsList.push({
                         id: index,
-                        thumb: item.image,
+                        thumb: normalizeGoodsImageUrl(item.image || ''),
                         title: item.goodsName,
                         specs: item.skuSpecLst.map((s) => s.specValue), // 规格列表 string[]
                         price: item.tagPrice || item.settlePrice || '0', // 优先取限时活动价

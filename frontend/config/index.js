@@ -15,6 +15,8 @@ export const config = {
      * - 로컬 개발(컴퓨터에서 서버 실행): 'http://127.0.0.1:3000'
      * - 배포 서버: 'https://api.example.com'
      *
+     * 관리자 로그인: PC용 admin-web 과 동일한 계정입니다(backend/.env 의 ADMIN_USERNAME 등·동일 SQLite).
+     *
      * 위챗 개발자도구에서는 “요청 도메인” 설정이 필요할 수 있습니다.
      * (개발 단계에서는 DevTools에서 URL 검사/도메인 체크를 임시로 끄는 경우도 많습니다.)
      */

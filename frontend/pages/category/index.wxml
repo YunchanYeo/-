@@ -1,8 +1,38 @@
-<view class="wrap">
-  <goods-category
-    level="{{3}}"
-    custom-class="goods-category-class"
-    category="{{list}}"
-    bind:changeCategory="onChange"
-  />
+<view class="page-cat">
+  <scroll-view scroll-y class="cat-side" style="height: {{categoryScrollPx}}px;">
+    <view
+      wx:for="{{list}}"
+      wx:key="name"
+      wx:for-index="idx"
+      class="cat-side-item {{activeIndex === idx ? 'cat-side-item--active' : ''}}"
+      bindtap="onPickCategory"
+      data-index="{{idx}}"
+    >
+      {{item.name}}
+    </view>
+  </scroll-view>
+  <view class="cat-main">
+    <view wx:if="{{goodsLoading}}" class="cat-loading">加载中…</view>
+    <block wx:elif="{{hasLoaded}}">
+      <t-empty wx:if="{{goodsList.length === 0}}" t-class="cat-empty" description="该分类下暂无商品" />
+      <scroll-view
+        wx:else
+        scroll-y
+        enable-flex="{{true}}"
+        class="cat-goods-scroll"
+        style="height: {{categoryScrollPx}}px;"
+        show-scrollbar="{{true}}"
+        scroll-with-animation="{{true}}"
+      >
+        <goods-list
+          wr-class="cat-goods-list-inner"
+          gridColumns="{{2}}"
+          goodsList="{{goodsList}}"
+          bind:click="gotoGoodsDetail"
+          bind:addcart="handleAddCart"
+        />
+      </scroll-view>
+    </block>
+  </view>
 </view>
+<t-toast id="t-toast" />

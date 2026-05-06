@@ -1,53 +1,128 @@
 <view class="admin-chat-page">
   <view class="left">
-    <view wx:for="{{conversations}}" wx:key="userId" class="user-item {{String(item.userId)===String(activeUserId)?'active':''}}" data-user-id="{{item.userId}}" bindtap="onSelectConversation">
+    <view
+      wx:for="{{conversations}}"
+      wx:key="userId"
+      class="user-item {{String(item.userId)===String(activeUserId)?'active':''}}"
+      data-user-id="{{item.userId}}"
+      bindtap="onSelectConversation"
+    >
       <view class="name">{{item.nickName || ('用户' + item.userId)}}</view>
       <view class="unread" wx:if="{{item.unreadCount>0}}">{{item.unreadCount}}</view>
     </view>
   </view>
   <view class="right">
-    <view class="msg-list">
-      <view wx:for="{{messages}}" wx:key="id" class="msg-item {{item.fromRole==='admin'?'mine':'user'}}">
-        <view wx:if="{{item.msgType === 'text'}}" class="bubble">{{item.content}}</view>
-        <image
-          wx:elif="{{item.msgType === 'image'}}"
-          class="chat-img"
-          src="{{item.displayUrl}}"
-          mode="widthFix"
-          lazy-load="{{true}}"
-          bindtap="onPreviewImage"
-          data-url="{{item.displayUrl}}"
-        />
+    <scroll-view
+      class="msg-scroll"
+      scroll-y
+      enhanced
+      show-scrollbar="{{false}}"
+      scroll-into-view="{{scrollIntoView}}"
+      scroll-with-animation="{{true}}"
+    >
+      <view class="msg-pad">
         <view
-          wx:elif="{{item.msgType === 'voice'}}"
-          class="voice-bubble"
-          bindtap="onPlayVoice"
-          data-url="{{item.displayUrl}}"
+          wx:for="{{messages}}"
+          wx:key="id"
+          id="msg-{{item.id}}"
+          class="msg-row {{item.fromRole === 'admin' ? 'msg-row--mine' : 'msg-row--other'}}"
         >
-          <text class="voice-icon">▶</text>
-          <text class="voice-dur">{{item.voiceSec}}″</text>
+          <view class="avatar avatar--other" wx:if="{{item.fromRole !== 'admin'}}">
+            <text class="avatar-text">用</text>
+          </view>
+          <view class="col-bubble">
+            <view wx:if="{{item.msgType === 'text'}}" class="bubble bubble--text">{{item.content}}</view>
+            <image
+              wx:elif="{{item.msgType === 'image'}}"
+              class="bubble bubble--img"
+              src="{{item.displayUrl}}"
+              mode="widthFix"
+              lazy-load="{{true}}"
+              bindtap="onPreviewImage"
+              data-url="{{item.displayUrl}}"
+            />
+            <view
+              wx:elif="{{item.msgType === 'voice'}}"
+              class="bubble bubble--voice {{item.fromRole === 'admin' ? 'bubble--voice--mine' : 'bubble--voice--other'}}"
+              style="width: {{item.voiceBarWidth}}rpx;"
+              bindtap="onPlayVoice"
+              data-url="{{item.displayUrl}}"
+              data-id="{{item.id}}"
+            >
+              <view class="voice-inner voice-inner--mine" wx:if="{{item.fromRole === 'admin'}}">
+                <text class="voice-sec">{{item.voiceSec}}″</text>
+                <image
+                  class="voice-icon {{playingVoiceId == item.id ? 'voice-icon--playing' : ''}}"
+                  src="/assets/chat-voice-icon.png"
+                  mode="aspectFit"
+                />
+              </view>
+              <view class="voice-inner" wx:else>
+                <image
+                  class="voice-icon voice-icon--other {{playingVoiceId == item.id ? 'voice-icon--playing' : ''}}"
+                  src="/assets/chat-voice-icon.png"
+                  mode="aspectFit"
+                />
+                <text class="voice-sec">{{item.voiceSec}}″</text>
+              </view>
+            </view>
+          </view>
+          <view class="avatar avatar--mine" wx:if="{{item.fromRole === 'admin'}}">
+            <text class="avatar-text">服</text>
+          </view>
         </view>
+        <view class="scroll-bottom-anchor" id="msg-bottom"></view>
+      </view>
+    </scroll-view>
+
+    <view wx:if="{{recording}}" class="record-overlay" catchtouchmove="noop">
+      <view class="record-panel {{recordWillCancel ? 'record-panel--cancel' : ''}}">
+        <view class="record-icon-wrap">
+          <image class="record-panel-icon" src="/assets/chat-voice-icon.png" mode="aspectFit" />
+        </view>
+        <text class="record-hint">{{recordWillCancel ? '松开手指，取消发送' : '手指上滑，取消发送'}}</text>
       </view>
     </view>
-    <view class="input-bar">
-      <view
-        class="left-action"
-        bindtap="toggleInputMode"
-      >
-        {{inputMode === 'voice' ? '⌨' : '🎤'}}
+
+    <view class="input-dock safe-bottom">
+      <view class="tool-btn" hover-class="tool-btn--hover" bindtap="toggleInputMode">
+        <image wx:if="{{inputMode !== 'voice'}}" class="tool-voice-icon" src="/assets/chat-voice-icon.png" mode="aspectFit" />
+        <text wx:else class="tool-icon-key">⌨</text>
       </view>
-      <input wx:if="{{inputMode !== 'voice'}}" class="input" placeholder="发送消息" value="{{inputText}}" bindinput="onInput" />
+      <block wx:if="{{inputMode !== 'voice'}}">
+        <input
+          class="text-field"
+          placeholder="发送消息"
+          placeholder-class="text-field-ph"
+          confirm-type="send"
+          confirm-hold="{{false}}"
+          value="{{inputText}}"
+          bindinput="onInput"
+          bindconfirm="onSend"
+        />
+      </block>
       <view
         wx:else
-        class="hold-to-talk {{recording ? 'is-recording' : ''}}"
+        class="press-talk {{recording ? 'press-talk--active' : ''}}"
         catchtouchstart="onRecordStart"
+        catchtouchmove="onRecordMove"
         catchtouchend="onRecordEnd"
         catchtouchcancel="onRecordCancel"
       >
-        {{recording ? '松开发送，滑动取消' : '按住 说话'}}
+        {{recording ? '松开 发送' : '按住 说话'}}
       </view>
-      <view class="right-action" bindtap="openMoreActions">+</view>
-      <button wx:if="{{inputMode !== 'voice' && !!inputText}}" class="send" loading="{{sending}}" bindtap="onSend">发送</button>
+      <view class="tool-btn tool-btn--plus" hover-class="tool-btn--hover" bindtap="openMoreActions">
+        <text class="tool-plus">+</text>
+      </view>
+      <button
+        wx:if="{{inputMode !== 'voice' && inputText}}"
+        class="send-btn"
+        loading="{{sending}}"
+        disabled="{{sending}}"
+        bindtap="onSend"
+      >
+        发送
+      </button>
     </view>
   </view>
 </view>

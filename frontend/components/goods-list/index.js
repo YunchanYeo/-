@@ -17,6 +17,11 @@ Component({
             type: Array,
             value: [],
         },
+        /** 2 = 两列网格（分类页）；默认 1 为原有双列大卡片换行 */
+        gridColumns: {
+            type: Number,
+            value: 1,
+        },
     },
     data: {
         independentID: '',

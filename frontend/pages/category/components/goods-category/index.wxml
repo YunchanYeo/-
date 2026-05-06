@@ -2,11 +2,14 @@
   <c-sidebar custom-class="custom-sidebar" bindchange="onParentChange" activeKey="{{activeKey}}">
     <c-sidebar-item wx:for="{{ category }}" wx:key="index" title="{{ item.name }}" disabled="{{ item.disabled }}" />
   </c-sidebar>
-  <view class="goods-category__right">
-    <c-tabbar wx:if="{{isSlotRight}}" activeKey="{{subActiveKey}}" bindchange="onChildChange" showMore>
+  <view class="goods-category__right {{useCustomRight ? 'goods-category__right--embed-scroll' : ''}}">
+    <c-tabbar wx:if="{{isSlotRight && !useCustomRight}}" activeKey="{{subActiveKey}}" bindchange="onChildChange" showMore>
       <slot />
     </c-tabbar>
-    <view wx:if="{{!isSlotRight}}" class="goods-category-normal">
+    <view wx:if="{{useCustomRight}}" class="goods-category-custom-right">
+      <slot name="right" />
+    </view>
+    <view wx:elif="{{!isSlotRight}}" class="goods-category-normal">
       <view
         class="goods-category-normal-item"
         wx:if="{{category[activeKey].children && category[activeKey].children.length > 0}}"

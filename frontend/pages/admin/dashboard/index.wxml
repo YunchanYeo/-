@@ -11,6 +11,7 @@
   <view class="tabs">
     <view class="tab {{activeTab==='orders'?'active':''}}" data-tab="orders" bind:tap="onTabChange">订单管理</view>
     <view class="tab {{activeTab==='products'?'active':''}}" data-tab="products" bind:tap="onTabChange">库存管理</view>
+    <view class="tab {{activeTab==='categories'?'active':''}}" data-tab="categories" bind:tap="onTabChange">分类管理</view>
   </view>
 
   <view wx:if="{{activeTab==='orders'}}">
@@ -19,7 +20,10 @@
       <view class="row"><text>买家:</text><text>{{item.nickName || '匿名用户'}} / {{item.phoneNumber || '-'}}</text></view>
       <view class="row"><text>状态:</text><text>{{item.orderStatusName}}</text></view>
       <view class="row"><text>运单:</text><text>{{item.logisticsCompanyName || '-'}} {{item.logisticsNo || ''}}</text></view>
-      <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">填写/更新运单</t-button>
+      <view class="btn-row">
+        <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">填写/更新运单</t-button>
+        <t-button size="small" variant="outline" bind:tap="onViewLogisticsTrace" data-item="{{item}}">查看轨迹</t-button>
+      </view>
     </view>
   </view>
 
@@ -79,6 +83,25 @@
         <t-button size="small" variant="outline" bind:tap="gotoEditProduct" data-id="{{item.id}}">编辑商品</t-button>
       </view>
     </view>
+  </view>
+
+  <view wx:if="{{activeTab==='categories'}}">
+    <view class="card form-card">
+      <view class="form-title">商品分类</view>
+      <view class="hint-text">以下分类会显示在客户端「分类」页侧边栏；新增或改名后，上架商品时选择对应分类即可。</view>
+      <t-button theme="primary" block bind:tap="onAddCategory">新增分类</t-button>
+    </view>
+    <view class="card" wx:for="{{adminCategories}}" wx:key="id" wx:for-item="item">
+      <view class="row category-row">
+        <text class="category-name">{{item.name}}</text>
+        <view class="btn-row category-actions">
+          <t-button size="small" variant="outline" bind:tap="onEditCategory" data-item="{{item}}">编辑</t-button>
+          <t-button size="small" variant="outline" bind:tap="onDeleteCategory" data-item="{{item}}">删除</t-button>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{adminCategories.length===0 && !categoriesLoading}}" class="card muted-card">暂无分类，请点击「新增分类」。</view>
+    <view wx:if="{{categoriesLoading}}" class="card muted-card">加载中…</view>
   </view>
 </view>
 <t-toast id="t-toast" />

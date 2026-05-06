@@ -1,21 +1,12 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchCartGroupData(params) {
     const { delay } = require('../_utils/delay');
     const { genCartGroupData } = require('../../model/cart');
     return delay().then(() => genCartGroupData(params));
 }
 const CART_STORAGE_KEY = 'local.cart.items';
-function normalizeImageUrl(image) {
-    if (!image)
-        return '';
-    if (/^https?:\/\//i.test(image)) {
-        return String(image).replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, config.apiBaseUrl);
-    }
-    if (String(image).startsWith('/'))
-        return `${config.apiBaseUrl}${image}`;
-    return `${config.apiBaseUrl}/${image}`;
-}
 function readLocalCartItems() {
     const items = wx.getStorageSync(CART_STORAGE_KEY);
     return Array.isArray(items) ? items : [];
@@ -33,9 +24,9 @@ function toCartGroupData(items) {
     const goodsPromotionList = items.map((item) => ({
         title: item.title,
         goodsName: item.title,
-        thumb: normalizeImageUrl(item.thumb),
-        primaryImage: normalizeImageUrl(item.thumb),
-        image: normalizeImageUrl(item.thumb),
+        thumb: normalizeGoodsImageUrl(item.thumb),
+        primaryImage: normalizeGoodsImageUrl(item.thumb),
+        image: normalizeGoodsImageUrl(item.thumb),
         price: item.price,
         settlePrice: item.price,
         quantity: item.quantity,
@@ -96,7 +87,7 @@ async function syncCartItemsWithServer(items) {
                 // 商品已下架或不存在时标记为无库存，避免继续下单。
                 return { ...item, stockQuantity: 0 };
             }
-            const latestThumb = normalizeImageUrl(p.image || item.thumb || '');
+            const latestThumb = normalizeGoodsImageUrl(p.image || item.thumb || '');
             return {
                 ...item,
                 title: p.title || item.title || '商品',
