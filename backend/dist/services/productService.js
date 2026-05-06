@@ -1,39 +1,54 @@
 import { z } from 'zod';
+import { nameVariantsForCategoryFilter } from '../categoryLegacy';
+function resolveCategoryId(db, categoryName) {
+    const n = String(categoryName ?? '').trim();
+    if (!n)
+        return null;
+    const row = db.prepare(`SELECT id FROM product_categories WHERE TRIM(name) = ? LIMIT 1`).get(n);
+    return row?.id ?? null;
+}
 export function createProductService({ db }) {
+    const productColumns = `id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, categoryId, status, createdAt, updatedAt`;
     function publicProducts(req, res) {
-        const { category } = (req.query || {});
-        const rows = category
-            ? db
-                .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-             FROM products WHERE status = ? AND category = ? ORDER BY id DESC`)
-                .all('ON', String(category))
-            : db
-                .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-             FROM products WHERE status = ? ORDER BY id DESC`)
-                .all('ON');
+        const { category: categoryRaw } = (req.query || {});
+        const category = categoryRaw != null && categoryRaw !== '' ? String(categoryRaw).trim() : '';
+        if (category) {
+            const cid = resolveCategoryId(db, category);
+            const variants = nameVariantsForCategoryFilter(category);
+            const inList = variants.length ? variants : [category];
+            const placeholders = inList.map(() => '?').join(', ');
+            const rows = cid
+                ? db
+                    .prepare(`SELECT ${productColumns}
+               FROM products WHERE status = ? AND (
+                 (categoryId IS NOT NULL AND categoryId = ?)
+                 OR TRIM(COALESCE(category,'')) IN (${placeholders})
+               ) ORDER BY id DESC`)
+                    .all('ON', cid, ...inList)
+                : db
+                    .prepare(`SELECT ${productColumns}
+               FROM products WHERE status = ? AND TRIM(COALESCE(category,'')) IN (${placeholders}) ORDER BY id DESC`)
+                    .all('ON', ...inList);
+            res.json({ ok: true, data: rows });
+            return;
+        }
+        const rows = db
+            .prepare(`SELECT ${productColumns} FROM products WHERE status = ? ORDER BY id DESC`)
+            .all('ON');
         res.json({ ok: true, data: rows });
     }
     function publicProductDetail(req, res) {
-        const row = db
-            .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-         FROM products WHERE id = ?`)
-            .get(req.params.id);
+        const row = db.prepare(`SELECT ${productColumns} FROM products WHERE id = ?`).get(req.params.id);
         if (!row)
             return res.status(404).json({ ok: false, message: 'Product not found' });
         res.json({ ok: true, data: row });
     }
     function adminProducts(req, res) {
-        const rows = db
-            .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-         FROM products ORDER BY id DESC`)
-            .all();
+        const rows = db.prepare(`SELECT ${productColumns} FROM products ORDER BY id DESC`).all();
         return res.json({ ok: true, data: rows });
     }
     function adminProductDetail(req, res) {
-        const row = db
-            .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-         FROM products WHERE id = ?`)
-            .get(req.params.id);
+        const row = db.prepare(`SELECT ${productColumns} FROM products WHERE id = ?`).get(req.params.id);
         if (!row)
             return res.status(404).json({ ok: false, message: 'Product not found' });
         return res.json({ ok: true, data: row });
@@ -56,14 +71,13 @@ export function createProductService({ db }) {
         if (!parsed.success)
             return res.status(400).json({ ok: false, message: 'Invalid product body', issues: parsed.error.issues });
         const d = parsed.data;
+        const catStr = (d.category ?? '').trim();
+        const categoryId = resolveCategoryId(db, catStr);
         const result = db
-            .prepare(`INSERT INTO products (title, price, originPrice, stock, image, description, brand, company, category, soldNum, status, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
-            .run(d.title, d.price, d.originPrice ?? null, d.stock, d.image ?? '', d.description ?? '', d.brand ?? '', d.company ?? '', d.category ?? '', d.soldNum ?? 0, d.status ?? 'ON');
-        const created = db
-            .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-         FROM products WHERE id = ?`)
-            .get(result.lastInsertRowid);
+            .prepare(`INSERT INTO products (title, price, originPrice, stock, image, description, brand, company, category, categoryId, soldNum, status, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+            .run(d.title, d.price, d.originPrice ?? null, d.stock, d.image ?? '', d.description ?? '', d.brand ?? '', d.company ?? '', catStr, categoryId, d.soldNum ?? 0, d.status ?? 'ON');
+        const created = db.prepare(`SELECT ${productColumns} FROM products WHERE id = ?`).get(result.lastInsertRowid);
         return res.json({ ok: true, data: created });
     }
     function adminUpdateProduct(req, res) {
@@ -86,14 +100,13 @@ export function createProductService({ db }) {
         if (!exists)
             return res.status(404).json({ ok: false, message: 'Product not found' });
         const d = parsed.data;
+        const catStr = (d.category ?? '').trim();
+        const categoryId = resolveCategoryId(db, catStr);
         db.prepare(`UPDATE products
-       SET title=?, price=?, originPrice=?, stock=?, image=?, description=?, brand=?, company=?, category=?, status=?,
+       SET title=?, price=?, originPrice=?, stock=?, image=?, description=?, brand=?, company=?, category=?, categoryId=?, status=?,
            updatedAt=datetime('now')
-       WHERE id=?`).run(d.title, d.price, d.originPrice === undefined ? null : d.originPrice, d.stock, d.image ?? '', d.description ?? '', d.brand ?? '', d.company ?? '', d.category ?? '', d.status ?? 'ON', req.params.id);
-        const updated = db
-            .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-         FROM products WHERE id = ?`)
-            .get(req.params.id);
+       WHERE id=?`).run(d.title, d.price, d.originPrice === undefined ? null : d.originPrice, d.stock, d.image ?? '', d.description ?? '', d.brand ?? '', d.company ?? '', catStr, categoryId, d.status ?? 'ON', req.params.id);
+        const updated = db.prepare(`SELECT ${productColumns} FROM products WHERE id = ?`).get(req.params.id);
         return res.json({ ok: true, data: updated });
     }
     function adminUpdateProductStock(req, res) {
@@ -105,10 +118,7 @@ export function createProductService({ db }) {
         if (!exists)
             return res.status(404).json({ ok: false, message: 'Product not found' });
         db.prepare(`UPDATE products SET stock = ?, updatedAt = datetime('now') WHERE id = ?`).run(parsed.data.stock, req.params.id);
-        const updated = db
-            .prepare(`SELECT id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, status, createdAt, updatedAt
-         FROM products WHERE id = ?`)
-            .get(req.params.id);
+        const updated = db.prepare(`SELECT ${productColumns} FROM products WHERE id = ?`).get(req.params.id);
         return res.json({ ok: true, data: updated });
     }
     return {

@@ -1,6 +1,7 @@
 import { config } from '../../config/index';
 import { mockIp, mockReqId } from '../../utils/mock';
 import { requestJson } from '../_utils/http';
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchSettleDetail(params) {
     const { delay } = require('../_utils/delay');
     const { genSettleDetail } = require('../../model/order/orderConfirm');
@@ -22,7 +23,8 @@ async function realFetchSettleDetail(params = {}) {
         }
         const quantity = Number(goods.quantity || 1);
         const settlePrice = Number(goods.price ?? goods.settlePrice ?? product?.price ?? 0);
-        const image = goods.primaryImage || goods.thumb || goods.image || product?.image || '';
+        const imageRaw = goods.primaryImage || goods.thumb || goods.image || product?.image || '';
+        const image = normalizeGoodsImageUrl(imageRaw);
         const goodsName = goods.goodsName || goods.title || product?.title || '商品';
         const skuSpecLst = Array.isArray(goods.specInfo) ? goods.specInfo.map((spec) => ({ specValue: spec.specValue || '' })) : [];
         return {
@@ -117,6 +119,42 @@ export function dispatchCommitPay(params) {
         success: true,
     }));
 }
+/**
+ * 结算接口返回的 `storeGoodsList` 扁平化为提交订单用的 goodsRequestList，必须带齐 `primaryImage/image/thumb`（与购物车原始结构解耦）。
+ * @param {Record<string, unknown>} settleData `fetchSettleDetail` 的 `data` 对象（含 storeGoodsList）
+ * @returns {Record<string, unknown>[]}
+ */
+export function deriveGoodsRequestListFromSettleDetail(settleData) {
+    const data = settleData && typeof settleData === 'object' ? settleData : {};
+    const stores = Array.isArray(data.storeGoodsList) ? data.storeGoodsList : [];
+    /** @type {Record<string, unknown>[]} */
+    const list = [];
+    stores.forEach((store) => {
+        const skus = Array.isArray(store.skuDetailVos) ? store.skuDetailVos : [];
+        skus.forEach((sku) => {
+            const img = String(sku.image || '').trim();
+            list.push({
+                storeId: store.storeId ?? sku.storeId,
+                storeName: store.storeName || sku.storeName || '默认门店',
+                skuId: sku.skuId,
+                spuId: sku.spuId,
+                quantity: sku.quantity,
+                price: sku.settlePrice,
+                settlePrice: sku.settlePrice,
+                goodsName: sku.goodsName,
+                title: sku.goodsName,
+                primaryImage: img,
+                image: img,
+                thumb: img,
+                specInfo: Array.isArray(sku.skuSpecLst)
+                    ? sku.skuSpecLst.map((x) => ({ specValue: x.specValue || '' }))
+                    : [],
+            });
+        });
+    });
+    return list;
+}
+
 export function dispatchSupplementInvoice() {
     if (config.useMock) {
         const { delay } = require('../_utils/delay');

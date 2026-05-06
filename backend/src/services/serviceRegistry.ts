@@ -11,7 +11,7 @@ import { createSupportService } from './supportService';
 
 export function createServices(ctx: RequestContext) {
   const health = createHealthService();
-  const category = createCategoryService();
+  const category = createCategoryService({ db: ctx.db });
   const auth = createAuthService({ db: ctx.db, wechatAppId: ctx.wechatAppId, wechatAppSecret: ctx.wechatAppSecret });
   const product = createProductService({ db: ctx.db });
   const admin = createAdminService({ db: ctx.db, uploadsDir: ctx.uploadsDir });

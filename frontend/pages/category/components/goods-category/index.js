@@ -22,6 +22,10 @@ Component({
             type: Number,
             value: 3,
         },
+        useCustomRight: {
+            type: Boolean,
+            value: false,
+        },
     },
     data: {
         activeKey: 0,
@@ -37,13 +41,20 @@ Component({
     },
     methods: {
         onParentChange(event) {
-            this.setActiveKey(event.detail.index, 0).then(() => {
-                this.triggerEvent('change', [this.data.activeKey, this.data.subActiveKey]);
+            const idx = typeof event?.detail?.index === 'number' ? event.detail.index : 0;
+            this.setActiveKey(idx, 0).then(() => {
+                this.triggerEvent('change', {
+                    activeKey: this.data.activeKey,
+                    subActiveKey: this.data.subActiveKey,
+                });
             });
         },
         onChildChange(event) {
             this.setActiveKey(this.data.activeKey, event.detail.index).then(() => {
-                this.triggerEvent('change', [this.data.activeKey, this.data.subActiveKey]);
+                this.triggerEvent('change', {
+                    activeKey: this.data.activeKey,
+                    subActiveKey: this.data.subActiveKey,
+                });
             });
         },
         changCategory(event) {

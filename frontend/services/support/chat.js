@@ -38,14 +38,23 @@ function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) 
  */
 export function normalizeChatMediaUrl(url) {
   if (!url) return '';
+  const s = String(url).trim();
   const base = config.apiBaseUrl.replace(/\/+$/, '');
+  if (s.startsWith('/')) {
+    return `${base}${s}`;
+  }
   try {
-    const u = new URL(url);
+    const u = new URL(s);
     if (u.hostname === '127.0.0.1' || u.hostname === 'localhost') {
       return `${base}${u.pathname}${u.search}`;
     }
-  } catch (_) {}
-  return url;
+  } catch (_) {
+    /* 非绝对 URL 时当作相对路径 */
+    if (!/^https?:\/\//i.test(s)) {
+      return `${base}/${s.replace(/^\/+/, '')}`;
+    }
+  }
+  return s;
 }
 
 /**
@@ -57,14 +66,17 @@ export function enrichSupportMessage(m) {
   const displayUrl =
     msgType === 'image' || msgType === 'voice' ? normalizeChatMediaUrl(String(m.content || '')) : '';
   let voiceSec = 0;
+  let voiceBarWidth = 0;
   if (msgType === 'voice') {
     if (m.meta && typeof /** @type {{ durationMs?: number }} */ (m.meta).durationMs === 'number') {
       voiceSec = Math.max(1, Math.round(/** @type {{ durationMs?: number }} */ (m.meta).durationMs / 1000));
     } else {
       voiceSec = 1;
     }
+    /* 微信语音条：时长越长条越宽（长语音接近屏宽） */
+    voiceBarWidth = Math.min(560, Math.max(148, 120 + voiceSec * 32));
   }
-  return { ...m, msgType, displayUrl, voiceSec };
+  return { ...m, msgType, displayUrl, voiceSec, voiceBarWidth };
 }
 
 /**

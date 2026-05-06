@@ -1,4 +1,4 @@
-import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminProductStock, createAdminProduct, uploadAdminImage, } from '../../../services/admin/adminApi';
+import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/index';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
@@ -30,6 +30,8 @@ Page({
             status: 'ON',
         },
         categoriesTree: [],
+        adminCategories: [],
+        categoriesLoading: false,
     },
     onLoad() {
         if (!getAdminToken()) {
@@ -62,33 +64,22 @@ Page({
         });
     },
     async pickCategory() {
-        const tree = Array.isArray(this.data.categoriesTree) ? this.data.categoriesTree : [];
-        if (tree.length === 0) {
+        const list = Array.isArray(this.data.categoriesTree) ? this.data.categoriesTree : [];
+        if (list.length === 0) {
             showMessage('分类数据加载中，请稍后重试');
             return;
         }
-        const pickFromList = (list) => new Promise((resolve) => {
+        const selected = await new Promise((resolve) => {
             wx.showActionSheet({
-                itemList: list.map((x) => x.name),
+                itemList: list.map((x) => String(x.name || '')),
                 success: (res) => resolve(list[res.tapIndex] || null),
                 fail: () => resolve(null),
             });
         });
-        /**
-         * 逐层选择分类，支持 1~N 层；如果没有更深层节点，当前选择即为最终分类。
-         */
-        let currentList = tree;
-        let selected = null;
-        while (Array.isArray(currentList) && currentList.length > 0) {
-            selected = await pickFromList(currentList);
-            if (!selected)
-                return;
-            const nextList = Array.isArray(selected.children) ? selected.children : [];
-            if (nextList.length === 0)
-                break;
-            currentList = nextList;
+        if (!selected) {
+            return;
         }
-        this.setData({ 'productForm.category': selected?.name || '' });
+        this.setData({ 'productForm.category': selected.name || '' });
     },
     onUnload() {
         if (this._memoryWarningHandler && typeof wx.offMemoryWarning === 'function') {
@@ -109,7 +100,105 @@ Page({
         }
     },
     onTabChange(e) {
-        this.setData({ activeTab: e.currentTarget.dataset.tab });
+        const tab = e.currentTarget.dataset.tab;
+        this.setData({ activeTab: tab });
+        if (tab === 'categories') {
+            this.loadAdminCategories();
+        }
+    },
+    async loadAdminCategories() {
+        this.setData({ categoriesLoading: true });
+        try {
+            const rows = await fetchAdminCategories();
+            this.setData({ adminCategories: Array.isArray(rows) ? rows : [] });
+        }
+        catch (e) {
+            showMessage(e?.message || '分类列表加载失败', 'error');
+        }
+        finally {
+            this.setData({ categoriesLoading: false });
+        }
+    },
+    async onAddCategory() {
+        const modal = await new Promise((resolve) => {
+            wx.showModal({
+                title: '新增分类',
+                editable: true,
+                placeholderText: '例如：甜品',
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!modal.confirm)
+            return;
+        const name = String(modal.content || '').trim();
+        if (!name) {
+            showMessage('请输入分类名称');
+            return;
+        }
+        try {
+            await createAdminCategory({ name });
+            showMessage('已新增分类', 'success');
+            await this.loadAdminCategories();
+            this.loadCategories();
+        }
+        catch (e) {
+            showMessage(e?.message || '新增失败', 'error');
+        }
+    },
+    async onEditCategory(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        const modal = await new Promise((resolve) => {
+            wx.showModal({
+                title: '修改分类名称',
+                editable: true,
+                placeholderText: item.name || '',
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!modal.confirm)
+            return;
+        const name = String(modal.content || '').trim();
+        if (!name) {
+            showMessage('请输入分类名称');
+            return;
+        }
+        try {
+            await updateAdminCategory(item.id, { name });
+            showMessage('已保存', 'success');
+            await this.loadAdminCategories();
+            this.loadCategories();
+        }
+        catch (e) {
+            showMessage(e?.message || '保存失败', 'error');
+        }
+    },
+    async onDeleteCategory(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        const confirm = await new Promise((resolve) => {
+            wx.showModal({
+                title: '删除分类',
+                content: `确定删除「${item.name}」？若有商品使用该分类将无法删除。`,
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!confirm.confirm)
+            return;
+        try {
+            await deleteAdminCategory(item.id);
+            showMessage('已删除', 'success');
+            await this.loadAdminCategories();
+            this.loadCategories();
+        }
+        catch (e) {
+            showMessage(e?.message || '删除失败', 'error');
+        }
     },
     onProductInput(e) {
         const { key } = e.currentTarget.dataset;
@@ -251,6 +340,16 @@ Page({
         catch (e) {
             showMessage(e?.message || '更新失败', 'error');
         }
+    },
+    onViewLogisticsTrace(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.logisticsNo) {
+            showMessage('请先填写运单号');
+            return;
+        }
+        wx.navigateTo({
+            url: `/pages/admin/logistics-trace/index?orderNo=${encodeURIComponent(item.orderNo)}`,
+        });
     },
     async onFillShipping(e) {
         const item = e.currentTarget.dataset.item;

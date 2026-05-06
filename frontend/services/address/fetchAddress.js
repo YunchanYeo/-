@@ -1,6 +1,5 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
-import { getPrefetchedUserData } from '../auth/session';
 function mockFetchDeliveryAddress(id) {
     const { delay } = require('../_utils/delay');
     const { genAddress } = require('../../model/address');
@@ -42,11 +41,7 @@ function mockFetchDeliveryAddressList(len = 0) {
 export function fetchDeliveryAddressList(len = 10) {
     if (config.useMock)
         return mockFetchDeliveryAddressList(len);
-    const prefetched = getPrefetchedUserData();
-    const rowsPromise = Array.isArray(prefetched.addresses) && prefetched.addresses.length > 0
-        ? Promise.resolve(prefetched.addresses)
-        : requestJson('/api/addresses', { method: 'GET' });
-    return rowsPromise.then((rows) => rows.slice(0, len).map((address) => ({
+    return requestJson('/api/addresses', { method: 'GET' }).then((rows) => (Array.isArray(rows) ? rows : []).slice(0, len).map((address) => ({
         id: String(address.id),
         addressId: String(address.id),
         name: address.name,

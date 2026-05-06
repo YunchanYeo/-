@@ -4,6 +4,7 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bootstrapAdminIfDbEmpty, syncAdminPasswordFromEnvOnStart } from './adminBootstrap';
 import { getDb } from './db';
 import { createServices } from './services/serviceRegistry';
 import { createApiController } from './controllers/apiController';
@@ -20,6 +21,8 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
 
 const db = getDb();
+await bootstrapAdminIfDbEmpty(db);
+await syncAdminPasswordFromEnvOnStart(db);
 const paymentMockMode = process.env.WECHAT_PAY_MOCK !== 'false';
 const wechatAppId = process.env.WECHAT_APPID || '';
 const wechatAppSecret = process.env.WECHAT_APPSECRET || '';
@@ -38,3 +41,4 @@ const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.listen(port, () => {
   console.log(`[backend] listening on http://127.0.0.1:${port}`);
 });
+

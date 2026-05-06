@@ -48,6 +48,7 @@ export function createApiController(services: Services) {
     adminUpdatePassword: services.admin.adminUpdatePassword as RequestHandler,
     adminUpdateUsername: services.admin.adminUpdateUsername as RequestHandler,
     adminOrders: services.admin.adminOrders as RequestHandler,
+    adminOrderLogisticsTrace: services.admin.adminOrderLogisticsTrace as RequestHandler,
     adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping as RequestHandler,
     adminProducts: services.product.adminProducts as RequestHandler,
     adminProductDetail: services.product.adminProductDetail as RequestHandler,
@@ -55,5 +56,10 @@ export function createApiController(services: Services) {
     adminUpdateProduct: services.product.adminUpdateProduct as RequestHandler,
     adminUpdateProductStock: services.product.adminUpdateProductStock as RequestHandler,
     adminUploadImage: services.admin.adminUploadImage as RequestHandler,
+
+    adminListCategories: services.category.adminListCategories as RequestHandler,
+    adminCreateCategory: services.category.adminCreateCategory as RequestHandler,
+    adminUpdateCategory: services.category.adminUpdateCategory as RequestHandler,
+    adminDeleteCategory: services.category.adminDeleteCategory as RequestHandler,
   };
 }

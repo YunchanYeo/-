@@ -161,3 +161,52 @@
   font-size: 22rpx;
   color: #999;
 }
+
+/* 分类页等：两列紧凑卡片 */
+.goods-card--grid .goods-card__main {
+  width: 100% !important;
+  max-width: 100%;
+  margin-bottom: 0;
+  align-items: stretch;
+}
+
+.goods-card--grid .goods-card__thumb {
+  width: 100% !important;
+  height: 280rpx !important;
+}
+
+.goods-card--grid .goods-card__body {
+  width: 100% !important;
+  padding: 12rpx 12rpx 14rpx;
+  box-sizing: border-box;
+}
+
+.goods-card--grid .goods-card__title {
+  height: auto;
+  min-height: 64rpx;
+  max-height: 72rpx;
+  font-size: 24rpx;
+  line-height: 32rpx;
+}
+
+.goods-card--grid .goods-card__desc {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  line-height: 28rpx;
+}
+
+.goods-card--grid .goods-card__category {
+  font-size: 18rpx;
+  line-height: 26rpx;
+}
+
+.goods-card--grid .goods-card__down {
+  margin-top: 6rpx;
+  padding-right: 52rpx;
+  min-height: 44rpx;
+}
+
+.goods-card--grid .goods-card__stock {
+  font-size: 20rpx;
+  margin-top: 6rpx;
+}

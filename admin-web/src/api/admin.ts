@@ -1,0 +1,250 @@
+import { adminJson } from './client';
+
+export type AdminMe = { id: number; username: string };
+
+export type ProductRow = {
+  id: number;
+  title: string;
+  price: number;
+  originPrice: number | null;
+  stock: number;
+  image: string;
+  description: string;
+  brand: string;
+  company: string;
+  soldNum: number;
+  category: string;
+  categoryId: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CategoryRow = {
+  id: number;
+  name: string;
+  sortOrder: number;
+  thumbnail: string | null;
+  createdAt: string;
+};
+
+export type OrderRow = {
+  id: number;
+  orderNo: string;
+  userId: number;
+  totalAmount: number;
+  paymentAmount: number;
+  refundAmount: number;
+  refundStatus: string | null;
+  orderStatus: number;
+  orderStatusName: string;
+  items: unknown[];
+  address: Record<string, unknown>;
+  createdAt: string;
+  logisticsCompanyCode: string;
+  logisticsCompanyName: string;
+  logisticsNo: string;
+  logisticsRemark: string;
+  shippedAt: string | null;
+  nickName: string | null;
+  phoneNumber: string | null;
+};
+
+export function loginAdmin(body: { username: string; password: string }) {
+  return adminJson<{ token: string; admin: AdminMe }>('/api/admin/login', {
+    method: 'POST',
+    body,
+  });
+}
+
+export function fetchAdminMe(token: string) {
+  return adminJson<AdminMe>('/api/admin/me', { token });
+}
+
+export function fetchProducts(token: string) {
+  return adminJson<ProductRow[]>('/api/admin/products', { token });
+}
+
+export function fetchProduct(token: string, id: number) {
+  return adminJson<ProductRow>(`/api/admin/products/${id}`, { token });
+}
+
+export function updateProductStock(token: string, id: number, stock: number) {
+  return adminJson<ProductRow>(`/api/admin/products/${id}/stock`, {
+    method: 'PUT',
+    token,
+    body: { stock },
+  });
+}
+
+export type ProductPayload = {
+  title: string;
+  price: number;
+  originPrice?: number | null;
+  stock: number;
+  image?: string;
+  description?: string;
+  brand?: string;
+  company?: string;
+  category?: string;
+  status?: 'ON' | 'OFF';
+};
+
+export function createProduct(token: string, payload: ProductPayload) {
+  return adminJson<ProductRow>('/api/admin/products', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export function updateProduct(token: string, id: number, payload: ProductPayload) {
+  return adminJson<ProductRow>(`/api/admin/products/${id}`, {
+    method: 'PUT',
+    token,
+    body: payload,
+  });
+}
+
+export function uploadAdminImage(
+  token: string,
+  file: { fileName: string; mimeType: string; base64Data: string },
+) {
+  return adminJson<{ imageUrl: string }>('/api/admin/upload-image', {
+    method: 'POST',
+    token,
+    body: file,
+  });
+}
+
+export function fetchOrders(token: string) {
+  return adminJson<OrderRow[]>('/api/admin/orders', { token });
+}
+
+export function updateShipping(
+  token: string,
+  orderNo: string,
+  body: {
+    logisticsCompanyCode?: string;
+    logisticsCompanyName: string;
+    logisticsNo: string;
+    logisticsRemark?: string;
+  },
+) {
+  return adminJson<unknown>(`/api/admin/orders/${encodeURIComponent(orderNo)}/shipping`, {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function fetchCategories(token: string) {
+  return adminJson<CategoryRow[]>('/api/admin/categories', { token });
+}
+
+export function createCategory(
+  token: string,
+  body: { name: string; thumbnail?: string; sortOrder?: number },
+) {
+  return adminJson<CategoryRow>('/api/admin/categories', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function updateCategory(
+  token: string,
+  id: number,
+  body: { name?: string; thumbnail?: string | null; sortOrder?: number },
+) {
+  return adminJson<CategoryRow>(`/api/admin/categories/${id}`, {
+    method: 'PUT',
+    token,
+    body,
+  });
+}
+
+export function deleteCategory(token: string, id: number) {
+  return adminJson<unknown>(`/api/admin/categories/${id}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function fetchLogisticsTrace(token: string, orderNo: string) {
+  return adminJson<unknown>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/logistics-trace`,
+    { token },
+  );
+}
+
+// —— 客服（与小程序管理端同源 API / DB）——
+
+export type SupportConversationRow = {
+  userId: number;
+  nickName: string | null;
+  avatarUrl: string | null;
+  lastMessageId: number;
+  unreadCount: number;
+};
+
+export type SupportMessageRow = {
+  id: number;
+  userId: number;
+  fromRole: 'user' | 'admin';
+  msgType?: string;
+  content: string;
+  meta?: { durationMs?: number } | null;
+  adminRead: number;
+  userRead: number;
+  createdAt: string;
+};
+
+export function fetchSupportConversations(token: string) {
+  return adminJson<SupportConversationRow[]>('/api/admin/support/conversations', {
+    token,
+    timeoutMs: 15000,
+  });
+}
+
+export function fetchSupportMessages(token: string, userId: number) {
+  return adminJson<SupportMessageRow[]>(`/api/admin/support/messages/${userId}`, {
+    token,
+    timeoutMs: 15000,
+  });
+}
+
+export function postSupportReply(
+  token: string,
+  userId: number,
+  body: {
+    msgType?: 'text' | 'image' | 'voice';
+    content: string;
+    meta?: { durationMs?: number };
+  },
+) {
+  return adminJson<SupportMessageRow>(`/api/admin/support/messages/${userId}`, {
+    method: 'POST',
+    token,
+    body,
+    timeoutMs: 30000,
+  });
+}
+
+export function uploadAdminSupportMedia(
+  token: string,
+  payload: {
+    kind: 'image' | 'voice';
+    fileName?: string;
+    mimeType?: string;
+    base64Data: string;
+  },
+) {
+  return adminJson<{ url: string }>('/api/admin/support/upload-media', {
+    method: 'POST',
+    token,
+    body: payload,
+    timeoutMs: 120000,
+  });
+}

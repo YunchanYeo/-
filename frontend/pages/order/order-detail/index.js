@@ -1,6 +1,7 @@
 import { formatTime } from '../../../utils/util';
 import { OrderStatus, LogisticsIconMap } from '../config';
 import { fetchBusinessTime, fetchOrderDetail } from '../../../services/order/orderDetail';
+import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { getAddressPromise } from '../../../services/address/list';
 Page({
@@ -94,7 +95,7 @@ Page({
                 logisticsNo: order.logisticsVO.logisticsNo,
                 goodsList: (order.orderItemVOs || []).map((goods) => Object.assign({}, goods, {
                     id: goods.id,
-                    thumb: goods.goodsPictureUrl,
+                    thumb: normalizeGoodsImageUrl(goods.goodsPictureUrl || ''),
                     title: goods.goodsName,
                     skuId: goods.skuId,
                     spuId: goods.spuId,

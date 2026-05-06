@@ -79,33 +79,22 @@ Page({
         this.setData({ [`form.${key}`]: e.detail.value });
     },
     async pickCategory() {
-        const tree = Array.isArray(this.data.categoriesTree) ? this.data.categoriesTree : [];
-        if (tree.length === 0) {
+        const list = Array.isArray(this.data.categoriesTree) ? this.data.categoriesTree : [];
+        if (list.length === 0) {
             showMessage('分类数据加载中，请稍后重试');
             return;
         }
-        const pickFromList = (list) => new Promise((resolve) => {
+        const selected = await new Promise((resolve) => {
             wx.showActionSheet({
-                itemList: list.map((x) => x.name),
+                itemList: list.map((x) => String(x.name || '')),
                 success: (res) => resolve(list[res.tapIndex] || null),
                 fail: () => resolve(null),
             });
         });
-        /**
-         * 逐层选择分类，支持 1~N 层；如果当前层没有子节点，则直接使用该层作为最终分类。
-         */
-        let currentList = tree;
-        let selected = null;
-        while (Array.isArray(currentList) && currentList.length > 0) {
-            selected = await pickFromList(currentList);
-            if (!selected)
-                return;
-            const nextList = Array.isArray(selected.children) ? selected.children : [];
-            if (nextList.length === 0)
-                break;
-            currentList = nextList;
+        if (!selected) {
+            return;
         }
-        this.setData({ 'form.category': selected?.name || '' });
+        this.setData({ 'form.category': selected.name || '' });
     },
     async onPickImage() {
         const action = await new Promise((resolve) => {

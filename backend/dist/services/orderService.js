@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
+import { hydrateOrderItemsWithProduct } from './orderItemImages';
 function genTradeNo() {
     const ts = Date.now();
     const rand = crypto.randomInt(100000, 999999);
@@ -22,7 +23,8 @@ export function createOrderService({ db, paymentMockMode }) {
         const tradeNo = genTradeNo();
         const totalAmount = parsed.data.totalAmount ?? 0;
         const paymentMethod = parsed.data.paymentMethod || 'requestPayment';
-        const orderItems = parsed.data.goodsRequestList ?? [];
+        const orderItemsRaw = parsed.data.goodsRequestList ?? [];
+        const orderItems = hydrateOrderItemsWithProduct(db, orderItemsRaw);
         const orderAddress = req.body?.userAddressReq ?? {};
         if (userId) {
             db.prepare(`INSERT INTO orders (
@@ -68,20 +70,31 @@ export function createOrderService({ db, paymentMockMode }) {
          WHERE userId = ?
          ORDER BY id DESC`)
             .all(userId);
-        const data = rows.map((row) => ({ ...row, items: JSON.parse(row.itemsJson || '[]'), address: JSON.parse(row.addressJson || '{}') }));
+        const data = rows.map((row) => ({
+            ...row,
+            items: hydrateOrderItemsWithProduct(db, JSON.parse(row.itemsJson || '[]')),
+            address: JSON.parse(row.addressJson || '{}'),
+        }));
         return res.json({ ok: true, data });
     }
     function ordersCount(req, res) {
         const userId = req.user?.id;
-        const total = db.prepare(`SELECT COUNT(*) as c FROM orders WHERE userId = ?`).get(userId)?.c ?? 0;
+        const c = (sql) => (db.prepare(sql).get(userId)?.n ?? 0);
+        const total = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ?`);
+        const pendingPay = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 5`);
+        const pendingDelivery = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 10`);
+        const pendingReceipt = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus IN (20, 40)`);
+        const completed = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 50`);
+        const afterSale = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND refundStatus = 1`);
         return res.json({
             ok: true,
             data: [
                 { tabType: -1, orderNum: total },
-                { tabType: 10, orderNum: total },
-                { tabType: 20, orderNum: 0 },
-                { tabType: 30, orderNum: 0 },
-                { tabType: 40, orderNum: 0 },
+                { tabType: 5, orderNum: pendingPay },
+                { tabType: 10, orderNum: pendingDelivery },
+                { tabType: 40, orderNum: pendingReceipt },
+                { tabType: 50, orderNum: completed },
+                { tabType: 0, orderNum: afterSale },
             ],
         });
     }
@@ -97,7 +110,14 @@ export function createOrderService({ db, paymentMockMode }) {
         if (!row)
             return res.status(404).json({ ok: false, message: 'Order not found' });
         const r = row;
-        return res.json({ ok: true, data: { ...r, items: JSON.parse(r.itemsJson || '[]'), address: JSON.parse(r.addressJson || '{}') } });
+        return res.json({
+            ok: true,
+            data: {
+                ...r,
+                items: hydrateOrderItemsWithProduct(db, JSON.parse(r.itemsJson || '[]')),
+                address: JSON.parse(r.addressJson || '{}'),
+            },
+        });
     }
     function refundOrder(req, res) {
         const userId = req.user?.id;
@@ -127,7 +147,11 @@ export function createOrderService({ db, paymentMockMode }) {
             .get(order.id);
         return res.json({
             ok: true,
-            data: { ...updated, items: JSON.parse(updated.itemsJson || '[]'), address: JSON.parse(updated.addressJson || '{}') },
+            data: {
+                ...updated,
+                items: hydrateOrderItemsWithProduct(db, JSON.parse(updated.itemsJson || '[]')),
+                address: JSON.parse(updated.addressJson || '{}'),
+            },
         });
     }
     return { commitOrder, listOrders, ordersCount, getOrderDetail, refundOrder };

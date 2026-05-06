@@ -18,6 +18,8 @@ export type AuthedUser = {
   avatarUrl: string | null;
   gender: number | null;
   phoneNumber: string | null;
+  /** 积分（DB users.points） */
+  points: number;
 };
 
 export type AuthedAdmin = {

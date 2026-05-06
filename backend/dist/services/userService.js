@@ -3,7 +3,7 @@ export function createUserService({ db }) {
     function me(req, res) {
         const userId = req.user?.id;
         const user = db
-            .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+            .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE id = ?`)
             .get(userId);
         return res.json({ ok: true, data: user });
@@ -28,7 +28,7 @@ export function createUserService({ db }) {
            updatedAt = datetime('now')
        WHERE id = ?`).run(nickName ?? null, avatarUrl ?? null, gender ?? null, phoneNumber ?? null, userId);
         const meRow = db
-            .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber
+            .prepare(`SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE id = ?`)
             .get(userId);
         return res.json({ ok: true, data: meRow });

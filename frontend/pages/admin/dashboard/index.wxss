@@ -87,3 +87,30 @@
   display: flex;
   gap: 16rpx;
 }
+
+.hint-text {
+  font-size: 24rpx;
+  color: #888;
+  line-height: 1.5;
+  margin-bottom: 20rpx;
+}
+
+.category-row {
+  align-items: center;
+}
+
+.category-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.category-actions {
+  flex-shrink: 0;
+}
+
+.muted-card {
+  color: #888;
+  font-size: 26rpx;
+  text-align: center;
+}

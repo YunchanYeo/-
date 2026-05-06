@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
+import { hydrateOrderItemsWithProduct } from './orderItemImages';
 
 function genTradeNo() {
   const ts = Date.now();
@@ -26,7 +27,8 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     const tradeNo = genTradeNo();
     const totalAmount = parsed.data.totalAmount ?? 0;
     const paymentMethod = parsed.data.paymentMethod || 'requestPayment';
-    const orderItems = parsed.data.goodsRequestList ?? [];
+    const orderItemsRaw = parsed.data.goodsRequestList ?? [];
+    const orderItems = hydrateOrderItemsWithProduct(db, orderItemsRaw);
     const orderAddress = (req.body as any)?.userAddressReq ?? {};
 
     if (userId) {
@@ -80,21 +82,34 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
          ORDER BY id DESC`,
       )
       .all(userId);
-    const data = rows.map((row: any) => ({ ...row, items: JSON.parse(row.itemsJson || '[]'), address: JSON.parse(row.addressJson || '{}') }));
+    const data = rows.map((row: any) => ({
+      ...row,
+      items: hydrateOrderItemsWithProduct(db, JSON.parse(row.itemsJson || '[]')),
+      address: JSON.parse(row.addressJson || '{}'),
+    }));
     return res.json({ ok: true, data });
   }
 
   function ordersCount(req: Request, res: Response) {
     const userId = (req as any).user?.id;
-    const total = (db.prepare(`SELECT COUNT(*) as c FROM orders WHERE userId = ?`).get(userId) as any)?.c ?? 0;
+    const c = (sql: string) => ((db.prepare(sql).get(userId) as { n: number } | undefined)?.n ?? 0) as number;
+    const total = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ?`);
+    const pendingPay = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 5`);
+    const pendingDelivery = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 10`);
+    const pendingReceipt = c(
+      `SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus IN (20, 40)`,
+    );
+    const completed = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 50`);
+    const afterSale = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND refundStatus = 1`);
     return res.json({
       ok: true,
       data: [
         { tabType: -1, orderNum: total },
-        { tabType: 10, orderNum: total },
-        { tabType: 20, orderNum: 0 },
-        { tabType: 30, orderNum: 0 },
-        { tabType: 40, orderNum: 0 },
+        { tabType: 5, orderNum: pendingPay },
+        { tabType: 10, orderNum: pendingDelivery },
+        { tabType: 40, orderNum: pendingReceipt },
+        { tabType: 50, orderNum: completed },
+        { tabType: 0, orderNum: afterSale },
       ],
     });
   }
@@ -112,7 +127,14 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
       .get(userId, req.params.orderNo);
     if (!row) return res.status(404).json({ ok: false, message: 'Order not found' });
     const r: any = row;
-    return res.json({ ok: true, data: { ...r, items: JSON.parse(r.itemsJson || '[]'), address: JSON.parse(r.addressJson || '{}') } });
+    return res.json({
+      ok: true,
+      data: {
+        ...r,
+        items: hydrateOrderItemsWithProduct(db, JSON.parse(r.itemsJson || '[]')),
+        address: JSON.parse(r.addressJson || '{}'),
+      },
+    });
   }
 
   function refundOrder(req: Request, res: Response) {
@@ -148,7 +170,11 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
 
     return res.json({
       ok: true,
-      data: { ...updated, items: JSON.parse(updated.itemsJson || '[]'), address: JSON.parse(updated.addressJson || '{}') },
+      data: {
+        ...updated,
+        items: hydrateOrderItemsWithProduct(db, JSON.parse(updated.itemsJson || '[]')),
+        address: JSON.parse(updated.addressJson || '{}'),
+      },
     });
   }
 

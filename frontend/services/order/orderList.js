@@ -1,6 +1,6 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
-import { getPrefetchedUserData } from '../auth/session';
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchOrders(params) {
     const { delay } = require('../_utils/delay');
     const { genOrders } = require('../../model/order/orderList');
@@ -10,12 +10,15 @@ export function fetchOrders(params) {
     if (config.useMock)
         return mockFetchOrders(params);
     const status = params?.parameter?.orderStatus;
-    const prefetched = getPrefetchedUserData();
-    const rowsPromise = Array.isArray(prefetched.orders) && prefetched.orders.length > 0
-        ? Promise.resolve(prefetched.orders)
-        : requestJson('/api/orders', { method: 'GET' });
-    return rowsPromise.then((rows) => {
-        const filtered = typeof status === 'number' && status !== -1 ? rows.filter((o) => o.orderStatus === status) : rows;
+    return requestJson('/api/orders', { method: 'GET' }).then((rows) => {
+        const filtered =
+            typeof status === 'number' && status !== -1
+                ? rows.filter((o) => {
+                      if (status === 40)
+                          return o.orderStatus === 40 || o.orderStatus === 20;
+                      return o.orderStatus === status;
+                  })
+                : rows;
         const orders = filtered.map((row) => {
             const items = Array.isArray(row.items) ? row.items : [];
             return {
@@ -33,7 +36,7 @@ export function fetchOrders(params) {
                 createTime: new Date(row.createdAt).getTime(),
                 orderItemVOs: items.map((g, index) => ({
                     id: index + 1,
-                    goodsPictureUrl: g.primaryImage || g.thumb || g.image || '',
+                    goodsPictureUrl: normalizeGoodsImageUrl(g.primaryImage || g.thumb || g.image || ''),
                     goodsName: g.goodsName || g.title || '商品',
                     skuId: g.skuId || '',
                     spuId: g.spuId || '',
@@ -55,9 +58,5 @@ function mockFetchOrdersCount(params) {
 export function fetchOrdersCount(params) {
     if (config.useMock)
         return mockFetchOrdersCount(params);
-    const prefetched = getPrefetchedUserData();
-    const countsPromise = Array.isArray(prefetched.orderCounts) && prefetched.orderCounts.length > 0
-        ? Promise.resolve(prefetched.orderCounts)
-        : requestJson('/api/orders/count', { method: 'GET' });
-    return countsPromise.then((data) => ({ data }));
+    return requestJson('/api/orders/count', { method: 'GET' }).then((data) => ({ data }));
 }

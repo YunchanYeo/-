@@ -48,7 +48,7 @@
     {
       "root": "pages/admin",
       "name": "admin",
-      "pages": ["login/index", "dashboard/index", "product-edit/index", "settings/index", "support-chat/index"]
+      "pages": ["login/index", "dashboard/index", "product-edit/index", "settings/index", "support-chat/index", "logistics-trace/index"]
     }
   ],
   "tabBar": {

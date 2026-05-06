@@ -1,5 +1,8 @@
 {
   "component": true,
+  "options": {
+    "multipleSlots": true
+  },
   "usingComponents": {
     "c-tabbar": "./components/c-tabbar/index",
     "c-sidebar": "./components/c-sidebar/index",

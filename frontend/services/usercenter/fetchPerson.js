@@ -23,6 +23,7 @@ export function fetchPerson() {
         nickName: me.nickName || '微信用户',
         gender: me.gender || 0,
         phoneNumber: me.phoneNumber || '',
+        points: Number(me.points ?? 0),
         address: { provinceName: '', provinceCode: '', cityName: '', cityCode: '' },
     }));
 }

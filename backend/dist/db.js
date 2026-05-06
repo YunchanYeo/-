@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import { LEGACY_LABELS_BY_CANONICAL } from './categoryLegacy';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbFilePath = path.join(__dirname, '..', 'data', 'app.sqlite');
@@ -59,6 +60,56 @@ ensureColumn('brand', 'brand TEXT');
 ensureColumn('company', 'company TEXT');
 ensureColumn('soldNum', "soldNum INTEGER NOT NULL DEFAULT 0");
 ensureColumn('category', 'category TEXT');
+ensureColumn('categoryId', 'categoryId INTEGER');
+db.exec(`
+CREATE TABLE IF NOT EXISTS product_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  sortOrder INTEGER NOT NULL DEFAULT 0,
+  thumbnail TEXT,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+const categoryRowCount = db.prepare(`SELECT COUNT(*) as c FROM product_categories`).get();
+if (categoryRowCount.c === 0) {
+    const insert = db.prepare(`INSERT INTO product_categories (name, sortOrder) VALUES (?, ?)`);
+    const defaults = ['面', '零食', '饮料', '饭', '罐头'];
+    const run = db.transaction((names) => {
+        names.forEach((name, i) => insert.run(name, i));
+    });
+    run(defaults);
+}
+// 商品.category 文本与 product_categories.name 一致时，补全 categoryId，便于按分类 id 筛选
+try {
+    db.exec(`
+    UPDATE products SET categoryId = (
+      SELECT pc.id FROM product_categories pc
+      WHERE TRIM(pc.name) = TRIM(products.category)
+      LIMIT 1
+    )
+    WHERE products.category IS NOT NULL AND TRIM(products.category) != ''
+  `);
+}
+catch (err) {
+    console.warn('[db] categoryId backfill skipped:', err);
+}
+// 历史叶子分类名 → 当前主分类名 + categoryId（与 categoryLegacy 一致）
+try {
+    for (const [canonical, legacyList] of Object.entries(LEGACY_LABELS_BY_CANONICAL)) {
+        if (!legacyList.length)
+            continue;
+        const row = db.prepare(`SELECT id FROM product_categories WHERE TRIM(name) = ? LIMIT 1`).get(canonical);
+        if (!row)
+            continue;
+        const upd = db.prepare(`UPDATE products SET category = ?, categoryId = ?, updatedAt = datetime('now') WHERE TRIM(COALESCE(category,'')) = ?`);
+        for (const leg of legacyList) {
+            upd.run(canonical, row.id, leg);
+        }
+    }
+}
+catch (err) {
+    console.warn('[db] legacy category normalize skipped:', err);
+}
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +124,10 @@ CREATE TABLE IF NOT EXISTS users (
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `);
+const userTableCols = db.prepare("PRAGMA table_info('users')").all().map((c) => c.name);
+if (!userTableCols.includes('points')) {
+    execWithLockHint(`ALTER TABLE users ADD COLUMN points INTEGER NOT NULL DEFAULT 0`);
+}
 db.exec(`
 CREATE TABLE IF NOT EXISTS user_addresses (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

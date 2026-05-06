@@ -37,9 +37,11 @@ WECHAT_PAY_MOCK=true
 
 설명:
 
-- `ADMIN_USERNAME` / `ADMIN_PASSWORD`: 시드 스크립트용 관리자 계정
-- `WECHAT_APPID` / `WECHAT_APPSECRET`: WeChat 로그인 코드 교환용
-- `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock 모드로 동작
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD`: **`npm run seed:admin` 또는 `ADMIN_SYNC_ON_START=true` 시 SQLite `admins`에 bcrypt 해시로 반영**됩니다. 로그인(`POST /api/admin/login`)은 **실제로는 DB 행**(passwordHash 또는 레거시 평문 password)만 검증합니다.
+- `ADMIN_SYNC_ON_START=true`: 매 기동 시 위 username 행 비밀번호 해시를 `.env` 값과 동기화(운영에서는 보통 `false`).
+- `WECHAT_APPID` / `WECHAT_APPSECRET`: WeChat 로그인 코드 교환
+- `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock
+- `KUAIDI100_KEY` / `KUAIDI100_CUSTOMER`(선택): 관리자 주문 **물류轨迹** 연동(快递100 등, `.env.example` 참고)
 
 ## 4. 관리자 계정 시드
 
@@ -48,23 +50,24 @@ cd backend
 npm run seed:admin
 ```
 
-- 이미 같은 username이 있으면 비밀번호 해시를 업데이트합니다.
-- 초기 관리자 계정은 코드 하드코딩이 아니라 환경변수로만 생성합니다.
+- 동일 `username`이 이미 있으면 **비밀번호 해시만 갱신**합니다.
+- **로그인에 직접 쓰이는 것은 DB**이므로, `.env`만 바꾼 뒤에는 시드 또는 `ADMIN_SYNC_ON_START`로 DB를 맞춥니다.
 
 ## 5. 디렉토리 구조
 
 ```text
 backend/
 ├─ src/
-│  ├─ index.ts                # 서버 부트스트랩
+│  ├─ index.ts                 # 부트스트랩, cors, bootstrapAdminIfDbEmpty 등
+│  ├─ adminBootstrap.ts       # 초기 admins 없음일 때 생성, ADMIN_SYNC_ON_START
 │  ├─ db.ts                   # SQLite 연결/DDL/마이그레이션
-│  ├─ routes/apiRouter.ts     # /api 라우트 선언
-│  ├─ controllers/            # HTTP -> service 브리지
-│  ├─ services/               # 도메인 로직
-│  └─ scripts/seedAdmin.ts    # 관리자 계정 시드
+│  ├─ routes/apiRouter.ts     # /api 라우트
+│  ├─ controllers/
+│  ├─ services/               # 도메인(상품·주문·category·support·admin·물류 등)
+│  └─ scripts/seedAdmin.ts    # 위 adminBootstrap 의 upsert 사용
 ├─ data/
-│  ├─ app.sqlite              # DB 파일
-│  └─ uploads/                # 업로드 파일
+│  ├─ app.sqlite
+│  └─ uploads/
 └─ package.json
 ```
 
@@ -88,14 +91,16 @@ backend/
 
 ### Admin API (`requireAdmin`)
 
-- `POST /api/admin/login`
+- `POST /api/admin/login` — `admins` 테이블(`passwordHash`/평문) 검증
 - `GET /api/admin/me`
-- `PUT /api/admin/me/password`
-- `PUT /api/admin/me/username`
-- 주문 관리: `GET /api/admin/orders`, `POST /api/admin/orders/:orderNo/shipping`
-- 상품 관리: `GET/POST/PUT /api/admin/products`, `PUT /api/admin/products/:id/stock`
-- 파일 업로드: `POST /api/admin/upload-image`
-- 고객센터: 대화 목록/상세/답장/미디어 업로드
+- `PUT /api/admin/me/password`, `PUT /api/admin/me/username`
+- 주문: `GET /api/admin/orders`, `POST /api/admin/orders/:orderNo/shipping`, `GET /api/admin/orders/:orderNo/logistics-trace`
+- 상품: `GET /POST/PUT /api/admin/products`, `GET /api/admin/products/:id`, `PUT /api/admin/products/:id/stock`
+- 업로드: `POST /api/admin/upload-image`
+- 카테고리: `GET/POST/PUT/DELETE /api/admin/categories`
+- 고객센터: `GET /api/admin/support/conversations`, `GET/POST .../messages/:userId`, `POST /api/admin/support/upload-media`
+
+PC 관리 SPA는 저장소 상위 디렉터리 `admin-web/` 에서 같은 Admin API를 사용합니다.
 
 ## 7. DB/마이그레이션 특징
 

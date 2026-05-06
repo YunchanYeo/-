@@ -1,0 +1,33 @@
+<view class="trace-page">
+  <view wx:if="{{loading}}" class="state muted">加载轨迹中…</view>
+  <view wx:elif="{{error}}" class="state err">{{error}}</view>
+  <block wx:else>
+    <view class="summary">
+      <text class="summary-line">{{logisticsCompanyName || '物流公司'}} · {{logisticsNo}}</text>
+      <text wx:if="{{!configured && hint}}" class="hint">{{hint}}</text>
+    </view>
+
+    <map
+      wx:if="{{showMap}}"
+      class="route-map"
+      latitude="{{lat}}"
+      longitude="{{lng}}"
+      scale="{{scale}}"
+      polyline="{{polyline}}"
+      show-location="{{false}}"
+      enable-scroll="{{true}}"
+      enable-zoom="{{true}}"
+    />
+
+    <scroll-view scroll-y class="trace-list" enhanced show-scrollbar="{{false}}">
+      <view wx:if="{{traces.length === 0}}" class="muted pad">暂无轨迹节点（未查询到或接口未返回明细）</view>
+      <view wx:for="{{traces}}" wx:key="index" class="trace-row">
+        <view class="trace-time">{{item.time}}</view>
+        <view class="trace-body">
+          <text class="trace-ctx">{{item.context}}</text>
+          <text wx:if="{{item.areaName}}" class="trace-area">{{item.areaName}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </block>
+</view>
