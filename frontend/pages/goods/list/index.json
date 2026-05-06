@@ -8,5 +8,6 @@
     "filter": "/components/filter/index",
     "filter-popup": "/components/filter-popup/index",
     "load-more": "/components/load-more/index"
-  }
+  },
+  "enablePullDownRefresh": true
 }

@@ -1,6 +1,6 @@
 import { OrderStatus } from '../config';
 import { fetchOrders, fetchOrdersCount } from '../../../services/order/orderList';
-import { cosThumb } from '../../../utils/util';
+import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 Page({
     page: {
         size: 5,
@@ -90,7 +90,7 @@ Page({
                         createTime: order.createTime,
                         goodsList: (order.orderItemVOs || []).map((goods) => ({
                             id: goods.id,
-                            thumb: cosThumb(goods.goodsPictureUrl, 70),
+                            thumb: normalizeGoodsImageUrl(goods.goodsPictureUrl || ''),
                             title: goods.goodsName,
                             skuId: goods.skuId,
                             spuId: goods.spuId,

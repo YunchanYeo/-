@@ -4,7 +4,7 @@
     {
       "root": "pages/user",
       "name": "user",
-      "pages": ["person-info/index", "address/list/index", "address/edit/index", "name-edit/index", "support-chat/index"]
+      "pages": ["person-info/index", "address/list/index", "address/edit/index", "name-edit/index", "support-chat/index", "help-center/index", "points/index"]
     },
     {
       "root": "pages/goods",

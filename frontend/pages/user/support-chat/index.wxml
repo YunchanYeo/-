@@ -68,7 +68,10 @@
       <view class="record-icon-wrap">
         <image class="record-panel-icon" src="/assets/chat-voice-icon.png" mode="aspectFit" />
       </view>
-      <text class="record-hint">{{recordWillCancel ? '松开手指，取消发送' : '手指上滑，取消发送'}}</text>
+      <text class="record-hint">{{recordWillCancel ? '松开手指，取消发送' : '拖动到下方 X 区域取消'}}</text>
+    </view>
+    <view class="record-cancel-zone {{recordWillCancel ? 'record-cancel-zone--active' : ''}}">
+      <text class="record-cancel-x">X</text>
     </view>
   </view>
 

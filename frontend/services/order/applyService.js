@@ -30,12 +30,13 @@ export function fetchRightsPreview(params) {
         };
     });
 }
-export function dispatchConfirmReceived() {
+export function dispatchConfirmReceived(params) {
     if (config.useMock) {
         const { delay } = require('../_utils/delay');
         return delay();
     }
-    return new Promise((resolve) => resolve('real api'));
+    const orderNo = params?.parameter?.orderNo;
+    return requestJson(`/api/orders/${orderNo}/confirm`, { method: 'POST' }).then((data) => ({ data }));
 }
 function mockFetchApplyReasonList(params) {
     const { delay } = require('../_utils/delay');

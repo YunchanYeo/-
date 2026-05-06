@@ -10,6 +10,9 @@ function mockFetchSettleDetail(params) {
 async function realFetchSettleDetail(params = {}) {
     const goodsRequestList = Array.isArray(params.goodsRequestList) ? params.goodsRequestList : [];
     const userAddressReq = params.userAddressReq || null;
+    const selectedCouponIds = Array.isArray(params.couponList)
+        ? params.couponList.map((c) => Number(c.couponId || c.id)).filter((n) => Number.isFinite(n))
+        : [];
     const goodsWithPrice = await Promise.all(goodsRequestList.map(async (goods, index) => {
         let product = null;
         const spuId = goods.spuId || goods.id;
@@ -48,15 +51,32 @@ async function realFetchSettleDetail(params = {}) {
         }
         storeMap[item.storeId].skuDetailVos.push(item);
     });
+    let availableCoupons = [];
+    try {
+        availableCoupons = await requestJson('/api/coupons?status=default', { method: 'GET' });
+    }
+    catch (_) {
+        availableCoupons = [];
+    }
+    const couponRows = Array.isArray(availableCoupons) ? availableCoupons : [];
+    const couponById = new Map(couponRows.map((c) => [Number(c.couponId || c.id), c]));
+    const selectedCoupons = selectedCouponIds.map((id) => couponById.get(id)).filter(Boolean);
+    const selectedReduce = selectedCoupons.reduce((sum, c) => {
+        const type = c.type === 'discount' ? 'discount' : 'price';
+        if (type === 'price') {
+            return sum + Number(c.value || 0);
+        }
+        return sum;
+    }, 0);
     const storeGoodsList = Object.values(storeMap).map((store) => {
         const storeTotalPayAmount = store.skuDetailVos.reduce((sum, g) => sum + g.settlePrice * g.quantity, 0);
-        return { ...store, storeTotalPayAmount };
+        return { ...store, storeTotalPayAmount, couponList: couponRows };
     });
     const totalGoodsCount = goodsWithPrice.reduce((sum, g) => sum + g.quantity, 0);
     const totalSalePrice = goodsWithPrice.reduce((sum, g) => sum + g.settlePrice * g.quantity, 0);
     const totalDeliveryFee = 0;
     const totalPromotionAmount = 0;
-    const totalCouponAmount = 0;
+    const totalCouponAmount = Math.min(selectedReduce, totalSalePrice);
     const totalPayAmount = totalSalePrice + totalDeliveryFee - totalPromotionAmount - totalCouponAmount;
     return {
         data: {
@@ -65,7 +85,8 @@ async function realFetchSettleDetail(params = {}) {
             abnormalDeliveryGoodsList: [],
             inValidGoodsList: [],
             limitGoodsList: [],
-            couponList: [],
+            couponList: couponRows,
+            totalCouponCount: couponRows.length,
             userAddress: userAddressReq,
             totalGoodsCount,
             totalSalePrice,

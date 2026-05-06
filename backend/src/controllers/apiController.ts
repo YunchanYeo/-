@@ -32,6 +32,10 @@ export function createApiController(services: Services) {
     getOrderDetail: services.order.getOrderDetail as RequestHandler,
     refundOrder: services.order.refundOrder as RequestHandler,
     commitOrder: services.order.commitOrder as RequestHandler,
+    markOrderPaid: services.order.markOrderPaid as RequestHandler,
+    cancelOrder: services.order.cancelOrder as RequestHandler,
+    confirmOrderReceived: services.order.confirmOrderReceived as RequestHandler,
+    deleteOrder: services.order.deleteOrder as RequestHandler,
 
     // support chat
     listMySupportMessages: services.support.listMyMessages as RequestHandler,
@@ -42,6 +46,13 @@ export function createApiController(services: Services) {
     supportUploadMedia: services.support.uploadMyMedia as RequestHandler,
     adminSupportUploadMedia: services.support.uploadAdminMedia as RequestHandler,
 
+    // coupons
+    listMyCoupons: services.coupon.listMyCoupons as RequestHandler,
+    getMyCouponDetail: services.coupon.getMyCouponDetail as RequestHandler,
+    adminListCoupons: services.coupon.adminListCoupons as RequestHandler,
+    adminCreateCoupon: services.coupon.adminCreateCoupon as RequestHandler,
+    adminGrantCoupon: services.coupon.adminGrantCoupon as RequestHandler,
+
     // admin
     adminLogin: services.auth.adminLogin as RequestHandler,
     adminMe: services.admin.adminMe as RequestHandler,
@@ -50,6 +61,7 @@ export function createApiController(services: Services) {
     adminOrders: services.admin.adminOrders as RequestHandler,
     adminOrderLogisticsTrace: services.admin.adminOrderLogisticsTrace as RequestHandler,
     adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping as RequestHandler,
+    adminUpdateOrderStatus: services.admin.adminUpdateOrderStatus as RequestHandler,
     adminProducts: services.product.adminProducts as RequestHandler,
     adminProductDetail: services.product.adminProductDetail as RequestHandler,
     adminCreateProduct: services.product.adminCreateProduct as RequestHandler,

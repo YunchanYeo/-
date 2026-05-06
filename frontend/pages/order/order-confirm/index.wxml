@@ -23,7 +23,7 @@
       wx:key="id"
       class="goods-wrapper"
     >
-      <t-image src="{{goods.thumb}}" t-class="goods-image" mode="aspectFill" />
+      <t-image src="{{goods.thumb || goods.image || goods.primaryImage || ''}}" t-class="goods-image" mode="aspectFill" />
       <view class="goods-content">
         <view class="goods-title">{{goods.title}}</view>
         <view>{{goods.specs}}</view>
@@ -61,7 +61,7 @@
         <price fill price="{{settleDetailData.totalPromotionAmount || 0}}" />
       </view>
     </view>
-    <view class="pay-item">
+    <view class="pay-item" wx:if="{{(settleDetailData.totalCouponCount || 0) > 0}}">
       <text>优惠券</text>
       <view
         class="pay-item__right"
@@ -74,7 +74,7 @@
           </block>
           <block wx:else>选择优惠券</block>
         </block>
-        <text wx:else>无可用</text>
+        <text wx:else>选择优惠券</text>
         <t-icon name="chevron-right" size="32rpx" color="#BBBBBB" />
       </view>
     </view>

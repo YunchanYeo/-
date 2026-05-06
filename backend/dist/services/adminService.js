@@ -6,6 +6,14 @@ import { z } from 'zod';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
 export function createAdminService({ db, uploadsDir }) {
+    const ORDER_STATUS_META = {
+        5: '待付款',
+        10: '待发货',
+        20: '待发货',
+        40: '待收货',
+        50: '已完成',
+        60: '已取消',
+    };
     function adminMe(req, res) {
         const adminId = req.admin?.id;
         const admin = db.prepare(`SELECT id, username, createdAt, updatedAt FROM admins WHERE id = ?`).get(adminId);
@@ -106,6 +114,36 @@ export function createAdminService({ db, uploadsDir }) {
                 orderStatus, orderStatusName
          FROM orders WHERE orderNo = ?`)
             .get(req.params.orderNo);
+        return res.json({ ok: true, data: updated });
+    }
+    function adminUpdateOrderStatus(req, res) {
+        const schema = z.object({
+            orderStatus: z.number().int(),
+            orderStatusName: z.string().min(1).optional(),
+        });
+        const parsed = schema.safeParse(req.body || {});
+        if (!parsed.success)
+            return res.status(400).json({ ok: false, message: 'Invalid status body', issues: parsed.error.issues });
+        const orderNo = String(req.params.orderNo || '').trim();
+        if (!orderNo)
+            return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+        const status = parsed.data.orderStatus;
+        const name = parsed.data.orderStatusName?.trim() || ORDER_STATUS_META[status];
+        if (!name) {
+            return res.status(400).json({ ok: false, message: 'Unsupported order status' });
+        }
+        const order = db.prepare(`SELECT id FROM orders WHERE orderNo = ?`).get(orderNo);
+        if (!order)
+            return res.status(404).json({ ok: false, message: 'Order not found' });
+        db.prepare(`UPDATE orders
+       SET orderStatus = ?,
+           orderStatusName = ?,
+           updatedAt = datetime('now')
+       WHERE orderNo = ?`).run(status, name, orderNo);
+        const updated = db
+            .prepare(`SELECT id, orderNo, orderStatus, orderStatusName, logisticsCompanyCode, logisticsCompanyName, logisticsNo, logisticsRemark, shippedAt
+         FROM orders WHERE orderNo = ?`)
+            .get(orderNo);
         return res.json({ ok: true, data: updated });
     }
     /**
@@ -219,6 +257,7 @@ export function createAdminService({ db, uploadsDir }) {
         adminUpdateUsername,
         adminOrders,
         adminUpdateOrderShipping,
+        adminUpdateOrderStatus,
         adminOrderLogisticsTrace,
         adminUploadImage,
     };

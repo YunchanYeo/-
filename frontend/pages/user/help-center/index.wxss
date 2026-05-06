@@ -1,0 +1,26 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  background: #f5f5f5;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.q {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #111;
+}
+
+.a {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: #555;
+}

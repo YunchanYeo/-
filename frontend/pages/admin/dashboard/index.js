@@ -1,4 +1,4 @@
-import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, } from '../../../services/admin/adminApi';
+import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/index';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
@@ -32,6 +32,17 @@ Page({
         categoriesTree: [],
         adminCategories: [],
         categoriesLoading: false,
+        coupons: [],
+        couponsLoading: false,
+        couponForm: {
+            name: '',
+            type: '2',
+            value: '',
+            base: '',
+            totalCount: '100',
+            startDate: '',
+            endDate: '',
+        },
     },
     onLoad() {
         if (!getAdminToken()) {
@@ -104,6 +115,78 @@ Page({
         this.setData({ activeTab: tab });
         if (tab === 'categories') {
             this.loadAdminCategories();
+        }
+        if (tab === 'coupons') {
+            this.loadAdminCoupons();
+        }
+    },
+    async loadAdminCoupons() {
+        this.setData({ couponsLoading: true });
+        try {
+            const rows = await fetchAdminCoupons();
+            this.setData({ coupons: Array.isArray(rows) ? rows : [] });
+        }
+        catch (e) {
+            showMessage(e?.message || '优惠券列表加载失败', 'error');
+        }
+        finally {
+            this.setData({ couponsLoading: false });
+        }
+    },
+    onCouponInput(e) {
+        const { key } = e.currentTarget.dataset;
+        this.setData({ [`couponForm.${key}`]: e.detail.value });
+    },
+    async onCreateCoupon() {
+        const { couponForm } = this.data;
+        const startTime = new Date(couponForm.startDate).getTime();
+        const endTime = new Date(couponForm.endDate).getTime();
+        const value = Number(couponForm.value);
+        const base = Number(couponForm.base || 0);
+        const totalCount = Number(couponForm.totalCount || 100);
+        if (!couponForm.name || !Number.isFinite(value) || value <= 0 || !Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+            showMessage('请检查优惠券参数');
+            return;
+        }
+        try {
+            await createAdminCoupon({
+                name: couponForm.name.trim(),
+                type: Number(couponForm.type) === 1 ? 1 : 2,
+                value: Math.floor(value),
+                base: Number.isFinite(base) && base >= 0 ? Math.floor(base) : 0,
+                totalCount: Number.isFinite(totalCount) && totalCount > 0 ? Math.floor(totalCount) : 100,
+                startTime,
+                endTime,
+            });
+            showMessage('优惠券已创建', 'success');
+            this.setData({
+                couponForm: {
+                    name: '',
+                    type: '2',
+                    value: '',
+                    base: '',
+                    totalCount: '100',
+                    startDate: '',
+                    endDate: '',
+                },
+            });
+            this.loadAdminCoupons();
+        }
+        catch (e) {
+            showMessage(e?.message || '创建失败', 'error');
+        }
+    },
+    async onGrantCouponAll(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        try {
+            const r = await grantAdminCoupon(item.id, { grantAllUsers: true });
+            showMessage(`已发放 ${r?.grantedCount || 0} 张`, 'success');
+            this.loadAdminCoupons();
+        }
+        catch (e) {
+            showMessage(e?.message || '发放失败', 'error');
         }
     },
     async loadAdminCategories() {
@@ -386,6 +469,32 @@ Page({
         }
         catch (e) {
             showMessage(e?.message || '保存失败', 'error');
+        }
+    },
+    async onChangeOrderStatus(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.orderNo)
+            return;
+        const options = ['待发货', '待收货', '已完成', '已取消'];
+        const statusByIndex = [10, 40, 50, 60];
+        const selected = await new Promise((resolve) => {
+            wx.showActionSheet({
+                itemList: options,
+                success: (res) => resolve(res.tapIndex),
+                fail: () => resolve(-1),
+            });
+        });
+        if (selected < 0)
+            return;
+        const orderStatus = statusByIndex[selected] || 10;
+        const orderStatusName = options[selected] || '待发货';
+        try {
+            await updateAdminOrderStatus(item.orderNo, { orderStatus, orderStatusName });
+            showMessage('订单状态已更新', 'success');
+            this.refreshAll();
+        }
+        catch (e) {
+            showMessage(e?.message || '更新失败', 'error');
         }
     },
     onLogoutAdmin() {

@@ -18,8 +18,13 @@ Page({
     onLoad() {
         this.refreshData();
     },
+    onPullDownRefresh() {
+        Promise.resolve(this.refreshData()).finally(() => {
+            wx.stopPullDownRefresh();
+        });
+    },
     refreshData() {
-        this.getCartGroupData().then((res) => {
+        return this.getCartGroupData().then((res) => {
             let isEmpty = true;
             const cartGroupData = res.data;
             if (!Array.isArray(cartGroupData.storeGoods)) {

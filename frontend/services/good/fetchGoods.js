@@ -28,7 +28,11 @@ export function fetchGoodsList(pageIndex = 1, pageSize = 20) {
         return mockFetchGoodsList(pageIndex, pageSize);
     return requestJson('/api/products', { method: 'GET' }).then((rows) => {
         const fallbackThumb = `${cdnBase}/activity/banner.png`;
-        return rows.slice(0, pageSize).map((p) => ({
+        const safeRows = Array.isArray(rows) ? rows : [];
+        // pageIndex 视为从 0 开始的页码
+        const offset = Math.max(0, Number(pageIndex) || 0) * Number(pageSize || 20);
+        const page = safeRows.slice(offset, offset + Number(pageSize || 20));
+        return page.map((p) => ({
             spuId: String(p.id),
             thumb: p.thumb || normalizeImageUrl(p.image) || fallbackThumb,
             title: p.title,

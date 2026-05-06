@@ -7,15 +7,16 @@ import {
   enrichSupportMessages,
   normalizeChatMediaUrl,
 } from '../../../services/support/chat';
-
-/** 与微信文档示例一致：https://developers.weixin.qq.com/miniprogram/dev/api/media/recorder/RecorderManager.html */
-const RECORDER_OPTIONS = {
-  duration: 60000,
-  sampleRate: 44100,
-  numberOfChannels: 1,
-  encodeBitRate: 96000,
-  format: 'aac',
-};
+import {
+  initRecorderRuntime,
+  stopAudioRuntime,
+  stopRecordingRuntime,
+  startRecordingRuntime,
+  moveRecordingRuntime,
+  endRecordingRuntime,
+  playVoiceRuntime,
+  shouldAutoScrollByAnchor,
+} from '../../../services/support/chatPageRuntime';
 
 Page({
   data: {
@@ -35,41 +36,39 @@ Page({
   _audio: null,
   _cancelVoiceSend: false,
   _recordStartY: 0,
+  _recordPermissionGranted: false,
+  _windowWidth: 375,
+  _windowHeight: 667,
+  _lastScrollAnchorId: '',
 
   noop() {},
 
   onLoad() {
-    const recorder = wx.getRecorderManager();
-    this._recorder = recorder;
-    recorder.onStart(() => {
-      this.setData({ recordWillCancel: false });
-    });
-    recorder.onStop((res) => {
-      if (this._cancelVoiceSend) {
-        this._cancelVoiceSend = false;
-        this.setData({ recording: false, recordWillCancel: false });
-        return;
-      }
-      const durationMs = typeof res.duration === 'number' ? res.duration : 0;
-      if (durationMs < 500) {
-        wx.showToast({ title: '录音太短', icon: 'none' });
-        this.setData({ recording: false, recordWillCancel: false });
-        return;
-      }
-      this.setData({ recording: false, recordWillCancel: false });
-      const uid = this.data.activeUserId;
-      if (!uid) return;
-      this.sendVoiceMessage(uid, res.tempFilePath, durationMs);
-    });
-    recorder.onError(() => {
-      wx.showToast({ title: '录音失败', icon: 'none' });
-      this.setData({ recording: false, recordWillCancel: false });
+    initRecorderRuntime(this, {
+      onValidStop: (tempFilePath, durationMs) => {
+        const uid = this.data.activeUserId;
+        if (!uid) return;
+        this.sendVoiceMessage(uid, tempFilePath, durationMs);
+      },
     });
   },
 
   onShow() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
     this.refresh();
     this._timer = setInterval(() => this.refresh(), 4000);
+  },
+
+  onHide() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
+    this.stopRecordingIfNeeded();
+    this.stopAudio();
   },
 
   onUnload() {
@@ -77,18 +76,16 @@ Page({
       clearInterval(this._timer);
       this._timer = null;
     }
+    this.stopRecordingIfNeeded();
     this.stopAudio();
   },
 
   stopAudio() {
-    if (this._audio) {
-      try {
-        this._audio.stop();
-        this._audio.destroy();
-      } catch (_) {}
-      this._audio = null;
-    }
-    this.setData({ playingVoiceId: '' });
+    stopAudioRuntime(this);
+  },
+
+  stopRecordingIfNeeded() {
+    stopRecordingRuntime(this);
   },
 
   scrollToBottom(list) {
@@ -102,6 +99,10 @@ Page({
     this.setData({ scrollIntoView: id });
   },
 
+  shouldAutoScroll(nextList) {
+    return shouldAutoScrollByAnchor(this, nextList);
+  },
+
   async refresh() {
     try {
       const rows = await listAdminSupportConversations();
@@ -113,10 +114,14 @@ Page({
         const msgs = await listAdminSupportMessagesByUser(activeUserId);
         const messages = enrichSupportMessages(Array.isArray(msgs) ? msgs : []);
         this.setData({ messages });
-        wx.nextTick(() => this.scrollToBottom(messages));
+        if (this.shouldAutoScroll(messages)) {
+          wx.nextTick(() => this.scrollToBottom(messages));
+        }
       } else {
         this.setData({ messages: [] });
-        wx.nextTick(() => this.scrollToBottom([]));
+        if (this.shouldAutoScroll([])) {
+          wx.nextTick(() => this.scrollToBottom([]));
+        }
       }
     } catch (e) {}
   },
@@ -198,50 +203,27 @@ Page({
   },
 
   onRecordStart(e) {
-    if (!this.data.activeUserId) {
-      wx.showToast({ title: '请先选择用户', icon: 'none' });
-      return;
-    }
-    if (!e.touches || !e.touches[0]) return;
-    this._recordStartY = e.touches[0].clientY;
-    wx.authorize({
-      scope: 'scope.record',
-      success: () => {
-        this._cancelVoiceSend = false;
-        this.setData({ recording: true, recordWillCancel: false });
-        this._recorder.start(RECORDER_OPTIONS);
-      },
-      fail: () => {
-        wx.showModal({
-          title: '需要录音权限',
-          content: '请在设置中开启麦克风权限后再试。',
-          showCancel: false,
-        });
+    startRecordingRuntime(this, e, {
+      beforeStart: () => {
+        if (!this.data.activeUserId) {
+          wx.showToast({ title: '请先选择用户', icon: 'none' });
+          return false;
+        }
+        return true;
       },
     });
   },
 
   onRecordMove(e) {
-    if (!this.data.recording || !e.touches || !e.touches[0]) return;
-    const dy = this._recordStartY - e.touches[0].clientY;
-    const cancel = dy > 70;
-    if (cancel !== this.data.recordWillCancel) {
-      this.setData({ recordWillCancel: cancel });
-    }
+    moveRecordingRuntime(this, e);
   },
 
   onRecordEnd() {
-    if (!this.data.recording) return;
-    this._cancelVoiceSend = this.data.recordWillCancel;
-    this.setData({ recording: false, recordWillCancel: false });
-    this._recorder.stop();
+    endRecordingRuntime(this);
   },
 
   onRecordCancel() {
-    if (!this.data.recording) return;
-    this._cancelVoiceSend = true;
-    this.setData({ recording: false, recordWillCancel: false });
-    this._recorder.stop();
+    endRecordingRuntime(this, { cancel: true });
   },
 
   async sendVoiceMessage(userId, tempFilePath, durationMs) {
@@ -269,20 +251,7 @@ Page({
   onPlayVoice(e) {
     const url = normalizeChatMediaUrl(e.currentTarget.dataset.url || '');
     const id = e.currentTarget.dataset.id;
-    if (!url) return;
-    this.stopAudio();
-    this.setData({ playingVoiceId: id != null && id !== '' ? id : '' });
-    const audio = wx.createInnerAudioContext();
-    this._audio = audio;
-    audio.obeyMuteSwitch = false;
-    audio.src = url;
-    audio.onError((err) => {
-      console.warn('voice play', err);
-      wx.showToast({ title: '无法播放语音', icon: 'none' });
-      this.stopAudio();
-    });
-    audio.play();
-    audio.onEnded(() => this.stopAudio());
+    playVoiceRuntime(this, { url, id });
   },
 
   onPreviewImage(e) {

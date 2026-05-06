@@ -33,6 +33,17 @@ Page({
             this.init(true);
         });
     },
+    onPullDownRefresh() {
+        this.pageNum = 1;
+        this.setData({ loadMoreStatus: 0 }, async () => {
+            try {
+                await this.init(true);
+            }
+            finally {
+                wx.stopPullDownRefresh();
+            }
+        });
+    },
     generalQueryData(reset = false) {
         const { filter, keywords, minVal, maxVal } = this.data;
         const { pageNum, pageSize } = this;

@@ -114,6 +114,25 @@ npm run dev
 API는 동일하게 `backend`를 바라본다 — 개발 시 `vite` 프록시로 `/api`·`/uploads`가 넘어가도록 두었다.  
 운영에서는 `npm run build` 후 `dist` 정적 호스팅하고, 빌드 시 `VITE_API_BASE_URL`(백엔드 원점 URL) 설정이 필요할 수 있다.
 
+#### Electron 데스크톱 앱
+
+```bash
+cd admin-web
+npm install
+npm run desktop:dev
+```
+
+- `desktop:dev`는 Vite + Electron을 같이 실행한다(현재 기본 포트 `5180`).
+- `desktop:build`는 DMG를 생성한다:
+
+```bash
+cd admin-web
+npm run desktop:build
+```
+
+- 결과물 경로: `admin-web/release/Admin Web-1.0.0-arm64.dmg`
+- 데스크톱 앱도 API는 `backend`를 사용한다. (프로젝트 내부 실행 시 Electron이 backend를 자동 기동 시도)
+
 ## 4) 프런트엔드 구성 포인트
 
 ### 미니(`frontend`)
@@ -124,8 +143,16 @@ API는 동일하게 `backend`를 바라본다 — 개발 시 `vite` 프록시로
 - 사용자 세션: `frontend/services/auth/session.js`
 - **관리자 세션/API**: `frontend/services/admin/session.js`, `frontend/services/admin/adminApi.js`
 - 고객센터: `frontend/services/support/chat.js`
+- 고객센터 페이지 런타임 공통화: `frontend/services/support/chatPageRuntime.js`
+- 마이페이지 부가 화면: `frontend/pages/user/help-center`, `frontend/pages/user/points`
 
 권장: 페이지에서 `wx.request` 대신 `services/`*만 사용.
+
+고객센터 채팅 최신 동작 메모:
+
+- 사용자/관리자 채팅 모두 음성 녹음·재생 제어를 공통 런타임으로 통일해 동작 차이를 줄였다.
+- 페이지 전환(`onHide`/`onUnload`) 시 녹음 중이면 자동 중단하여 잔여 녹음 상태를 방지한다.
+- 4초 폴링 시 매번 강제 하단 이동하지 않고, 새 메시지 도착 시에만 자동 스크롤한다.
 
 ### PC(`admin-web`)
 
@@ -153,6 +180,10 @@ API는 동일하게 `backend`를 바라본다 — 개발 시 `vite` 프록시로
 - 주소: `GET/POST/PUT/DELETE /api/addresses`
 - 주문: `GET /api/orders`, `GET /api/orders/count`, `GET /api/orders/:orderNo`
 - `POST /api/orders/commit`, `POST /api/orders/:orderNo/refund`
+- `POST /api/orders/:orderNo/paid` (개발 mock 결제 성공 처리)
+- `POST /api/orders/:orderNo/cancel` (대기 결제 주문 취소)
+- `POST /api/orders/:orderNo/confirm` (대기 수령 주문 확인 수령)
+- `DELETE /api/orders/:orderNo` (완료/취소 주문 삭제)
 - 고객센터: `GET/POST /api/support/messages`, `POST /api/support/upload-media`
 
 ### Admin (`requireAdmin`, 헤더 `x-admin-token`)

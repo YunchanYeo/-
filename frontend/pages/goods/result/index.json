@@ -11,5 +11,6 @@
     "load-more": "/components/load-more/index",
     "t-icon": "tdesign-miniprogram/icon/icon"
   },
-  "onReachBottomDistance": 50
+  "onReachBottomDistance": 50,
+  "enablePullDownRefresh": true
 }

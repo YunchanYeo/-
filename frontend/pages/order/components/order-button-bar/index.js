@@ -1,6 +1,7 @@
 import Toast from 'tdesign-miniprogram/toast/index';
 import Dialog from 'tdesign-miniprogram/dialog/index';
 import { OrderButtonTypes } from '../../config';
+import { cancelOrder, confirmOrder, deleteOrder, payOrder } from '../../../../services/order/orderActions';
 Component({
     options: {
         addGlobalClass: true,
@@ -106,55 +107,122 @@ Component({
                     break;
                 case OrderButtonTypes.REBUY:
                     this.onBuyAgain(this.data.order);
+                    break;
+                case OrderButtonTypes.DELIVERY:
+                    this.onDelivery(this.data.order);
+                    break;
             }
         },
-        onCancel() {
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: '你点击了取消订单',
-                icon: 'check-circle',
-            });
+        onCancel(order) {
+            const orderNo = order?.orderNo;
+            if (!orderNo)
+                return;
+            Dialog.confirm({
+                title: '确认取消订单？',
+                content: '取消后可在已取消订单中查看',
+                confirmBtn: '确认取消',
+                cancelBtn: '我再想想',
+            })
+                .then(async () => {
+                await cancelOrder(orderNo);
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '订单已取消',
+                    icon: 'check-circle',
+                });
+                this.triggerEvent('refresh');
+            })
+                .catch(() => { });
         },
-        onConfirm() {
+        onConfirm(order) {
+            const orderNo = order?.orderNo;
+            if (!orderNo)
+                return;
             Dialog.confirm({
                 title: '确认是否已经收到货？',
                 content: '',
                 confirmBtn: '确认收货',
                 cancelBtn: '取消',
             })
-                .then(() => {
+                .then(async () => {
+                await confirmOrder(orderNo);
                 Toast({
                     context: this,
                     selector: '#t-toast',
-                    message: '你确认了确认收货',
+                    message: '确认收货成功',
                     icon: 'check-circle',
                 });
+                this.triggerEvent('refresh');
             })
-                .catch(() => {
+                .catch((e) => {
                 Toast({
                     context: this,
                     selector: '#t-toast',
-                    message: '你取消了确认收货',
-                    icon: 'check-circle',
+                    message: e?.message || '操作已取消',
+                    icon: '',
                 });
             });
         },
-        onPay() {
+        async onPay(order) {
+            const orderNo = order?.orderNo;
+            if (!orderNo)
+                return;
+            try {
+                await payOrder(orderNo);
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '支付成功（开发模式）',
+                    icon: 'check-circle',
+                });
+                this.triggerEvent('refresh');
+            }
+            catch (e) {
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: e?.message || '支付失败',
+                    icon: '',
+                });
+            }
+        },
+        onBuyAgain(order) {
+            const first = order?.goodsList?.[0];
+            if (first?.spuId) {
+                wx.navigateTo({
+                    url: `/pages/goods/details/index?spuId=${first.spuId}`,
+                });
+                return;
+            }
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: '你点击了去支付',
-                icon: 'check-circle',
+                message: '暂无可购买商品',
+                icon: '',
             });
         },
-        onBuyAgain() {
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: '你点击了再次购买',
-                icon: 'check-circle',
-            });
+        async onDelete(order) {
+            const orderNo = order?.orderNo;
+            if (!orderNo)
+                return;
+            Dialog.confirm({
+                title: '确认删除订单？',
+                content: '',
+                confirmBtn: '删除',
+                cancelBtn: '取消',
+            })
+                .then(async () => {
+                await deleteOrder(orderNo);
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '订单已删除',
+                    icon: 'check-circle',
+                });
+                this.triggerEvent('refresh');
+            })
+                .catch(() => { });
         },
         onApplyRefund(order) {
             const goods = order.goodsList[this.properties.goodsIndex];
@@ -178,11 +246,18 @@ Component({
         },
         onViewRefund() {
             const { order } = this.data;
-            wx.showModal({
-                title: '退款信息',
-                content: `订单 ${order.orderNo || ''} 已完成退款，可在订单金额中查看已退款结果。`,
-                showCancel: false,
-                confirmText: '我知道了',
+            if (!order?.orderNo) {
+                return;
+            }
+            wx.navigateTo({
+                url: `/pages/order/after-service-detail/index?rightsNo=${encodeURIComponent(`refund_${order.orderNo}`)}`,
+            });
+        },
+        onDelivery(order) {
+            if (!order?.orderNo)
+                return;
+            wx.navigateTo({
+                url: `/pages/order/order-detail/index?orderNo=${encodeURIComponent(order.orderNo)}`,
             });
         },
         /** 添加订单评论 */

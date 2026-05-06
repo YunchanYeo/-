@@ -371,6 +371,9 @@ Page({
                 .catch(() => this.setData({ submitting: false }));
         });
     },
+    onCloseToHome() {
+        wx.switchTab({ url: '/pages/home/home' });
+    },
     submitCheck() {
         return new Promise((resolve) => {
             const { msg, valid } = this.data.validateRes;

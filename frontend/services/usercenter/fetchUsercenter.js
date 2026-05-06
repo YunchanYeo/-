@@ -1,6 +1,7 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
 import { getToken } from '../auth/session';
+import { fetchCouponList } from '../coupon/index';
 function mockFetchUserCenter() {
     const { delay } = require('../_utils/delay');
     const { genUsercenter } = require('../../model/usercenter');
@@ -30,7 +31,8 @@ export function fetchUserCenter() {
         requestJson('/api/me', { method: 'GET' }),
         requestJson('/api/addresses', { method: 'GET' }),
         requestJson('/api/orders/count', { method: 'GET' }),
-    ]).then(([me, addressList, tabsCount]) => {
+        fetchCouponList('default').catch(() => []),
+    ]).then(([me, addressList, tabsCount, couponList]) => {
         const rows = Array.isArray(tabsCount) ? tabsCount : [];
         const numOf = (tabType) => {
             const hit = rows.find((x) => x.tabType === tabType);
@@ -44,7 +46,7 @@ export function fetchUserCenter() {
             },
             countsData: [
                 { type: 'address', num: String(Array.isArray(addressList) ? addressList.length : 0) },
-                { type: 'coupon', num: '0' },
+                { type: 'coupon', num: String(Array.isArray(couponList) ? couponList.length : 0) },
                 { type: 'point', num: String(Number(me.points ?? 0)) },
             ],
             orderTagInfos: [

@@ -1,6 +1,21 @@
 :host {
   background-color: #f5f5f5;
 }
+
+.page-close {
+  position: fixed;
+  top: calc(24rpx + env(safe-area-inset-top));
+  right: 24rpx;
+  z-index: 9999;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 32rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1rpx solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .select-service .service-form .service-from-group {
   margin-top: 20rpx;
 }

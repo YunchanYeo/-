@@ -141,6 +141,17 @@ Page({
         }
         this._lastProductVersion = currentVersion;
     },
+    onPullDownRefresh() {
+        this.pageNum = 1;
+        this.setData({ loadMoreStatus: 0 }, async () => {
+            try {
+                await this.init(true);
+            }
+            finally {
+                wx.stopPullDownRefresh();
+            }
+        });
+    },
     onReachBottom() {
         const { goodsList } = this.data;
         const { total = 0 } = this;

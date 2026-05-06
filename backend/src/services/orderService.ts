@@ -37,7 +37,7 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
           orderNo, userId, totalAmount, paymentAmount, refundAmount, refundStatus, orderStatus, orderStatusName,
           itemsJson, addressJson, createdAt, updatedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      ).run(tradeNo, userId, totalAmount, totalAmount, 0, 0, 10, '待发货', JSON.stringify(orderItems), JSON.stringify(orderAddress));
+      ).run(tradeNo, userId, totalAmount, totalAmount, 0, 0, 5, '待付款', JSON.stringify(orderItems), JSON.stringify(orderAddress));
     }
 
     const payInfo = {
@@ -68,6 +68,86 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
       code: 'Success',
       msg: null,
     });
+  }
+
+  function markOrderPaid(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+    const order = db
+      .prepare(`SELECT id, orderStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+      .get(userId, orderNo) as { id: number; orderStatus: number } | undefined;
+    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+    if (order.orderStatus === 10 || order.orderStatus === 40 || order.orderStatus === 50) {
+      return res.json({ ok: true, data: { ok: true } });
+    }
+    db.prepare(
+      `UPDATE orders
+       SET orderStatus = 10,
+           orderStatusName = '待发货',
+           updatedAt = datetime('now')
+       WHERE id = ?`,
+    ).run(order.id);
+    return res.json({ ok: true, data: { ok: true } });
+  }
+
+  function cancelOrder(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+    const order = db
+      .prepare(`SELECT id, orderStatus, refundStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+      .get(userId, orderNo) as { id: number; orderStatus: number; refundStatus: number } | undefined;
+    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+    if (order.refundStatus === 1) return res.status(409).json({ ok: false, message: 'Order already refunded' });
+    if (order.orderStatus !== 5) {
+      return res.status(409).json({ ok: false, message: '仅待付款订单可取消' });
+    }
+    db.prepare(
+      `UPDATE orders
+       SET orderStatus = 80,
+           orderStatusName = '已取消',
+           updatedAt = datetime('now')
+       WHERE id = ?`,
+    ).run(order.id);
+    return res.json({ ok: true, data: { ok: true } });
+  }
+
+  function confirmOrderReceived(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+    const order = db
+      .prepare(`SELECT id, orderStatus, refundStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+      .get(userId, orderNo) as { id: number; orderStatus: number; refundStatus: number } | undefined;
+    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+    if (order.refundStatus === 1) return res.status(409).json({ ok: false, message: 'Order already refunded' });
+    if (order.orderStatus !== 20 && order.orderStatus !== 40) {
+      return res.status(409).json({ ok: false, message: '仅待收货订单可确认收货' });
+    }
+    db.prepare(
+      `UPDATE orders
+       SET orderStatus = 50,
+           orderStatusName = '已完成',
+           updatedAt = datetime('now')
+       WHERE id = ?`,
+    ).run(order.id);
+    return res.json({ ok: true, data: { ok: true } });
+  }
+
+  function deleteOrder(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+    const order = db
+      .prepare(`SELECT id, orderStatus FROM orders WHERE userId = ? AND orderNo = ?`)
+      .get(userId, orderNo) as { id: number; orderStatus: number } | undefined;
+    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+    if (order.orderStatus !== 80 && order.orderStatus !== 50) {
+      return res.status(409).json({ ok: false, message: '仅已完成或已取消订单可删除' });
+    }
+    db.prepare(`DELETE FROM orders WHERE id = ?`).run(order.id);
+    return res.json({ ok: true, data: { ok: true } });
   }
 
   function listOrders(req: Request, res: Response) {
@@ -178,5 +258,15 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     });
   }
 
-  return { commitOrder, listOrders, ordersCount, getOrderDetail, refundOrder };
+  return {
+    commitOrder,
+    markOrderPaid,
+    cancelOrder,
+    confirmOrderReceived,
+    deleteOrder,
+    listOrders,
+    ordersCount,
+    getOrderDetail,
+    refundOrder,
+  };
 }

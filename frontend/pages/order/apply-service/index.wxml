@@ -1,4 +1,7 @@
 <view class="select-service">
+  <view class="page-close" bindtap="onCloseToHome" aria-label="close">
+    <t-icon name="close" size="24px" />
+  </view>
   <view class="order-goods-card">
     <wr-order-goods-card goods="{{goodsInfo}}" no-top-line thumb-class="order-goods-card-title-class">
       <view slot="footer" class="order-goods-card-footer">

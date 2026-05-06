@@ -91,15 +91,23 @@ Page({
         }
         this.setData({ goodsListLoadStatus: 1 });
         const pageSize = this.goodListPagination.num;
-        let pageIndex = this.privateData.tabIndex * pageSize + this.goodListPagination.index + 1;
-        if (fresh) {
-            pageIndex = 0;
-        }
+        const pageIndex = fresh ? 0 : this.goodListPagination.index + 1;
         try {
             const nextList = await fetchGoodsList(pageIndex, pageSize);
+            const merged = fresh ? nextList : this.data.goodsList.concat(nextList);
+            // 防御性去重：避免后端/缓存返回重复商品
+            const uniq = [];
+            const seen = new Set();
+            for (const it of merged) {
+                const k = String(it?.spuId ?? '');
+                if (!k || seen.has(k))
+                    continue;
+                seen.add(k);
+                uniq.push(it);
+            }
             this.setData({
-                goodsList: fresh ? nextList : this.data.goodsList.concat(nextList),
-                goodsListLoadStatus: 0,
+                goodsList: uniq,
+                goodsListLoadStatus: nextList.length < pageSize ? 2 : 0,
             });
             this.goodListPagination.index = pageIndex;
             this.goodListPagination.num = pageSize;

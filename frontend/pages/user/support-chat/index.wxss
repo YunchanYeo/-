@@ -287,6 +287,33 @@
   line-height: 1.5;
 }
 
+.record-cancel-zone {
+  position: fixed;
+  left: 50%;
+  bottom: calc(180rpx + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: 136rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-cancel-zone--active {
+  background: rgba(220, 40, 40, 0.92);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.record-cancel-x {
+  color: #fff;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
 /* 底部输入区 */
 .input-dock {
   display: flex;

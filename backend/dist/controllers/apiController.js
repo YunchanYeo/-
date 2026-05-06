@@ -32,6 +32,12 @@ export function createApiController(services) {
         adminSupportReply: services.support.adminReply,
         supportUploadMedia: services.support.uploadMyMedia,
         adminSupportUploadMedia: services.support.uploadAdminMedia,
+        // coupons
+        listMyCoupons: services.coupon.listMyCoupons,
+        getMyCouponDetail: services.coupon.getMyCouponDetail,
+        adminListCoupons: services.coupon.adminListCoupons,
+        adminCreateCoupon: services.coupon.adminCreateCoupon,
+        adminGrantCoupon: services.coupon.adminGrantCoupon,
         // admin
         adminLogin: services.auth.adminLogin,
         adminMe: services.admin.adminMe,
@@ -40,6 +46,7 @@ export function createApiController(services) {
         adminOrders: services.admin.adminOrders,
         adminOrderLogisticsTrace: services.admin.adminOrderLogisticsTrace,
         adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping,
+        adminUpdateOrderStatus: services.admin.adminUpdateOrderStatus,
         adminProducts: services.product.adminProducts,
         adminProductDetail: services.product.adminProductDetail,
         adminCreateProduct: services.product.adminCreateProduct,

@@ -4,5 +4,6 @@
     "goods-list": "/components/goods-list/index",
     "t-empty": "tdesign-miniprogram/empty/empty",
     "t-toast": "tdesign-miniprogram/toast/toast"
-  }
+  },
+  "enablePullDownRefresh": true
 }
