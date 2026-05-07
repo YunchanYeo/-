@@ -4,6 +4,8 @@ import {
   listAdminSupportMessagesByUser,
   createAdminSupportReply,
   uploadAdminSupportMedia,
+  getAdminSupportPeerTyping,
+  setAdminSupportTyping,
   enrichSupportMessages,
   normalizeChatMediaUrl,
 } from '../../../services/support/chat';
@@ -28,8 +30,11 @@ Page({
     recording: false,
     recordWillCancel: false,
     inputMode: 'text',
+    showEmojiPanel: false,
+    emojiList: ['😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '🤔', '😭', '😡', '👍', '👏', '🙏', '🎉', '❤️'],
     scrollIntoView: '',
     playingVoiceId: '',
+    peerTyping: false,
   },
   _timer: null,
   _recorder: null,
@@ -40,6 +45,8 @@ Page({
   _windowWidth: 375,
   _windowHeight: 667,
   _lastScrollAnchorId: '',
+  _typingTimer: null,
+  _typingActive: false,
 
   noop() {},
 
@@ -69,6 +76,7 @@ Page({
     }
     this.stopRecordingIfNeeded();
     this.stopAudio();
+    this.reportTyping(false);
   },
 
   onUnload() {
@@ -78,6 +86,7 @@ Page({
     }
     this.stopRecordingIfNeeded();
     this.stopAudio();
+    this.reportTyping(false);
   },
 
   stopAudio() {
@@ -113,12 +122,14 @@ Page({
       if (activeUserId) {
         const msgs = await listAdminSupportMessagesByUser(activeUserId);
         const messages = enrichSupportMessages(Array.isArray(msgs) ? msgs : []);
+        const typing = await getAdminSupportPeerTyping(activeUserId);
         this.setData({ messages });
+        this.setData({ peerTyping: Boolean(typing?.peerTyping) });
         if (this.shouldAutoScroll(messages)) {
           wx.nextTick(() => this.scrollToBottom(messages));
         }
       } else {
-        this.setData({ messages: [] });
+        this.setData({ messages: [], peerTyping: false });
         if (this.shouldAutoScroll([])) {
           wx.nextTick(() => this.scrollToBottom([]));
         }
@@ -129,16 +140,49 @@ Page({
   async onSelectConversation(e) {
     const userId = String(e.currentTarget.dataset.userId || '');
     if (!userId) return;
+    if (this._typingActive) {
+      this._typingActive = false;
+      this.reportTyping(false);
+    }
     this.setData({ activeUserId: userId });
     await this.refresh();
   },
 
   onInput(e) {
-    this.setData({ inputText: e.detail.value || '' });
+    const next = e.detail.value || '';
+    this.setData({ inputText: next });
+    this.handleTypingInput(next);
+  },
+
+  handleTypingInput(text) {
+    const hasText = String(text || '').trim().length > 0;
+    if (!this.data.activeUserId) return;
+    if (hasText && !this._typingActive) {
+      this._typingActive = true;
+      this.reportTyping(true);
+    } else if (!hasText && this._typingActive) {
+      this._typingActive = false;
+      this.reportTyping(false);
+    }
+    if (this._typingTimer) clearTimeout(this._typingTimer);
+    if (hasText) {
+      this._typingTimer = setTimeout(() => {
+        if (this._typingActive) this.reportTyping(true);
+      }, 3000);
+    }
+  },
+
+  reportTyping(typing) {
+    const uid = this.data.activeUserId;
+    if (!uid) return;
+    setAdminSupportTyping(uid, Boolean(typing)).catch(() => {});
   },
 
   toggleInputMode() {
-    this.setData({ inputMode: this.data.inputMode === 'voice' ? 'text' : 'voice' });
+    this.setData({
+      inputMode: this.data.inputMode === 'voice' ? 'text' : 'voice',
+      showEmojiPanel: false,
+    });
   },
 
   async onSend() {
@@ -148,6 +192,8 @@ Page({
     try {
       await createAdminSupportReply(this.data.activeUserId, content);
       this.setData({ inputText: '' });
+      this._typingActive = false;
+      this.reportTyping(false);
       await this.refresh();
     } catch (e) {
       Toast({ context: this, selector: '#t-toast', message: e?.message || '发送失败' });
@@ -193,6 +239,7 @@ Page({
       wx.showToast({ title: '请先选择用户', icon: 'none' });
       return;
     }
+    this.setData({ showEmojiPanel: false });
     wx.showActionSheet({
       itemList: ['拍照', '从相册选择'],
       success: (res) => {
@@ -200,6 +247,25 @@ Page({
         this.chooseImageBySource(sourceType);
       },
     });
+  },
+
+  onEmojiTap() {
+    if (!this.data.activeUserId) {
+      wx.showToast({ title: '请先选择用户', icon: 'none' });
+      return;
+    }
+    if (this.data.inputMode === 'voice') {
+      this.setData({ inputMode: 'text' });
+    }
+    this.setData({ showEmojiPanel: !this.data.showEmojiPanel });
+  },
+
+  onPickEmoji(e) {
+    const emoji = String(e.currentTarget.dataset.emoji || '');
+    if (!emoji) return;
+    const next = `${this.data.inputText || ''}${emoji}`;
+    this.setData({ inputText: next });
+    this.handleTypingInput(next);
   },
 
   onRecordStart(e) {

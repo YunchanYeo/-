@@ -40,6 +40,74 @@
   line-height: 1.5;
 }
 
+.status-row {
+  margin-top: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-badge {
+  display: inline-block;
+  background: #e8f8ee;
+  color: #0d9f50;
+  border-radius: 24rpx;
+  padding: 8rpx 18rpx;
+  font-size: 22rpx;
+}
+
+.copy-btn {
+  margin: 0;
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 16rpx;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  color: #444;
+}
+
+.latest {
+  margin-top: 12rpx;
+  display: block;
+  color: #222;
+  font-size: 27rpx;
+  line-height: 1.45;
+}
+
+.latest-time {
+  margin-top: 6rpx;
+  display: block;
+  color: #888;
+  font-size: 22rpx;
+}
+
+.setup-card {
+  margin: 18rpx 24rpx 0;
+  padding: 20rpx;
+  background: #fff8e6;
+  border: 1rpx solid #f3d782;
+  border-radius: 12rpx;
+}
+
+.setup-title {
+  color: #8a5a00;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.setup-sub {
+  margin-top: 12rpx;
+  color: #7a5b22;
+  font-size: 24rpx;
+}
+
+.setup-step {
+  margin-top: 8rpx;
+  color: #7a5b22;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
 .route-map {
   width: 100%;
   height: 360rpx;
@@ -60,10 +128,31 @@
 
 .trace-row {
   margin: 0 24rpx 20rpx;
-  padding: 20rpx 24rpx;
+  padding: 20rpx 24rpx 20rpx 46rpx;
   background: #fff;
   border-radius: 12rpx;
   box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.06);
+  position: relative;
+}
+
+.trace-row-active {
+  border: 1rpx solid #c9efd8;
+  box-shadow: 0 4rpx 10rpx rgba(7, 193, 96, 0.14);
+}
+
+.trace-dot {
+  position: absolute;
+  left: 18rpx;
+  top: 30rpx;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #c7c7c7;
+}
+
+.trace-dot-active {
+  background: #07c160;
+  box-shadow: 0 0 0 6rpx rgba(7, 193, 96, 0.18);
 }
 
 .trace-time {

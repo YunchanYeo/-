@@ -75,22 +75,30 @@
     </view>
   </view>
 
+  <view wx:if="{{peerTyping}}" class="typing-tip">对方正在输入…</view>
+
   <view class="input-dock safe-bottom">
-    <view class="tool-btn" hover-class="tool-btn--hover" bindtap="toggleInputMode">
-      <image wx:if="{{inputMode !== 'voice'}}" class="tool-voice-icon" src="/assets/chat-voice-icon.png" mode="aspectFit" />
-      <text wx:else class="tool-icon-key">⌨</text>
+    <view class="circle-btn" hover-class="circle-btn--hover" bindtap="toggleInputMode">
+      <image wx:if="{{inputMode !== 'voice'}}" class="circle-icon" src="/assets/chat-voice-icon.png" mode="aspectFit" />
+      <text wx:else class="circle-keyboard">⌨</text>
     </view>
+
     <block wx:if="{{inputMode !== 'voice'}}">
-      <input
-        class="text-field"
-        placeholder="发送消息"
-        placeholder-class="text-field-ph"
-        confirm-type="send"
-        confirm-hold="{{false}}"
-        value="{{inputText}}"
-        bindinput="onInput"
-        bindconfirm="onSend"
-      />
+      <view class="text-field-wrap">
+        <input
+          class="text-field"
+          placeholder="发送消息"
+          placeholder-class="text-field-ph"
+          confirm-type="send"
+          confirm-hold="{{false}}"
+          value="{{inputText}}"
+          bindinput="onInput"
+          bindconfirm="onSend"
+        />
+        <view class="inline-mic" hover-class="inline-mic--hover" bindtap="toggleInputMode">
+          <text class="inline-mic-icon">🎤</text>
+        </view>
+      </view>
     </block>
     <view
       wx:else
@@ -102,18 +110,27 @@
     >
       {{recording ? '松开 发送' : '按住 说话'}}
     </view>
-    <view class="tool-btn tool-btn--plus" hover-class="tool-btn--hover" bindtap="openMoreActions">
-      <text class="tool-plus">+</text>
+
+    <view class="circle-btn circle-btn--side" hover-class="circle-btn--hover" bindtap="onEmojiTap">
+      <text class="circle-emoji">☺</text>
     </view>
-    <button
-      wx:if="{{inputMode !== 'voice' && inputText}}"
-      class="send-btn"
-      loading="{{sending}}"
-      disabled="{{sending}}"
-      bindtap="onSend"
-    >
-      发送
-    </button>
+    <view class="circle-btn circle-btn--side" hover-class="circle-btn--hover" bindtap="openMoreActions">
+      <text class="circle-plus">+</text>
+    </view>
+  </view>
+
+  <view wx:if="{{showEmojiPanel}}" class="emoji-panel safe-bottom">
+    <view class="emoji-grid">
+      <view
+        wx:for="{{emojiList}}"
+        wx:key="*this"
+        class="emoji-item"
+        data-emoji="{{item}}"
+        bindtap="onPickEmoji"
+      >
+        {{item}}
+      </view>
+    </view>
   </view>
 </view>
 <t-toast id="t-toast" />

@@ -222,6 +222,7 @@ Page({
     },
     onDeliveryClick() {
         const logisticsData = {
+            orderNo: this.data.order.orderNo,
             nodes: this.data.logisticsNodes,
             company: this.data.order.logisticsVO.logisticsCompanyName,
             logisticsNo: this.data.order.logisticsVO.logisticsNo,

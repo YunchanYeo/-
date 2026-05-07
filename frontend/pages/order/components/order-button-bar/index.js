@@ -46,15 +46,9 @@ Component({
                     }
                     return button;
                 });
-                // 删除订单按钮单独挪到左侧
-                const deleteBtnIndex = buttonsRight.findIndex((b) => b.type === OrderButtonTypes.DELETE);
-                let buttonsLeft = [];
-                if (deleteBtnIndex > -1) {
-                    buttonsLeft = buttonsRight.splice(deleteBtnIndex, 1);
-                }
                 this.setData({
                     buttons: {
-                        left: buttonsLeft,
+                        left: [],
                         right: buttonsRight,
                     },
                 });
@@ -222,7 +216,17 @@ Component({
                 });
                 this.triggerEvent('refresh');
             })
-                .catch(() => { });
+                .catch((e) => {
+                // 取消弹窗时 e 为空；接口失败时给出明确反馈，避免“看起来删了但库里没删”的误判
+                if (!e)
+                    return;
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: e?.message || '删除失败，请稍后重试',
+                    icon: '',
+                });
+            });
         },
         onApplyRefund(order) {
             const goods = order.goodsList[this.properties.goodsIndex];

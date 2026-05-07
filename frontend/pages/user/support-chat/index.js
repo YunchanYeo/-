@@ -5,6 +5,8 @@ import {
   listMySupportMessages,
   createMySupportMessage,
   uploadSupportMedia,
+  getMySupportPeerTyping,
+  setMySupportTyping,
   enrichSupportMessages,
   normalizeChatMediaUrl,
 } from '../../../services/support/chat';
@@ -27,9 +29,12 @@ Page({
     recording: false,
     recordWillCancel: false,
     inputMode: 'text',
+    showEmojiPanel: false,
+    emojiList: ['😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '🤔', '😭', '😡', '👍', '👏', '🙏', '🎉', '❤️'],
     scrollIntoView: '',
     myAvatarUrl: '',
     playingVoiceId: '',
+    peerTyping: false,
   },
   _timer: null,
   _recorder: null,
@@ -40,6 +45,8 @@ Page({
   _windowWidth: 375,
   _windowHeight: 667,
   _lastScrollAnchorId: '',
+  _typingTimer: null,
+  _typingActive: false,
 
   noop() {},
 
@@ -84,6 +91,7 @@ Page({
     }
     this.stopRecordingIfNeeded();
     this.stopAudio();
+    this.reportTyping(false);
   },
 
   onUnload() {
@@ -93,6 +101,7 @@ Page({
     }
     this.stopRecordingIfNeeded();
     this.stopAudio();
+    this.reportTyping(false);
   },
 
   stopAudio() {
@@ -128,15 +137,43 @@ Page({
       if (this.shouldAutoScroll(messages)) {
         wx.nextTick(() => this.scrollToBottom(messages));
       }
+      const typing = await getMySupportPeerTyping();
+      this.setData({ peerTyping: Boolean(typing?.peerTyping) });
     } catch (e) {}
   },
 
   onInput(e) {
-    this.setData({ inputText: e.detail.value || '' });
+    const next = e.detail.value || '';
+    this.setData({ inputText: next });
+    this.handleTypingInput(next);
+  },
+
+  handleTypingInput(text) {
+    const hasText = String(text || '').trim().length > 0;
+    if (hasText && !this._typingActive) {
+      this._typingActive = true;
+      this.reportTyping(true);
+    } else if (!hasText && this._typingActive) {
+      this._typingActive = false;
+      this.reportTyping(false);
+    }
+    if (this._typingTimer) clearTimeout(this._typingTimer);
+    if (hasText) {
+      this._typingTimer = setTimeout(() => {
+        if (this._typingActive) this.reportTyping(true);
+      }, 3000);
+    }
+  },
+
+  reportTyping(typing) {
+    setMySupportTyping(Boolean(typing)).catch(() => {});
   },
 
   toggleInputMode() {
-    this.setData({ inputMode: this.data.inputMode === 'voice' ? 'text' : 'voice' });
+    this.setData({
+      inputMode: this.data.inputMode === 'voice' ? 'text' : 'voice',
+      showEmojiPanel: false,
+    });
   },
 
   async onSend() {
@@ -147,6 +184,8 @@ Page({
     try {
       await createMySupportMessage(content);
       this.setData({ inputText: '' });
+      this._typingActive = false;
+      this.reportTyping(false);
       await this.fetchMessages();
     } catch (e) {
       Toast({ context: this, selector: '#t-toast', message: e?.message || '发送失败' });
@@ -183,6 +222,7 @@ Page({
   },
 
   openMoreActions() {
+    this.setData({ showEmojiPanel: false });
     wx.showActionSheet({
       itemList: ['拍照', '从相册选择'],
       success: (res) => {
@@ -190,6 +230,21 @@ Page({
         this.chooseImageBySource(sourceType);
       },
     });
+  },
+
+  onEmojiTap() {
+    if (this.data.inputMode === 'voice') {
+      this.setData({ inputMode: 'text' });
+    }
+    this.setData({ showEmojiPanel: !this.data.showEmojiPanel });
+  },
+
+  onPickEmoji(e) {
+    const emoji = String(e.currentTarget.dataset.emoji || '');
+    if (!emoji) return;
+    const next = `${this.data.inputText || ''}${emoji}`;
+    this.setData({ inputText: next });
+    this.handleTypingInput(next);
   },
 
   onRecordStart(e) {

@@ -88,6 +88,8 @@ export function enrichSupportMessages(list) {
 }
 
 export const listMySupportMessages = () => requestJson('/api/support/messages', { method: 'GET' });
+export const getMySupportPeerTyping = () => requestJson('/api/support/typing', { method: 'GET' });
+export const setMySupportTyping = (typing) => requestJson('/api/support/typing', { method: 'POST', data: { typing: Boolean(typing) } });
 
 /**
  * @param {string | { msgType?: string, content: string, meta?: { durationMs?: number } }} payload
@@ -123,6 +125,9 @@ export function uploadSupportMedia(opts) {
 
 export const listAdminSupportConversations = () => requestAdminJson('/api/admin/support/conversations', { method: 'GET' });
 export const listAdminSupportMessagesByUser = (userId) => requestAdminJson(`/api/admin/support/messages/${userId}`, { method: 'GET' });
+export const getAdminSupportPeerTyping = (userId) => requestAdminJson(`/api/admin/support/typing/${userId}`, { method: 'GET' });
+export const setAdminSupportTyping = (userId, typing) =>
+  requestAdminJson(`/api/admin/support/typing/${userId}`, { method: 'POST', data: { typing: Boolean(typing) } });
 
 /**
  * @param {string} userId

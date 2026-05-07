@@ -3,12 +3,16 @@ import { useAuth } from '../auth';
 import {
   fetchSupportConversations,
   fetchSupportMessages,
+  fetchSupportPeerTyping,
   postSupportReply,
+  updateSupportTyping,
   uploadAdminSupportMedia,
   type SupportConversationRow,
   type SupportMessageRow,
 } from '../api/admin';
 import { normalizeSupportMediaUrl } from '../api/client';
+
+const EMOJI_LIST = ['😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '🤔', '😭', '😡', '👍', '👏', '🙏', '🎉', '❤️'];
 
 function formatTime(iso: string): string {
   try {
@@ -44,6 +48,8 @@ export default function SupportChatPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showEmojiPanel, setShowEmojiPanel] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -97,10 +103,33 @@ export default function SupportChatPage() {
     if (!token) return;
     const id = setInterval(() => {
       loadConversations();
-      if (activeUserId != null) loadMessages(activeUserId);
+      if (activeUserId != null) {
+        loadMessages(activeUserId);
+        fetchSupportPeerTyping(token, activeUserId)
+          .then((v) => setPeerTyping(Boolean(v?.peerTyping)))
+          .catch(() => {});
+      }
     }, 4000);
     return () => clearInterval(id);
   }, [token, activeUserId, loadConversations, loadMessages]);
+
+  useEffect(() => {
+    if (!token || activeUserId == null) {
+      setPeerTyping(false);
+      return;
+    }
+    fetchSupportPeerTyping(token, activeUserId)
+      .then((v) => setPeerTyping(Boolean(v?.peerTyping)))
+      .catch(() => {});
+  }, [token, activeUserId]);
+
+  useEffect(() => {
+    return () => {
+      if (token && activeUserId != null) {
+        updateSupportTyping(token, activeUserId, false).catch(() => {});
+      }
+    };
+  }, [token, activeUserId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,7 +143,9 @@ export default function SupportChatPage() {
     setErr('');
     try {
       await postSupportReply(token, activeUserId, { msgType: 'text', content: t });
+      await updateSupportTyping(token, activeUserId, false);
       setInput('');
+      setShowEmojiPanel(false);
       await loadMessages(activeUserId);
       await loadConversations();
     } catch (ex: unknown) {
@@ -127,6 +158,12 @@ export default function SupportChatPage() {
   function onSendText(e: FormEvent) {
     e.preventDefault();
     void sendTextMessage();
+  }
+
+  function reportTyping(nextText: string) {
+    if (!token || activeUserId == null) return;
+    const typing = nextText.trim().length > 0;
+    updateSupportTyping(token, activeUserId, typing).catch(() => {});
   }
 
   async function onPickImage(e: ChangeEvent<HTMLInputElement>) {
@@ -342,9 +379,15 @@ export default function SupportChatPage() {
               flexWrap: 'wrap',
             }}
           >
+            {peerTyping ? <div style={{ width: '100%', fontSize: '0.8rem', color: 'var(--muted)' }}>对方正在输入…</div> : null}
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setInput(next);
+                reportTyping(next);
+                if (showEmojiPanel) setShowEmojiPanel(false);
+              }}
               placeholder={activeUserId == null ? '请先选择用户' : '输入回复，Enter 发送（Shift+Enter 换行）'}
               disabled={activeUserId == null || sending}
               rows={2}
@@ -358,6 +401,15 @@ export default function SupportChatPage() {
                 }
               }}
             />
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={activeUserId == null || sending}
+              onClick={() => setShowEmojiPanel((prev) => !prev)}
+              title="表情"
+            >
+              😀
+            </button>
             <label className="btn btn-ghost" style={{ cursor: activeUserId && !sending ? 'pointer' : 'not-allowed', opacity: activeUserId ? 1 : 0.5 }}>
               图片
               <input type="file" accept="image/*" hidden disabled={activeUserId == null || sending} onChange={onPickImage} />
@@ -365,6 +417,38 @@ export default function SupportChatPage() {
             <button type="submit" className="btn btn-primary" disabled={activeUserId == null || sending || !input.trim()}>
               {sending ? '发送中…' : '发送'}
             </button>
+            {showEmojiPanel && activeUserId != null ? (
+              <div
+                style={{
+                  width: '100%',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: 'var(--surface2)',
+                  padding: '0.5rem',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                  gap: '0.35rem',
+                }}
+              >
+                {EMOJI_LIST.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ minWidth: 0, padding: '0.25rem 0.35rem', fontSize: '1.2rem' }}
+                    onClick={() => {
+                      setInput((prev) => {
+                        const next = `${prev}${emoji}`;
+                        reportTyping(next);
+                        return next;
+                      });
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </form>
         </div>
       </div>

@@ -28,12 +28,15 @@ export function createApiRouter(controller: any) {
   router.post('/orders/:orderNo/cancel', controller.requireAuth, controller.cancelOrder);
   router.post('/orders/:orderNo/confirm', controller.requireAuth, controller.confirmOrderReceived);
   router.delete('/orders/:orderNo', controller.requireAuth, controller.deleteOrder);
+  router.get('/orders/:orderNo/logistics-trace', controller.requireAuth, controller.orderLogisticsTrace);
   router.get('/points/config', controller.requireAuth, controller.pointsConfig);
   router.post('/orders/commit', controller.requireAuth, controller.commitOrder);
 
   // support chat (user)
   router.get('/support/messages', controller.requireAuth, controller.listMySupportMessages);
   router.post('/support/messages', controller.requireAuth, controller.createMySupportMessage);
+  router.get('/support/typing', controller.requireAuth, controller.getMySupportPeerTyping);
+  router.post('/support/typing', controller.requireAuth, controller.setMySupportTyping);
   router.post('/support/upload-media', controller.requireAuth, controller.supportUploadMedia);
   router.get('/coupons', controller.requireAuth, controller.listMyCoupons);
   router.get('/coupons/:id', controller.requireAuth, controller.getMyCouponDetail);
@@ -51,6 +54,8 @@ export function createApiRouter(controller: any) {
   router.delete('/admin/orders/:orderNo', controller.requireAdmin, controller.adminDeleteOrder);
   router.get('/admin/point-policy', controller.requireAdmin, controller.adminGetPointPolicy);
   router.put('/admin/point-policy', controller.requireAdmin, controller.adminUpdatePointPolicy);
+  router.get('/admin/order-visibility', controller.requireAdmin, controller.adminGetOrderVisibility);
+  router.put('/admin/order-visibility', controller.requireAdmin, controller.adminUpdateOrderVisibility);
 
   router.get('/admin/products', controller.requireAdmin, controller.adminProducts);
   router.get('/admin/products/:id', controller.requireAdmin, controller.adminProductDetail);
@@ -72,6 +77,8 @@ export function createApiRouter(controller: any) {
   router.get('/admin/support/conversations', controller.requireAdmin, controller.adminSupportConversations);
   router.get('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportMessagesByUser);
   router.post('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportReply);
+  router.get('/admin/support/typing/:userId', controller.requireAdmin, controller.adminGetSupportPeerTyping);
+  router.post('/admin/support/typing/:userId', controller.requireAdmin, controller.adminSetSupportTyping);
   router.post('/admin/support/upload-media', controller.requireAdmin, controller.adminSupportUploadMedia);
 
   return router;
