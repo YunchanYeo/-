@@ -1,7 +1,19 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth';
-import { deleteAdminOrder, fetchLogisticsTrace, fetchOrders, updateOrderStatus, updateShipping, type OrderRow } from '../api/admin';
-import * as XLSX from 'xlsx';
+import {
+  fetchAdminOrderVisibility,
+  fetchLogisticsTrace,
+  fetchOrders,
+  updateAdminOrderVisibility,
+  updateOrderStatus,
+  updateShipping,
+  type OrderRow,
+} from '../api/admin';
+import TraceLeafletMap, { type TraceLeafletMapHandle } from '../TraceLeafletMap';
+
+const ADMIN_HIDDEN_ORDERS_KEY = 'admin_web_hidden_order_nos';
+const VIRTUAL_ROW_HEIGHT = 52;
+const VIRTUAL_CONTAINER_HEIGHT = 560;
 
 const ORDER_STATUS_OPTIONS = [
   { value: 10, label: '待发货' },
@@ -10,6 +22,33 @@ const ORDER_STATUS_OPTIONS = [
   { value: 60, label: '已取消' },
 ] as const;
 
+type LogisticsTraceData = {
+  configured?: boolean;
+  hint?: string;
+  orderNo?: string;
+  logisticsCompanyName?: string;
+  logisticsNo?: string;
+  traces?: Array<{ time?: string; context?: string; areaName?: string; latitude?: number; longitude?: number }>;
+  polylinePoints?: Array<{ latitude: number; longitude: number }>;
+};
+
+type ImportFailure = {
+  rowNo: number;
+  orderNo: string;
+  reason: string;
+  row: Record<string, any>;
+};
+
+type XlsxModule = typeof import('xlsx');
+let xlsxModulePromise: Promise<XlsxModule> | null = null;
+
+function getXlsx() {
+  if (!xlsxModulePromise) {
+    xlsxModulePromise = import('xlsx');
+  }
+  return xlsxModulePromise;
+}
+
 export default function OrdersPage() {
   const { token } = useAuth();
   const [rows, setRows] = useState<OrderRow[]>([]);
@@ -17,7 +56,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [modalOrder, setModalOrder] = useState<OrderRow | null>(null);
   const [traceOpen, setTraceOpen] = useState<OrderRow | null>(null);
-  const [traceJson, setTraceJson] = useState('');
+  const [traceData, setTraceData] = useState<LogisticsTraceData | null>(null);
+  const [traceErr, setTraceErr] = useState('');
   const [traceLoading, setTraceLoading] = useState(false);
 
   const [companyCode, setCompanyCode] = useState('');
@@ -26,9 +66,17 @@ export default function OrdersPage() {
   const [remark, setRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<string>('');
-  const [deletingNo, setDeletingNo] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [importLog, setImportLog] = useState('');
+  const [importFailures, setImportFailures] = useState<ImportFailure[]>([]);
+  const [dryRunMode, setDryRunMode] = useState(false);
+  const [virtualScrollTop, setVirtualScrollTop] = useState(0);
+  const traceMapRef = useRef<TraceLeafletMapHandle | null>(null);
+  const importResultRef = useRef<HTMLDivElement | null>(null);
+  const [traceRowFocus, setTraceRowFocus] = useState<number | null>(null);
+  const [hiddenOrderNos, setHiddenOrderNos] = useState<string[]>([]);
+  const [showHiddenOnly, setShowHiddenOnly] = useState(false);
+  const [selectedOrderNos, setSelectedOrderNos] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -46,6 +94,67 @@ export default function OrdersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadVisibility() {
+      if (!token) return;
+      try {
+        const data = await fetchAdminOrderVisibility(token);
+        if (cancelled) return;
+        const hidden = Array.isArray(data?.hiddenOrderNos) ? data.hiddenOrderNos.map((x) => String(x).trim()).filter(Boolean) : [];
+        setHiddenOrderNos(hidden);
+        localStorage.setItem(ADMIN_HIDDEN_ORDERS_KEY, JSON.stringify(hidden));
+      } catch {
+        try {
+          const raw = localStorage.getItem(ADMIN_HIDDEN_ORDERS_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) {
+            setHiddenOrderNos(parsed.map((x) => String(x).trim()).filter(Boolean));
+          }
+        } catch {
+          setHiddenOrderNos([]);
+        }
+      }
+    }
+    loadVisibility();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  function saveHiddenOrderNos(next: string[]) {
+    const unique = Array.from(new Set(next.map((x) => String(x).trim()).filter(Boolean)));
+    setHiddenOrderNos(unique);
+    try {
+      localStorage.setItem(ADMIN_HIDDEN_ORDERS_KEY, JSON.stringify(unique));
+    } catch {
+      // ignore
+    }
+    if (token) {
+      updateAdminOrderVisibility(token, { hiddenOrderNos: unique }).catch(() => {
+        // ignore sync errors, UI keeps local state
+      });
+    }
+  }
+
+  function removeHiddenOrderNos(orderNos: string[]) {
+    const removeSet = new Set(orderNos.map((x) => String(x).trim()).filter(Boolean));
+    setHiddenOrderNos((prev) => {
+      const next = prev.filter((x) => !removeSet.has(x));
+      try {
+        localStorage.setItem(ADMIN_HIDDEN_ORDERS_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      if (token) {
+        updateAdminOrderVisibility(token, { hiddenOrderNos: next }).catch(() => {
+          // ignore sync errors
+        });
+      }
+      return next;
+    });
+  }
 
   function openShip(o: OrderRow) {
     setModalOrder(o);
@@ -79,17 +188,32 @@ export default function OrdersPage() {
   async function loadTrace(o: OrderRow) {
     if (!token) return;
     setTraceOpen(o);
-    setTraceJson('');
+    setTraceRowFocus(null);
+    setTraceData(null);
+    setTraceErr('');
     setTraceLoading(true);
     try {
       const data = await fetchLogisticsTrace(token, o.orderNo);
-      setTraceJson(JSON.stringify(data, null, 2));
+      setTraceData((data || {}) as LogisticsTraceData);
     } catch (ex: unknown) {
-      setTraceJson(ex instanceof Error ? ex.message : '查询失败');
+      setTraceErr(ex instanceof Error ? ex.message : '查询失败');
     } finally {
       setTraceLoading(false);
     }
   }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      window.alert('已复制运单号');
+    } catch {
+      window.alert('复制失败，请手动复制');
+    }
+  }
+
+  useEffect(() => {
+    setTraceRowFocus(null);
+  }, [traceData]);
 
   async function onUpdateStatus(o: OrderRow, orderStatus: number) {
     if (!token) return;
@@ -106,36 +230,29 @@ export default function OrdersPage() {
     }
   }
 
-  async function onDeleteOrder(o: OrderRow) {
-    if (!token) return;
-    if (!window.confirm(`确定删除订单 ${o.orderNo}？此操作不可恢复。`)) return;
-    setDeletingNo(o.orderNo);
-    setErr('');
-    try {
-      await deleteAdminOrder(token, o.orderNo);
-      await load();
-    } catch (ex: unknown) {
-      setErr(ex instanceof Error ? ex.message : '删除失败');
-    } finally {
-      setDeletingNo('');
-    }
+  function onRestoreAllOrders() {
+    if (!hiddenOrderNos.length) return;
+    if (!window.confirm(`恢复全部 ${hiddenOrderNos.length} 条已隐藏订单到管理员列表？`)) return;
+    saveHiddenOrderNos([]);
+    setShowHiddenOnly(false);
   }
 
-  function exportOrders() {
+  async function exportOrders() {
+    const XLSX = await getXlsx();
     const data = rows.map((o) => ({
-      orderNo: o.orderNo,
-      userId: o.userId,
-      nickName: o.nickName ?? '',
-      phoneNumber: o.phoneNumber ?? '',
-      paymentAmount: o.paymentAmount,
-      orderStatus: o.orderStatus,
-      orderStatusName: o.orderStatusName,
-      logisticsCompanyCode: o.logisticsCompanyCode ?? '',
-      logisticsCompanyName: o.logisticsCompanyName ?? '',
-      logisticsNo: o.logisticsNo ?? '',
-      logisticsRemark: o.logisticsRemark ?? '',
-      shippedAt: o.shippedAt ?? '',
-      createdAt: o.createdAt ?? '',
+      订单号: o.orderNo,
+      用户ID: o.userId,
+      昵称: o.nickName ?? '',
+      手机号: o.phoneNumber ?? '',
+      支付金额_分: o.paymentAmount,
+      订单状态码: o.orderStatus,
+      订单状态: o.orderStatusName,
+      物流公司代码: o.logisticsCompanyCode ?? '',
+      物流公司名称: o.logisticsCompanyName ?? '',
+      运单号: o.logisticsNo ?? '',
+      物流备注: o.logisticsRemark ?? '',
+      发货时间: o.shippedAt ?? '',
+      创建时间: o.createdAt ?? '',
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -143,16 +260,17 @@ export default function OrdersPage() {
     XLSX.writeFile(wb, `orders_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  function exportImportTemplate() {
+  async function exportImportTemplate() {
+    const XLSX = await getXlsx();
     const ws = XLSX.utils.json_to_sheet([
       {
-        orderNo: '订单号(必填)',
-        logisticsCompanyCode: '快递公司代码(可空)',
-        logisticsCompanyName: '快递公司名称(可空)',
-        logisticsNo: '运单号(可空)',
-        logisticsRemark: '备注(可空)',
-        orderStatus: '订单状态(可空:10/40/50/60)',
-        orderStatusName: '订单状态名称(可空)',
+        订单号: '必填',
+        物流公司代码: '可空',
+        物流公司名称: '可空',
+        运单号: '可空',
+        物流备注: '可空',
+        订单状态码: '可空:10/40/50/60',
+        订单状态: '可空',
       },
     ]);
     const wb = XLSX.utils.book_new();
@@ -160,63 +278,211 @@ export default function OrdersPage() {
     XLSX.writeFile(wb, 'orders_import_template.xlsx');
   }
 
-  async function onImportExcel(file: File) {
+  function normalizeOrderNo(input: unknown) {
+    const s = String(input ?? '').trim().replace(/^'+|'+$/g, '');
+    if (!s) return '';
+    if (/^\d+\.0+$/.test(s)) return s.replace(/\.0+$/, '');
+    return s;
+  }
+
+  function pick(row: Record<string, any>, keys: string[]) {
+    for (const k of keys) {
+      const v = row[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  }
+
+  async function processImportRows(
+    rowsIn: Record<string, any>[],
+    options: { dryRun: boolean; baseRowNo?: number } = { dryRun: false, baseRowNo: 2 },
+  ) {
+    if (!token) return { logs: [] as string[], importedOrderNos: [] as string[], failures: [] as ImportFailure[] };
+    const logs: string[] = [];
+    const importedOrderNos = new Set<string>();
+    const failures: ImportFailure[] = [];
+    const baseRowNo = options.baseRowNo ?? 2;
+
+    for (let i = 0; i < rowsIn.length; i++) {
+      const r = rowsIn[i];
+      const rowNo = baseRowNo + i;
+      const orderNoRaw = pick(r, ['订单号', 'orderNo']);
+      const orderNo = normalizeOrderNo(orderNoRaw);
+      if (!orderNo) {
+        logs.push(`#${rowNo} 跳过：缺少 orderNo`);
+        continue;
+      }
+      if (/[eE]\+?\d+/.test(orderNoRaw)) {
+        logs.push(`#${rowNo} ${orderNo} 提示：订单号疑似科学计数法，可能已被 Excel 改写导致无法匹配`);
+      }
+      const logisticsCompanyName = pick(r, ['物流公司名称', 'logisticsCompanyName']);
+      const logisticsNo = pick(r, ['运单号', 'logisticsNo']);
+      const logisticsCompanyCode = pick(r, ['物流公司代码', 'logisticsCompanyCode']);
+      const logisticsRemark = pick(r, ['物流备注', 'logisticsRemark']);
+      const orderStatusRaw = pick(r, ['订单状态码', 'orderStatus']);
+      const orderStatusName = pick(r, ['订单状态', 'orderStatusName']);
+
+      try {
+        if (options.dryRun) {
+          if (logisticsCompanyName && logisticsNo) logs.push(`#${rowNo} ${orderNo} 预检：将更新发货信息`);
+          if (orderStatusRaw) logs.push(`#${rowNo} ${orderNo} 预检：将更新订单状态`);
+          if (!logisticsCompanyName && !logisticsNo && !orderStatusRaw) logs.push(`#${rowNo} ${orderNo} 跳过：无可处理字段`);
+          continue;
+        }
+
+        if (logisticsCompanyName && logisticsNo) {
+          await updateShipping(token, orderNo, {
+            logisticsCompanyName,
+            logisticsNo,
+            ...(logisticsCompanyCode ? { logisticsCompanyCode } : {}),
+            ...(logisticsRemark ? { logisticsRemark } : {}),
+          });
+          logs.push(`#${rowNo} ${orderNo} 发货信息已更新`);
+          importedOrderNos.add(orderNo);
+        }
+        if (orderStatusRaw) {
+          const st = Number(orderStatusRaw);
+          if (!Number.isFinite(st)) throw new Error('orderStatus 无效');
+          await updateOrderStatus(token, orderNo, { orderStatus: st, ...(orderStatusName ? { orderStatusName } : {}) });
+          logs.push(`#${rowNo} ${orderNo} 状态已更新`);
+          importedOrderNos.add(orderNo);
+        }
+        if (!logisticsCompanyName && !logisticsNo && !orderStatusRaw) {
+          logs.push(`#${rowNo} ${orderNo} 跳过：无可处理字段`);
+        }
+      } catch (e: unknown) {
+        const reason = e instanceof Error ? e.message : '处理失败';
+        logs.push(`#${rowNo} ${orderNo} 失败：${reason}`);
+        failures.push({ rowNo, orderNo, reason, row: r });
+      }
+    }
+
+    return { logs, importedOrderNos: Array.from(importedOrderNos), failures };
+  }
+
+  async function onImportExcel(file: File, forceDryRun?: boolean) {
     if (!token) return;
     setImporting(true);
     setImportLog('');
+    setImportFailures([]);
     setErr('');
     try {
+      const XLSX = await getXlsx();
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: 'array' });
       const first = wb.SheetNames[0];
       if (!first) throw new Error('Excel 无工作表');
       const ws = wb.Sheets[first];
-      const rowsIn = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' });
-      const logs: string[] = [];
-      for (let i = 0; i < rowsIn.length; i++) {
-        const r = rowsIn[i];
-        const orderNo = String(r.orderNo || r.订单号 || '').trim();
-        if (!orderNo) {
-          logs.push(`#${i + 2} 跳过：缺少 orderNo`);
-          continue;
-        }
-        const logisticsCompanyName = String(r.logisticsCompanyName || '').trim();
-        const logisticsNo = String(r.logisticsNo || '').trim();
-        const logisticsCompanyCode = String(r.logisticsCompanyCode || '').trim();
-        const logisticsRemark = String(r.logisticsRemark || '').trim();
-        const orderStatusRaw = String(r.orderStatus || '').trim();
-        const orderStatusName = String(r.orderStatusName || '').trim();
+      const rowsIn = XLSX.utils.sheet_to_json<Record<string, any>>(ws, {
+        defval: '',
+        raw: false,
+        rawNumbers: false,
+      });
 
-        try {
-          if (logisticsCompanyName && logisticsNo) {
-            await updateShipping(token, orderNo, {
-              logisticsCompanyName,
-              logisticsNo,
-              ...(logisticsCompanyCode ? { logisticsCompanyCode } : {}),
-              ...(logisticsRemark ? { logisticsRemark } : {}),
-            });
-            logs.push(`#${i + 2} ${orderNo} 发货信息已更新`);
-          }
-          if (orderStatusRaw) {
-            const st = Number(orderStatusRaw);
-            if (!Number.isFinite(st)) throw new Error('orderStatus 无效');
-            await updateOrderStatus(token, orderNo, { orderStatus: st, ...(orderStatusName ? { orderStatusName } : {}) });
-            logs.push(`#${i + 2} ${orderNo} 状态已更新`);
-          }
-          if (!logisticsCompanyName && !logisticsNo && !orderStatusRaw) {
-            logs.push(`#${i + 2} ${orderNo} 跳过：无可处理字段`);
-          }
-        } catch (e: unknown) {
-          logs.push(`#${i + 2} ${orderNo} 失败：${e instanceof Error ? e.message : '处理失败'}`);
-        }
-      }
+      const isDryRun = typeof forceDryRun === 'boolean' ? forceDryRun : dryRunMode;
+      const { logs, importedOrderNos, failures } = await processImportRows(rowsIn, { dryRun: isDryRun, baseRowNo: 2 });
+      setImportFailures(failures);
       setImportLog(logs.join('\n'));
-      await load();
+
+      if (!isDryRun && importedOrderNos.length > 0) {
+        removeHiddenOrderNos(importedOrderNos);
+        setShowHiddenOnly(false);
+        await load();
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : '导入失败');
     } finally {
       setImporting(false);
     }
+  }
+
+  async function retryImportFailures() {
+    if (!importFailures.length || !token) return;
+    setImporting(true);
+    setErr('');
+    try {
+      const rowsIn = importFailures.map((x) => x.row);
+      const minRowNo = Math.min(...importFailures.map((x) => x.rowNo));
+      const { logs, importedOrderNos, failures } = await processImportRows(rowsIn, { dryRun: false, baseRowNo: minRowNo });
+      setImportFailures(failures);
+      setImportLog((prev) => `${prev ? `${prev}\n` : ''}--- 重试结果 ---\n${logs.join('\n')}`);
+      if (importedOrderNos.length > 0) {
+        removeHiddenOrderNos(importedOrderNos);
+        setShowHiddenOnly(false);
+        await load();
+      }
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function exportImportFailures() {
+    if (!importFailures.length) {
+      window.alert('导入失败项为空');
+      return;
+    }
+    const XLSX = await getXlsx();
+    const data = importFailures.map((f) => ({
+      行号: f.rowNo,
+      订单号: f.orderNo,
+      失败原因: f.reason,
+      物流公司代码: pick(f.row, ['物流公司代码', 'logisticsCompanyCode']),
+      物流公司名称: pick(f.row, ['物流公司名称', 'logisticsCompanyName']),
+      运单号: pick(f.row, ['运单号', 'logisticsNo']),
+      物流备注: pick(f.row, ['物流备注', 'logisticsRemark']),
+      订单状态码: pick(f.row, ['订单状态码', 'orderStatus']),
+      订单状态: pick(f.row, ['订单状态', 'orderStatusName']),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'import_failures');
+    XLSX.writeFile(wb, `orders_import_failures_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  const visibleRows = useMemo(
+    () => (showHiddenOnly ? rows.filter((o) => hiddenOrderNos.includes(o.orderNo)) : rows.filter((o) => !hiddenOrderNos.includes(o.orderNo))),
+    [showHiddenOnly, rows, hiddenOrderNos],
+  );
+  const visibleOrderNos = useMemo(() => visibleRows.map((o) => o.orderNo), [visibleRows]);
+  const visibleSelectedCount = selectedOrderNos.filter((no) => visibleOrderNos.includes(no)).length;
+  const allVisibleSelected = visibleRows.length > 0 && visibleSelectedCount === visibleRows.length;
+  const importFailCount = importFailures.length;
+  const startIndex = Math.max(0, Math.floor(virtualScrollTop / VIRTUAL_ROW_HEIGHT) - 6);
+  const endIndex = Math.min(visibleRows.length, startIndex + Math.ceil(VIRTUAL_CONTAINER_HEIGHT / VIRTUAL_ROW_HEIGHT) + 12);
+  const windowRows = visibleRows.slice(startIndex, endIndex);
+  const topSpacer = startIndex * VIRTUAL_ROW_HEIGHT;
+  const bottomSpacer = Math.max(0, (visibleRows.length - endIndex) * VIRTUAL_ROW_HEIGHT);
+
+  useEffect(() => {
+    // 过滤掉当前视图中不存在的选择项，避免切换“正常/隐藏”视图时误操作
+    setSelectedOrderNos((prev) => prev.filter((no) => visibleOrderNos.includes(no)));
+  }, [visibleOrderNos]);
+
+  function toggleSelectOne(orderNo: string) {
+    setSelectedOrderNos((prev) => (prev.includes(orderNo) ? prev.filter((x) => x !== orderNo) : [...prev, orderNo]));
+  }
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedOrderNos([]);
+      return;
+    }
+    setSelectedOrderNos(visibleOrderNos);
+  }
+
+  function onBatchHideSelected() {
+    if (!selectedOrderNos.length) return;
+    if (!window.confirm(`将选中的 ${selectedOrderNos.length} 条订单仅在管理员后台隐藏？`)) return;
+    saveHiddenOrderNos([...hiddenOrderNos, ...selectedOrderNos]);
+    setSelectedOrderNos([]);
+  }
+
+  function onBatchRestoreSelected() {
+    if (!selectedOrderNos.length) return;
+    if (!window.confirm(`恢复选中的 ${selectedOrderNos.length} 条隐藏订单到管理员列表？`)) return;
+    const selectedSet = new Set(selectedOrderNos);
+    saveHiddenOrderNos(hiddenOrderNos.filter((x) => !selectedSet.has(x)));
+    setSelectedOrderNos([]);
   }
 
   return (
@@ -244,27 +510,110 @@ export default function OrdersPage() {
               }}
             />
           </label>
+          <button type="button" className="btn btn-ghost" onClick={() => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls';
+            input.onchange = (e: Event) => {
+              const f = (e.target as HTMLInputElement).files?.[0];
+              if (f) onImportExcel(f, true);
+            };
+            input.click();
+          }}>
+            导入预检(Dry-run)
+          </button>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: 'var(--muted)' }}>
+            <input type="checkbox" checked={dryRunMode} onChange={(e) => setDryRunMode(e.target.checked)} />
+            默认预检模式
+          </label>
           <button type="button" className="btn btn-ghost" onClick={() => load()} disabled={loading}>
             刷新
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setShowHiddenOnly((v) => !v)}
+            disabled={!hiddenOrderNos.length && !showHiddenOnly}
+          >
+            {showHiddenOnly ? '查看正常订单' : `查看已隐藏(${hiddenOrderNos.length})`}
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={onRestoreAllOrders} disabled={!hiddenOrderNos.length}>
+            恢复全部
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={toggleSelectAllVisible} disabled={!visibleRows.length}>
+            {allVisibleSelected ? '取消全选' : '全选当前列表'}
+          </button>
+          {showHiddenOnly ? (
+            <button type="button" className="btn btn-primary" onClick={onBatchRestoreSelected} disabled={!selectedOrderNos.length}>
+              选中恢复({selectedOrderNos.length})
+            </button>
+          ) : (
+            <button type="button" className="btn btn-danger" onClick={onBatchHideSelected} disabled={!selectedOrderNos.length}>
+              选中隐藏({selectedOrderNos.length})
+            </button>
+          )}
         </div>
       </div>
       {err ? <div className="err-banner">{err}</div> : null}
+      <div
+        className="card"
+        style={{ marginBottom: '1rem', position: 'sticky', top: 8, zIndex: 5, padding: '0.75rem 1rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}
+      >
+        <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>已选订单: <strong style={{ color: 'var(--text)' }}>{selectedOrderNos.length}</strong></span>
+        <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
+          预计动作: <strong style={{ color: 'var(--text)' }}>{showHiddenOnly ? '恢复显示' : '仅管理员隐藏'}</strong>
+        </span>
+        <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
+          导入失败: <strong style={{ color: importFailCount ? 'var(--danger)' : 'var(--text)' }}>{importFailCount}</strong>
+        </span>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+          disabled={!importFailCount}
+          onClick={() => importResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        >
+          跳转失败明细
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+          disabled={!importFailCount || importing}
+          onClick={retryImportFailures}
+        >
+          重试失败项
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+          disabled={!importFailCount}
+          onClick={exportImportFailures}
+        >
+          导出失败项Excel
+        </button>
+      </div>
       {importLog ? (
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card" style={{ marginBottom: '1rem' }} ref={importResultRef}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
             <strong>导入结果</strong>
-            <button type="button" className="btn btn-ghost" onClick={() => setImportLog('')}>
+            <button type="button" className="btn btn-ghost" onClick={() => { setImportLog(''); setImportFailures([]); }}>
               清空
             </button>
           </div>
+          {importFailCount ? (
+            <div style={{ marginTop: '0.45rem', color: '#fca5a5', fontSize: '0.8rem' }}>
+              失败 {importFailCount} 条，可点击“重试失败项”自动重试。
+            </div>
+          ) : null}
           <pre style={{ margin: '0.75rem 0 0', fontSize: '0.78rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--muted)' }}>
             {importLog}
           </pre>
         </div>
       ) : null}
 
-      <div className="card table-wrap">
+      <div className="card table-wrap" style={{ maxHeight: VIRTUAL_CONTAINER_HEIGHT + 80, overflow: 'auto' }} onScroll={(e) => setVirtualScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}>
         {loading ? (
           <p style={{ color: 'var(--muted)', margin: 0 }}>加载中…</p>
         ) : (
@@ -277,11 +626,16 @@ export default function OrdersPage() {
                 <th>状态</th>
                 <th>物流</th>
                 <th style={{ width: 220 }}>操作</th>
-                <th style={{ width: 110, textAlign: 'center' }}>删除</th>
+                <th style={{ width: 90, textAlign: 'center' }}>选择</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((o) => (
+              {topSpacer > 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: 0, borderBottom: 'none', height: topSpacer }} />
+                </tr>
+              ) : null}
+              {windowRows.map((o) => (
                 <tr key={o.orderNo}>
                   <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{o.orderNo}</td>
                   <td>{o.nickName || o.phoneNumber || `用户 ${o.userId}`}</td>
@@ -321,18 +675,19 @@ export default function OrdersPage() {
                     </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 700 }}
-                      disabled={deletingNo === o.orderNo}
-                      onClick={() => onDeleteOrder(o)}
-                    >
-                      {deletingNo === o.orderNo ? '删除中…' : '删除订单'}
-                    </button>
+                    <input
+                      type="checkbox"
+                      checked={selectedOrderNos.includes(o.orderNo)}
+                      onChange={() => toggleSelectOne(o.orderNo)}
+                    />
                   </td>
                 </tr>
               ))}
+              {bottomSpacer > 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: 0, borderBottom: 'none', height: bottomSpacer }} />
+                </tr>
+              ) : null}
             </tbody>
           </table>
         )}
@@ -403,11 +758,140 @@ export default function OrdersPage() {
           onClick={() => setTraceOpen(null)}
         >
           <div className="card" style={{ width: '100%', maxWidth: 560, maxHeight: '80vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.05rem' }}>物流轨迹 · {traceOpen.orderNo}</h3>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.05rem', color: '#fff' }}>物流轨迹 · {traceOpen.orderNo}</h3>
             {traceLoading ? (
-              <p style={{ color: 'var(--muted)' }}>查询中…</p>
+              <p style={{ color: 'rgba(255,255,255,0.8)' }}>查询中…</p>
+            ) : traceErr ? (
+              <div className="err-banner">{traceErr}</div>
             ) : (
-              <pre style={{ margin: 0, fontSize: '0.78rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{traceJson}</pre>
+              <div style={{ display: 'grid', gap: '0.85rem' }}>
+                <div
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    padding: '0.85rem',
+                    background: 'var(--surface)',
+                    display: 'grid',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: '0.92rem', color: '#fff' }}>
+                    {traceData?.logisticsCompanyName || traceOpen.logisticsCompanyName || '物流公司'} ·{' '}
+                    {traceData?.logisticsNo || traceOpen.logisticsNo || '-'}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', alignItems: 'center' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        padding: '0.15rem 0.55rem',
+                        borderRadius: 999,
+                        fontSize: '0.75rem',
+                        background: '#e8f8ee',
+                        color: '#118545',
+                      }}
+                    >
+                      {traceData?.traces?.length ? '运输中' : '暂无状态'}
+                    </span>
+                    {(traceData?.logisticsNo || traceOpen.logisticsNo) ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => copyText(String(traceData?.logisticsNo || traceOpen.logisticsNo || ''))}
+                      >
+                        复制单号
+                      </button>
+                    ) : null}
+                  </div>
+                  {!traceData?.configured ? (
+                    <div style={{ fontSize: '0.8rem', color: '#8a5a00', lineHeight: 1.5, background: '#fff8e6', border: '1px solid #f3d782', borderRadius: 10, padding: '0.65rem' }}>
+                      {traceData?.hint || '请配置快递查询密钥后重试。'}
+                    </div>
+                  ) : null}
+                </div>
+
+                {Array.isArray(traceData?.polylinePoints) && traceData!.polylinePoints!.length > 0 ? (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.45rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                        onClick={() => traceMapRef.current?.fitAll()}
+                      >
+                        全程路径
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                        onClick={() => traceMapRef.current?.flyToCurrent()}
+                      >
+                        当前位置
+                      </button>
+                    </div>
+                    <TraceLeafletMap ref={traceMapRef} points={traceData!.polylinePoints!} />
+                    <div style={{ marginTop: '0.35rem', color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem' }}>
+                      OSM 地图（无需 Key）。如在中国境内访问慢/不显示，可改用国内地图服务。点击下方轨迹行可跳转到该节点（需接口返回坐标）。
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'grid', gap: '0.55rem' }}>
+                  {(traceData?.traces || []).length === 0 ? (
+                    <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>暂无轨迹节点（未查询到或接口未返回明细）</div>
+                  ) : (
+                    (traceData?.traces || []).map((row, idx) => {
+                      const lat = row.latitude;
+                      const lng = row.longitude;
+                      const hasCoord =
+                        lat != null &&
+                        lng != null &&
+                        Number.isFinite(lat) &&
+                        Number.isFinite(lng) &&
+                        Array.isArray(traceData?.polylinePoints) &&
+                        traceData!.polylinePoints!.length > 0;
+                      return (
+                      <div
+                        key={`${row.time || ''}-${idx}`}
+                        role={hasCoord ? 'button' : undefined}
+                        tabIndex={hasCoord ? 0 : undefined}
+                        onClick={() => {
+                          if (!hasCoord) return;
+                          setTraceRowFocus(idx);
+                          traceMapRef.current?.flyTo(lat!, lng!, 14);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!hasCoord) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setTraceRowFocus(idx);
+                            traceMapRef.current?.flyTo(lat!, lng!, 14);
+                          }
+                        }}
+                        style={{
+                          border:
+                            traceRowFocus === idx
+                              ? '1px solid var(--accent)'
+                              : idx === 0
+                                ? '1px solid #c9efd8'
+                                : '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          borderRadius: 10,
+                          padding: '0.65rem 0.7rem',
+                          cursor: hasCoord ? 'pointer' : 'default',
+                          outline: 'none',
+                        }}
+                      >
+                        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '0.2rem' }}>{row.time || '-'}</div>
+                        <div style={{ fontSize: '0.87rem', lineHeight: 1.45, color: '#fff' }}>{row.context || '-'}</div>
+                        {row.areaName ? <div style={{ marginTop: '0.2rem', color: 'rgba(255,255,255,0.75)', fontSize: '0.78rem' }}>{row.areaName}</div> : null}
+                      </div>
+                    );
+                    })
+                  )}
+                </div>
+              </div>
             )}
             <button type="button" className="btn btn-ghost" style={{ marginTop: '1rem' }} onClick={() => setTraceOpen(null)}>
               关闭

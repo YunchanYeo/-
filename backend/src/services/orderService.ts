@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
 import { hydrateOrderItemsWithProduct } from './orderItemImages';
+import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
+import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
 
 function genTradeNo() {
   const ts = Date.now();
@@ -215,8 +217,11 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     if (order.orderStatus !== 80 && order.orderStatus !== 50) {
       return res.status(409).json({ ok: false, message: '仅已完成或已取消订单可删除' });
     }
-    db.prepare(`DELETE FROM orders WHERE id = ?`).run(order.id);
-    return res.json({ ok: true, data: { ok: true } });
+    const ret = db.prepare(`DELETE FROM orders WHERE id = ?`).run(order.id);
+    if ((ret?.changes || 0) < 1) {
+      return res.status(500).json({ ok: false, message: '删除失败：订单未实际删除' });
+    }
+    return res.json({ ok: true, data: { ok: true, deletedRows: ret.changes } });
   }
 
   function listOrders(req: Request, res: Response) {
@@ -327,6 +332,101 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     });
   }
 
+  async function orderLogisticsTrace(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: '缺少订单号' });
+
+    const row = db
+      .prepare(
+        `SELECT orderNo, logisticsCompanyCode, logisticsCompanyName, logisticsNo, addressJson
+         FROM orders
+         WHERE userId = ? AND orderNo = ?`,
+      )
+      .get(userId, orderNo) as
+      | {
+          orderNo: string;
+          logisticsCompanyCode: string | null;
+          logisticsCompanyName: string | null;
+          logisticsNo: string | null;
+          addressJson: string | null;
+        }
+      | undefined;
+    if (!row) return res.status(404).json({ ok: false, message: '订单不存在' });
+
+    const logisticsNo = String(row.logisticsNo || '').trim();
+    if (!logisticsNo) {
+      return res.status(400).json({ ok: false, message: '该订单尚未填写运单号' });
+    }
+
+    const key = String(process.env.KUAIDI100_KEY || '').trim();
+    const customer = String(process.env.KUAIDI100_CUSTOMER || '').trim();
+    if (!key || !customer) {
+      return res.json({
+        ok: true,
+        data: {
+          configured: false,
+          hint: '请在服务器环境变量中配置 KUAIDI100_KEY、KUAIDI100_CUSTOMER（快递100企业版）后重启后端。',
+          orderNo,
+          logisticsCompanyName: row.logisticsCompanyName || '',
+          logisticsNo,
+          traces: [],
+          polylinePoints: [],
+        },
+      });
+    }
+
+    const com = resolveKuaidiCom({
+      logisticsCompanyCode: row.logisticsCompanyCode || '',
+      logisticsCompanyName: row.logisticsCompanyName || '',
+    });
+    if (!com) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          '无法匹配快递公司编码。请在填写运单时使用常见名称（如：顺丰快递、中通快递）或在 logisticsCompanyCode 中填写快递100编码（如 shunfeng）。',
+      });
+    }
+
+    let phone = '';
+    try {
+      const addr = JSON.parse(row.addressJson || '{}') as Record<string, unknown>;
+      phone = String(addr.phone || addr.phoneNumber || addr.tel || addr.mobile || '').trim();
+    } catch (_) {
+      phone = '';
+    }
+
+    try {
+      const result = await queryKuaidi100RealTime({
+        key,
+        customer,
+        com,
+        num: logisticsNo,
+        ...(phone ? { phone } : {}),
+      });
+      return res.json({
+        ok: true,
+        data: {
+          configured: true,
+          orderNo,
+          logisticsCompanyName: row.logisticsCompanyName || '',
+          logisticsNo,
+          requestedCom: com,
+          state: result.state,
+          resolvedCom: result.com,
+          nu: result.nu,
+          traces: result.traces,
+          polylinePoints: result.polylinePoints,
+          routeInfo: result.routeInfo,
+          kuaidiMessage: result.rawMessage,
+        },
+      });
+    } catch (e: any) {
+      const msg = String(e?.message || '快递查询失败');
+      return res.status(502).json({ ok: false, message: msg });
+    }
+  }
+
   return {
     commitOrder,
     markOrderPaid,
@@ -338,5 +438,6 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     ordersCount,
     getOrderDetail,
     refundOrder,
+    orderLogisticsTrace,
   };
 }

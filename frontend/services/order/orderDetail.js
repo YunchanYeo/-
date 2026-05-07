@@ -108,7 +108,7 @@ function buildButtonsByOrder(row) {
     }
     if (status === OrderStatus.COMPLETE) {
         return [
-            { name: '删除订单', primary: false, type: OrderButtonTypes.DELETE },
+            { name: '删除订单', primary: true, type: OrderButtonTypes.DELETE },
             { name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND },
             { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
         ];
@@ -118,7 +118,7 @@ function buildButtonsByOrder(row) {
     }
     if (status === OrderStatus.CANCELED_NOT_PAYMENT) {
         return [
-            { name: '删除订单', primary: false, type: OrderButtonTypes.DELETE },
+            { name: '删除订单', primary: true, type: OrderButtonTypes.DELETE },
             { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
         ];
     }

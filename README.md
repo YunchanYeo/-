@@ -1,7 +1,21 @@
+# Documentation Index
+
+- Korean docs: `docs/kr`
+- Chinese docs: `docs/cn`
+
 # WeChat 미니프로그램 쇼핑 프로젝트 문서
+
+언어 / 语言:
+- 한국어: `README.md`
+- 中文: `README.zh-CN.md`
 
 이 저장소는 **미니프로그램(`frontend`) + Node/Express API(`backend`) + PC 관리자 웹(`admin-web`)**으로 구성된 쇼핑·관리 예제입니다.  
 이 문서는 구조, 실행 방법, API, 운영 포인트를 한 번에 정리합니다.
+
+운영/개발 분리 문서:
+
+- 운영자용(한/중): `docs/USER_GUIDE.md`
+- 개발자용(한/중): `docs/DEV_GUIDE.md`
 
 ## 1) 프로젝트 한눈에 보기
 
@@ -110,28 +124,9 @@ npm install
 npm run dev
 ```
 
-브라우저에서 `**http://localhost:5174**` (기본 포트는 `vite.config.ts`에서 정의).  
+브라우저에서 `**http://127.0.0.1:5174**` (기본 포트는 `vite.config.ts`에서 정의).  
 API는 동일하게 `backend`를 바라본다 — 개발 시 `vite` 프록시로 `/api`·`/uploads`가 넘어가도록 두었다.  
 운영에서는 `npm run build` 후 `dist` 정적 호스팅하고, 빌드 시 `VITE_API_BASE_URL`(백엔드 원점 URL) 설정이 필요할 수 있다.
-
-#### Electron 데스크톱 앱
-
-```bash
-cd admin-web
-npm install
-npm run desktop:dev
-```
-
-- `desktop:dev`는 Vite + Electron을 같이 실행한다(현재 기본 포트 `5180`).
-- `desktop:build`는 DMG를 생성한다:
-
-```bash
-cd admin-web
-npm run desktop:build
-```
-
-- 결과물 경로: `admin-web/release/Admin Web-1.0.0-arm64.dmg`
-- 데스크톱 앱도 API는 `backend`를 사용한다. (프로젝트 내부 실행 시 Electron이 backend를 자동 기동 시도)
 
 ## 4) 프런트엔드 구성 포인트
 
@@ -158,6 +153,27 @@ npm run desktop:build
 
 - 라우팅: `admin-web/src/App.tsx`
 - 로그인·토큰: `admin-web/src/auth.tsx`, `localStorage`(`admin_web_token`)
+- 주문 화면(`订单发货`)에 주문별 `删除订单` 버튼 제공
+- 주문 화면의 `轨迹` 모달 지도는 **키 없이 동작**하도록 `Leaflet + OpenStreetMap 타일`을 사용한다. (중국 내 접속 환경에서는 OSM 타일이 느리거나 차단될 수 있음)
+  - 지도 상단 **「全程路径」**(전체 보기) / **「当前位置」**(마지막 포인트로 이동·강조) 버튼
+  - 트레이스 목록 행에 `latitude`/`longitude`가 있으면 클릭 시 해당 위치로 지도 이동(快递100 `areaCenter` 등)
+- 주문 목록은 관리자 화면 전용 숨김 기능을 제공한다(실제 DB 삭제 아님).
+  - 체크박스 다중 선택 후 **`选中隐藏` / `选中恢复`** 일괄 처리
+  - `查看已隐藏` / `恢复全部` 지원
+  - Excel 导入成功后 해당 주문은 자동으로 숨김 해제되어当前列表에 다시 표시
+- 주문 페이지 UX 개선:
+  - 상단 **일괄 작업 요약 바**(선택 건수/예상 동작/导入失败数 + 실패 위치 이동)
+  - Excel 导入 **预检(dry-run)** 模式 및 **失败项自动重试**
+  - 숨김 상태는 관리자 계정별 서버 저장(`/api/admin/order-visibility`)
+  - 주문 테이블은 가상 스크롤(windowing)로 대량 데이터 렌더링 비용 감소
+- `账号设置`에서 관리자 ID/비밀번호 변경 가능(성공 즉시 로그아웃)
+- 포인트 정책은 `优惠券` 화면에서 관리(React)
+
+### 관리자 페이지 분리(미니프로그램)
+
+- `pages/admin/settings/index`: 계정(ID/비밀번호) 설정 전용
+- `pages/admin/point-settings/index`: 포인트 정책 설정 전용
+- 대시보드 상단에서 `账号设置` / `积分设置` 버튼으로 각각 이동
 
 ## 5) 백엔드 구성 포인트
 
@@ -198,6 +214,7 @@ npm run desktop:build
 - `POST /api/admin/login` — `**admins` DB 검증**(bcrypt/레거시 평문 일치 시 해시 업그레이드)
 - `GET /api/admin/me`, `PUT /api/admin/me/password`, `PUT /api/admin/me/username`
 - 주문: `GET /api/admin/orders`, `POST /api/admin/orders/:orderNo/shipping`
+- 주문 삭제: `DELETE /api/admin/orders/:orderNo`
 - `GET /api/admin/orders/:orderNo/logistics-trace` — 물류(환경에 따라快递100 등)
 - 상품: `GET/POST/PUT /api/admin/products`, `GET /api/admin/products/:id`, `PUT /api/admin/products/:id/stock`
 - 업로드: `POST /api/admin/upload-image`
@@ -211,6 +228,7 @@ npm run desktop:build
 - `WECHAT_APPSECRET`, DB 파일, `.env`는 저장소와 프런트에 노출하지 않는다.
 - SQLite `database is locked` 시 백엔드 프로세스 중복 여부 확인.
 - 미니 개발 시 `apiBaseUrl`/`request 도메인`과 PC `admin-web`의 API 베이스 URL이 **같은 백엔드**인지 확인.
+- **`backend/dist`는 TypeScript 빌드 산출물**이며 저장소에 커밋하지 않는다. 배포/로컬에서 `node dist/index.js`를 쓰려면 `cd backend && npm run build` 후 `npm run start:dist`를 사용한다. (`backend/.gitignore`에 `dist` 포함)
 
 ## 8) 관련 문서
 
@@ -218,4 +236,36 @@ npm run desktop:build
 - `frontend/WECHAT_API_INTEGRATION.md`
 - `mock.md`
 - `backend/README.md`
+- `docs/USER_GUIDE.md`
+- `docs/DEV_GUIDE.md`
+
+## 9) 테스트 가이드
+
+- 공통 테스트 정책 문서: `tests/README.md`
+- 백엔드 테스트 위치: `backend/tests`
+- 프론트 테스트 위치(준비): `admin-web/tests`, `frontend/tests`
+
+백엔드 테스트 실행:
+
+```bash
+cd backend
+npm install
+npm test
+```
+
+## 10) 최근 업데이트(관리자 주문 페이지)
+
+- 관리자 주문 목록에서 **실제 DB 삭제 없이** 화면 숨김/복구만 수행
+  - 다중 선택 후 `选中隐藏` / `选中恢复`
+  - `查看已隐藏`, `恢复全部`
+- 숨김 상태를 관리자 계정별로 서버 저장
+  - `GET /api/admin/order-visibility`
+  - `PUT /api/admin/order-visibility`
+- Excel 导入 기능 고도화
+  - 중문/영문 헤더 동시 인식
+  - Dry-run(预检) 모드
+  - 실패 항목 자동 재시도
+  - 실패 항목 Excel 내보내기
+- 导入 성공한 주문은 자동으로 숨김 해제되어 목록에 다시 표시
+- 대량 주문 렌더링 성능 개선을 위해 주문 테이블에 가상 스크롤(windowing) 적용
 

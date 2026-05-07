@@ -37,6 +37,38 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     return res.json({ ok: true, data: getPointPolicy() });
   }
 
+  function adminGetOrderVisibility(req: Request, res: Response) {
+    const adminId = Number((req as any).admin?.id || 0);
+    const key = `adminHiddenOrders:${adminId}`;
+    const row = db.prepare(`SELECT value FROM app_settings WHERE key = ?`).get(key) as { value: string } | undefined;
+    if (!row?.value) return res.json({ ok: true, data: { hiddenOrderNos: [] } });
+    try {
+      const parsed = JSON.parse(String(row.value || '[]'));
+      const hiddenOrderNos = Array.isArray(parsed) ? parsed.map((x) => String(x).trim()).filter(Boolean) : [];
+      return res.json({ ok: true, data: { hiddenOrderNos } });
+    } catch {
+      return res.json({ ok: true, data: { hiddenOrderNos: [] } });
+    }
+  }
+
+  function adminUpdateOrderVisibility(req: Request, res: Response) {
+    const adminId = Number((req as any).admin?.id || 0);
+    const schema = z.object({
+      hiddenOrderNos: z.array(z.string().min(1)).max(10000),
+    });
+    const parsed = schema.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid visibility body', issues: parsed.error.issues });
+    const key = `adminHiddenOrders:${adminId}`;
+    const hiddenOrderNos = Array.from(new Set(parsed.data.hiddenOrderNos.map((x) => x.trim()).filter(Boolean)));
+    const exists = db.prepare(`SELECT key FROM app_settings WHERE key = ?`).get(key) as { key: string } | undefined;
+    if (exists) {
+      db.prepare(`UPDATE app_settings SET value = ?, updatedAt = datetime('now') WHERE key = ?`).run(JSON.stringify(hiddenOrderNos), key);
+    } else {
+      db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run(key, JSON.stringify(hiddenOrderNos));
+    }
+    return res.json({ ok: true, data: { hiddenOrderNos } });
+  }
+
   function adminUpdatePointPolicy(req: Request, res: Response) {
     const schema = z.object({
       pointsEarnRatePercent: z.number().min(0).max(100),
@@ -106,7 +138,10 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
       parsed.data.newUsername,
       adminId,
     );
-    return res.json({ ok: true, data: { ok: true } });
+    const updated = db
+      .prepare(`SELECT id, username, createdAt, updatedAt FROM admins WHERE id = ?`)
+      .get(adminId) as { id: number; username: string; createdAt: string; updatedAt: string } | undefined;
+    return res.json({ ok: true, data: updated ?? { id: adminId, username: parsed.data.newUsername } });
   }
 
   function adminOrders(req: Request, res: Response) {
@@ -201,8 +236,11 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
     const row = db.prepare(`SELECT id FROM orders WHERE orderNo = ?`).get(orderNo) as { id: number } | undefined;
     if (!row) return res.status(404).json({ ok: false, message: 'Order not found' });
-    db.prepare(`DELETE FROM orders WHERE id = ?`).run(row.id);
-    return res.json({ ok: true, data: { ok: true } });
+    const ret = db.prepare(`DELETE FROM orders WHERE id = ?`).run(row.id);
+    if ((ret?.changes || 0) < 1) {
+      return res.status(500).json({ ok: false, message: '删除失败：订单未实际删除' });
+    }
+    return res.json({ ok: true, data: { ok: true, deletedRows: ret.changes } });
   }
 
   /**
@@ -335,5 +373,7 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     adminUploadImage,
     adminGetPointPolicy,
     adminUpdatePointPolicy,
+    adminGetOrderVisibility,
+    adminUpdateOrderVisibility,
   };
 }

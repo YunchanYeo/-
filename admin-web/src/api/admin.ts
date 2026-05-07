@@ -96,6 +96,22 @@ export function updatePointPolicy(token: string, body: PointPolicy) {
   });
 }
 
+export type AdminOrderVisibility = {
+  hiddenOrderNos: string[];
+};
+
+export function fetchAdminOrderVisibility(token: string) {
+  return adminJson<AdminOrderVisibility>('/api/admin/order-visibility', { token });
+}
+
+export function updateAdminOrderVisibility(token: string, body: AdminOrderVisibility) {
+  return adminJson<AdminOrderVisibility>('/api/admin/order-visibility', {
+    method: 'PUT',
+    token,
+    body,
+  });
+}
+
 export function fetchProducts(token: string) {
   return adminJson<ProductRow[]>('/api/admin/products', { token });
 }
@@ -300,6 +316,22 @@ export function uploadAdminSupportMedia(
     token,
     body: payload,
     timeoutMs: 120000,
+  });
+}
+
+export function fetchSupportPeerTyping(token: string, userId: number) {
+  return adminJson<{ peerTyping: boolean }>(`/api/admin/support/typing/${userId}`, {
+    token,
+    timeoutMs: 8000,
+  });
+}
+
+export function updateSupportTyping(token: string, userId: number, typing: boolean) {
+  return adminJson<{ typing: boolean }>(`/api/admin/support/typing/${userId}`, {
+    method: 'POST',
+    token,
+    body: { typing },
+    timeoutMs: 8000,
   });
 }
 

@@ -188,6 +188,19 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 `);
 
+// 管理端订单隐藏表：仅影响管理员后台列表，不影响用户侧订单数据。
+db.exec(`
+CREATE TABLE IF NOT EXISTS admin_hidden_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  orderNo TEXT NOT NULL UNIQUE,
+  adminId INTEGER,
+  hiddenAt TEXT NOT NULL DEFAULT (datetime('now')),
+  note TEXT,
+  FOREIGN KEY (orderNo) REFERENCES orders(orderNo) ON DELETE CASCADE,
+  FOREIGN KEY (adminId) REFERENCES admins(id) ON DELETE SET NULL
+);
+`);
+
 const orderColumns = db.prepare("PRAGMA table_info('orders')").all().map((c: any) => c.name);
 const ensureOrderColumn = (name: string, ddl: string) => {
   if (!orderColumns.includes(name)) {
@@ -206,6 +219,7 @@ ensureOrderColumn('logisticsRemark', 'logisticsRemark TEXT');
 ensureOrderColumn('shippedAt', 'shippedAt TEXT');
 ensureOrderColumn('pointsUsed', "pointsUsed INTEGER NOT NULL DEFAULT 0");
 ensureOrderColumn('pointsEarned', "pointsEarned INTEGER NOT NULL DEFAULT 0");
+ensureOrderColumn('adminHidden', "adminHidden INTEGER NOT NULL DEFAULT 0");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS admins (

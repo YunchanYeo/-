@@ -36,14 +36,19 @@ export function createApiController(services: Services) {
     cancelOrder: services.order.cancelOrder as RequestHandler,
     confirmOrderReceived: services.order.confirmOrderReceived as RequestHandler,
     deleteOrder: services.order.deleteOrder as RequestHandler,
+    orderLogisticsTrace: services.order.orderLogisticsTrace as RequestHandler,
     pointsConfig: services.order.pointsConfig as RequestHandler,
 
     // support chat
     listMySupportMessages: services.support.listMyMessages as RequestHandler,
     createMySupportMessage: services.support.createMyMessage as RequestHandler,
+    setMySupportTyping: services.support.setMyTyping as RequestHandler,
+    getMySupportPeerTyping: services.support.getMyPeerTyping as RequestHandler,
     adminSupportConversations: services.support.adminConversations as RequestHandler,
     adminSupportMessagesByUser: services.support.adminMessagesByUser as RequestHandler,
     adminSupportReply: services.support.adminReply as RequestHandler,
+    adminSetSupportTyping: services.support.setAdminTyping as RequestHandler,
+    adminGetSupportPeerTyping: services.support.getAdminPeerTyping as RequestHandler,
     supportUploadMedia: services.support.uploadMyMedia as RequestHandler,
     adminSupportUploadMedia: services.support.uploadAdminMedia as RequestHandler,
 
@@ -68,6 +73,8 @@ export function createApiController(services: Services) {
     adminDeleteOrder: services.admin.adminDeleteOrder as RequestHandler,
     adminGetPointPolicy: services.admin.adminGetPointPolicy as RequestHandler,
     adminUpdatePointPolicy: services.admin.adminUpdatePointPolicy as RequestHandler,
+    adminGetOrderVisibility: services.admin.adminGetOrderVisibility as RequestHandler,
+    adminUpdateOrderVisibility: services.admin.adminUpdateOrderVisibility as RequestHandler,
     adminProducts: services.product.adminProducts as RequestHandler,
     adminProductDetail: services.product.adminProductDetail as RequestHandler,
     adminCreateProduct: services.product.adminCreateProduct as RequestHandler,

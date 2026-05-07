@@ -4,7 +4,19 @@
   <block wx:else>
     <view class="summary">
       <text class="summary-line">{{logisticsCompanyName || '物流公司'}} · {{logisticsNo}}</text>
-      <text wx:if="{{!configured && hint}}" class="hint">{{hint}}</text>
+      <view class="status-row">
+        <text class="status-badge">{{statusText}}</text>
+        <button class="copy-btn" bindtap="onCopyNo" plain>复制单号</button>
+      </view>
+      <text wx:if="{{latestTraceText}}" class="latest">{{latestTraceText}}</text>
+      <text wx:if="{{latestTraceTime}}" class="latest-time">{{latestTraceTime}}</text>
+    </view>
+
+    <view wx:if="{{!configured}}" class="setup-card">
+      <view class="setup-title">物流查询尚未启用</view>
+      <text wx:if="{{hint}}" class="hint">{{hint}}</text>
+      <view class="setup-sub">按下面步骤配置后端即可启用：</view>
+      <view wx:for="{{setupSteps}}" wx:key="index" class="setup-step">{{item}}</view>
     </view>
 
     <map
@@ -14,6 +26,7 @@
       longitude="{{lng}}"
       scale="{{scale}}"
       polyline="{{polyline}}"
+      markers="{{markers}}"
       show-location="{{false}}"
       enable-scroll="{{true}}"
       enable-zoom="{{true}}"
@@ -21,7 +34,8 @@
 
     <scroll-view scroll-y class="trace-list" enhanced show-scrollbar="{{false}}">
       <view wx:if="{{traces.length === 0}}" class="muted pad">暂无轨迹节点（未查询到或接口未返回明细）</view>
-      <view wx:for="{{traces}}" wx:key="index" class="trace-row">
+      <view wx:for="{{traces}}" wx:key="index" class="trace-row {{index===0?'trace-row-active':''}}">
+        <view class="trace-dot {{index===0?'trace-dot-active':''}}" />
         <view class="trace-time">{{item.time}}</view>
         <view class="trace-body">
           <text class="trace-ctx">{{item.context}}</text>

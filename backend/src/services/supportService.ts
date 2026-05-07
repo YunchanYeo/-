@@ -22,6 +22,28 @@ function rowWithParsed(row: Record<string, unknown>) {
 }
 
 export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: string }) {
+  const TYPING_TTL_MS = 8000;
+  const userTypingUntil = new Map<number, number>();
+  const adminTypingUntil = new Map<number, number>();
+
+  function nowMs() {
+    return Date.now();
+  }
+
+  function isTyping(until: number | undefined) {
+    return Boolean(until && until > nowMs());
+  }
+
+  function typingBody(req: Request, res: Response): { typing: boolean } | null {
+    const schema = z.object({ typing: z.boolean() });
+    const parsed = schema.safeParse(req.body || {});
+    if (!parsed.success) {
+      res.status(400).json({ ok: false, message: 'Invalid typing body', issues: parsed.error.issues });
+      return null;
+    }
+    return parsed.data;
+  }
+
   /**
    * Saves uploaded chat media (base64) and returns an absolute URL served under `/uploads`.
    */
@@ -134,7 +156,22 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
     const created = db
       .prepare(`SELECT ${MSG_SELECT} FROM support_messages WHERE id = ?`)
       .get(result.lastInsertRowid) as Record<string, unknown>;
+    userTypingUntil.delete(userId);
     return res.json({ ok: true, data: rowWithParsed(created) });
+  }
+
+  function setMyTyping(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const body = typingBody(req, res);
+    if (!body) return;
+    if (body.typing) userTypingUntil.set(userId, nowMs() + TYPING_TTL_MS);
+    else userTypingUntil.delete(userId);
+    return res.json({ ok: true, data: { typing: body.typing } });
+  }
+
+  function getMyPeerTyping(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    return res.json({ ok: true, data: { peerTyping: isTyping(adminTypingUntil.get(userId)) } });
   }
 
   function adminConversations(req: Request, res: Response) {
@@ -195,7 +232,24 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
     const created = db
       .prepare(`SELECT ${MSG_SELECT} FROM support_messages WHERE id = ?`)
       .get(result.lastInsertRowid) as Record<string, unknown>;
+    adminTypingUntil.delete(userId);
     return res.json({ ok: true, data: rowWithParsed(created) });
+  }
+
+  function setAdminTyping(req: Request, res: Response) {
+    const userId = Number(req.params.userId);
+    if (!Number.isFinite(userId)) return res.status(400).json({ ok: false, message: 'Invalid userId' });
+    const body = typingBody(req, res);
+    if (!body) return;
+    if (body.typing) adminTypingUntil.set(userId, nowMs() + TYPING_TTL_MS);
+    else adminTypingUntil.delete(userId);
+    return res.json({ ok: true, data: { typing: body.typing } });
+  }
+
+  function getAdminPeerTyping(req: Request, res: Response) {
+    const userId = Number(req.params.userId);
+    if (!Number.isFinite(userId)) return res.status(400).json({ ok: false, message: 'Invalid userId' });
+    return res.json({ ok: true, data: { peerTyping: isTyping(userTypingUntil.get(userId)) } });
   }
 
   return {
@@ -204,6 +258,10 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
     adminConversations,
     adminMessagesByUser,
     adminReply,
+    setMyTyping,
+    getMyPeerTyping,
+    setAdminTyping,
+    getAdminPeerTyping,
     uploadMyMedia,
     uploadAdminMedia,
   };

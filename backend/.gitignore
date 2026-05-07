@@ -2,3 +2,5 @@
 node_modules
 dist
 *.log
+data/*.sqlite-wal
+data/*.sqlite-shm

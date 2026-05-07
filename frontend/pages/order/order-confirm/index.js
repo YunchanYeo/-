@@ -455,7 +455,7 @@ Page({
             tradeNo: tradeNo,
             transactionId: transactionId,
             isMockPay: !!isMockPay,
-            goodsRequestList: goodsRequestList,
+            goodsRequestList: this.goodsRequestList,
         };
         if (channel === 'wechat') {
             wechatPayOrder(payOrderInfo);
