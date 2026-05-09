@@ -1,4 +1,5 @@
 import { config } from '../../../config/index';
+import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
 import { fetchAdminProduct, updateAdminProduct, uploadAdminImage, deleteAdminProduct } from '../../../services/admin/adminApi';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
 function showMessage(message, theme = 'none') {
@@ -37,6 +38,7 @@ Page({
     },
     loadCategories() {
         wx.request({
+            ...wxRequestTransportOpts,
             url: `${config.apiBaseUrl}/api/categories`,
             method: 'GET',
             timeout: 10000,

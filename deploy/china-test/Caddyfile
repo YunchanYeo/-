@@ -1,12 +1,35 @@
-# 공인 IP 바뀌면 두 호스트 모두 같은 규칙으로 수정하세요.
+# 공인 IP 바뀌면 sslip/nip 호스트를 같은 규칙으로 수정하세요.
 # Let's Encrypt: 외부 TCP 80·443 필요. `deploy/china-test` 에서 `docker compose up -d` 시 Caddy 함께 기동.
+#
+# tls protocols: 위챗 진기 WebView 호환을 위해 TLS1.2+ 명시 (Caddy 기본과 동일 계열, 문서/커뮤니티 점검용).
 #
 # sslip.io — 하이픈 IP 형식, nip.io보다 열리는 경우가 많음 (미니프로그램·브라우저 기본 권장)
 39-106-213-185.sslip.io {
+	tls {
+		protocols tls1.2 tls1.3
+	}
 	reverse_proxy admin-web:80
 }
 
 # nip.io — 예비 (DNS 되는 환경에서만). 위와 동일 백엔드.
 39.106.213.185.nip.io {
+	tls {
+		protocols tls1.2 tls1.3
+	}
 	reverse_proxy admin-web:80
 }
+
+# ━━━ 정식 도메인 (권장: sslip만으로 위챗 RST 시) ━━━
+# 1) DNS: api.example.com → A 레코드 → 이 서버 공인 IP
+# 2) 아래 주석 해제 후 example.com 을 본인 도메인으로 변경
+# 3) mp.weixin.qq.com → 服务器域名 → request合法域名 에 동일 호스트(스킴 없이)
+# 4) frontend/config/index.js → CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://api.example.com'
+# 5) docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile  (또는 compose 재기동)
+# 중국 본토 서비스 시 ICP备案 등 정책은 별도 준수.
+#
+# api.example.com {
+#	tls {
+#		protocols tls1.2 tls1.3
+#	}
+#	reverse_proxy admin-web:80
+# }

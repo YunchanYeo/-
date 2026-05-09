@@ -1,6 +1,7 @@
 import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/index';
+import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
@@ -75,6 +76,7 @@ Page({
     },
     loadCategories() {
         wx.request({
+            ...wxRequestTransportOpts,
             url: `${config.apiBaseUrl}/api/categories`,
             method: 'GET',
             timeout: 10000,

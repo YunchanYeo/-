@@ -84,9 +84,9 @@ docker compose logs -f backend
 
 ### 5-3) 微信小程序 — 真机预览(QR)에서 API 연결되게 하기
 
-**개발자도구 시뮬레이터 연결 복구**: 저장소 기본은 `CLOUD_USE_HTTPS_NIP = false` (`http://<ECS_IP>:3000`). HTTPS(sslip) 가 브라우저에서도 안 열리면 **절대 true 로 두지 말 것** — 시뮬레이터까지 전부 끊김. 에디터 **详情 → 本地设置 → 不校验合法域名…** 체크 확인.
+**개발자도구 시뮬레이터 연결 복구**: 저장소 기본은 `CLOUD_USE_HTTPS_OVERRIDE = null` 이면 시뮬레이터가 자동으로 `http://<ECS_IP>:3000` 을 씀. 맥에서 sslip HTTPS 가 안 열리면 **시뮬레이터를 굳이 HTTPS로 고정(`CLOUD_USE_HTTPS_OVERRIDE = true`)하지 말 것** — 시뮬레이터까지 끊길 수 있음. 에디터 **详情 → 本地设置 → 不校验合法域名…** 체크 확인.
 
-**폰만 안 될 때**: 위챗은 실기에서 **HTTPS + 服务器域名 등록**을 요구하는 경우가 많음. `CLOUD_USE_HTTPS_NIP = true` 는 **sslip HTTPS 가 서버에서 실제로 열린 뒤**에만 켜고, 微信公众平台에 같은 호스트 등록. 그 전까지는 시뮬레이터만으로 테스트하거나 Cloudflare Tunnel 등으로 확실한 HTTPS URL 확보.
+**폰만 안 될 때**: 위챗은 실기에서 **HTTPS + 服务器域名 등록**을 요구하는 경우가 많음. **sslip HTTPS 가 서버·브라우저에서 실제로 열린 뒤** 公众平台에 같은 호스트 등록. 그 전까지는 시뮬레이터만으로 테스트하거나 Cloudflare Tunnel 등으로 확실한 HTTPS URL 확보.
 
 시뮬레이터와 달리 **폰 프리뷰**는 **HTTPS + `request合法域名` 등록**이 필요한 경우가 많습니다. **sslip.io** / **nip.io**(IP→도메인) + **Caddy**(Let’s Encrypt) 조합을 씁니다. 저장소 기본은 **sslip.io** (`39-106-213-185.sslip.io` 형식, IP 바뀌면 하이픈 호스트도 수정).
 
@@ -109,7 +109,101 @@ docker compose logs --tail=80 caddy
    - 서버 호스트에 **nginx/httpd** 가 이미 **80** 을 쓰면 Caddy가 못 뜸 → `systemctl stop nginx` 등으로 비우거나 Caddy만 쓰도록 조정.  
    - 서버 안에서: `ss -tlnp | grep -E ':80|:443'` 로 리슨 확인.
 7. **微信公众平台** → **服务器域名**: **request合法域名**·필요 시 **download合法域名**에 `39-106-213-185.sslip.io` 처럼 **스킴 없이 호스트만**.
-8. **`frontend/config/index.js`** 의 `CLOUD_HTTPS_API_BASE` 와 Caddyfile·백오피스 도메인을 **동일 호스트**로 맞춘 뒤 미니프로그램 재컴파일.
+8. **`frontend/config/index.js`** 의 `CLOUD_HTTPS_API_BASE`(또는 아래 **오버라이드**)와 Caddyfile·公众平台을 **동일 호스트**로 맞춘 뒤 미니프로그램 재컴파일.
+
+<a id="5-3-0-ecs-deploy-path"></a>
+
+### 5-3-0) ECS에서 `deploy/china-test` 경로 (compose / Caddy)
+
+`cd deploy/china-test` 는 **홈이 아니라 레포 안의 그 폴더**에서만 성공한다. 현재 ECS 예시 경로:
+
+```bash
+cd /root/wechat-app-live/deploy/china-test
+```
+
+여기서 `docker-compose.yml` 이 있으므로:
+
+```bash
+docker compose up -d
+docker compose restart caddy
+docker compose logs --tail=50 caddy
+bash check-ssl.sh
+```
+
+다른 서버·다른 clone 디렉터리 이름이면 경로만 바꾸면 된다. 모를 때는:
+
+```bash
+find /root -name "docker-compose.yml" 2>/dev/null
+```
+
+**레포가 없으면** [5) 프로젝트 배포](#5-프로젝트-배포)대로 `git clone` 한 뒤, 위와 같이 `deploy/china-test` 까지 `cd`.
+
+**compose 없이 Caddy만 재시작**할 때 (컨테이너 이름이 이 프로젝트 기본값일 때):
+
+```bash
+docker ps | grep -i caddy
+docker restart wechat-caddy
+```
+
+**셸에 한글 문장 통째로 붙이지 말 것** — 예: `docker compose up -d 또는 …` 처럼 **한 줄에** 넣으면 `또는` 때문에 **명령 오류**가 난다. **한 줄에 명령 하나**만 입력한다.
+
+#### ECS에서 `git pull` 이 충돌로 실패할 때
+
+서버에 **직접 수정한 추적 파일** + **원격에만 있는 untracked**(예: `deploy/china-test/docker-compose.yml`) 이 겹치면 `git pull` 이 막힌다.
+
+- **데이터·비밀 유지가 우선**이면: `backend/.env`·`backend/data/` 는 먼저 **다른 경로에 복사 백업**한 뒤, 팀 정책에 맞게 `stash` / `reset` / **맥에서 `scp` 로 필요한 파일만 덮어쓰기** 등으로 맞춘다.
+- **코드만 빠르게 올리기**(예: `wx.request` 전송 옵션 패치): 맥 프로젝트에서 해당 파일을 `scp` 로 서버 동일 경로에 복사한 뒤, 위챗 개발자도구에서 **清缓存 → 编译 → 预览** 로 QR 새로 찍는다.
+
+#### 폰 미니프로그램(预览 QR)만 서버에 못 붙을 때
+
+1. **微信公众平台** → **request合法域名** 에 `39-106-213-185.sslip.io` (또는 `CLOUD_HTTPS_API_BASE_OVERRIDE` 호스트) **스킴 없이** 정확히 등록·저장했는지, **project.config.json 의 appid** 와 소속小程序가 같은지 확인.
+2. 저장소 최신 프론트는 **`wx.request` 에 `enableHttp2: false`, `enableQuic: false`** 를 넣어 일부 회선에서의 RST 를 줄인다 (`frontend/services/_utils/wxRequestTransport.js`). 반영 후 **반드시 재编译** 후 QR 새로 스캔.
+3. 그래도 동일하면 **자기 도메인 + HTTPS** (`CLOUD_HTTPS_API_BASE_OVERRIDE`) 로 전환하는 것이 가장 확실하다.
+
+#### SSL 체인 점검 (브라우저 OK·위챗만 `ERR_CONNECTION_RESET` 등)
+
+1. **서버에서** 저장소의 점검 스크립트 실행 (호스트 생략 시 sslip 기본). 먼저 [5-3-0)](#5-3-0-ecs-deploy-path) 절처럼 `deploy/china-test` 까지 `cd` 한 뒤:
+
+   ```bash
+   bash check-ssl.sh
+   ```
+
+   다른 호스트만 점검할 때:
+
+   ```bash
+   bash check-ssl.sh api.본인도메인.com
+   ```
+
+2. **맥(LibreSSL)** 에서 `openssl s_client -brief` 는 **지원되지 않음** (`unknown option -brief`). 대신 예:
+
+   ```bash
+   echo | openssl s_client -connect 39-106-213-185.sslip.io:443 -servername 39-106-213-185.sslip.io 2>&1 | head -50
+   ```
+
+3. **온라인**: [myssl.com](https://myssl.com/) 등으로 동일 호스트 **443** 검사 → **인증서 체인 불완전**이면 Caddy가 내려주는 **fullchain** 기준으로 재발급·재기동 (Caddy 자동 ACME는 보통 fullchain이나, 리버스 프록시 앞단을 바꿨다면 중간 인증서 누락을 의심).
+
+#### Caddyfile / compose 반영
+
+`docker-compose.yml` 이 있는 디렉터리로 `cd` 한 뒤 ([5-3-0](#5-3-0-ecs-deploy-path) 참고), **아래 중 필요한 한 줄만** 실행한다.
+
+```bash
+docker compose up -d
+```
+
+```bash
+docker compose restart caddy
+```
+
+Caddyfile에 `tls { protocols tls1.2 tls1.3 }` 가 있으면 위챗 쪽 TLS 호환 점검에 도움이 된다.
+
+#### 정식 도메인으로 전환 (sslip 대신)
+
+1. 도메인 DNS **A 레코드** → ECS 공인 IP.
+2. **`deploy/china-test/Caddyfile`**: 파일 하단 주석 예시(`api.example.com` 블록)를 복사해 본인 호스트로 수정 후 **주석 해제**.
+3. `docker compose up -d` (또는 `caddy`만 재시작) → 로그에서 Let's Encrypt 성공 여부 확인.
+4. **微信公众平台** → **request合法域名**(및 필요 시 **download合法域名**)에 **스킴 없이** 동일 호스트.
+5. **`frontend/config/index.js`**: `CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://api.본인도메인.com'` (끝 `/` 없음). `CLOUD_HTTP_API_BASE`(:3000)는 점검·미디어 URL용으로 IP 유지 가능.
+6. 개발자도구 **清缓存 → 编译** → 폰 **预览** QR 새로 스캔.
 
 **Let's Encrypt / sslip 가 서버에서 계속 실패할 때 (대안)**
 
@@ -126,11 +220,11 @@ cloudflared tunnel --url http://127.0.0.1:8080
 
 **폰만 연결 안 될 때 체크**
 
-1. `CLOUD_USE_HTTPS_NIP = true` 인지 확인.  
+1. 폰은 기본 **HTTPS**(`CLOUD_HTTPS_API_BASE` 또는 `CLOUD_HTTPS_API_BASE_OVERRIDE`); 시뮬레이터만 HTTP:3000 쓰려면 `CLOUD_USE_HTTPS_OVERRIDE = false` 로 고정 가능.  
 2. `docker compose up -d` 후 **`wechat-caddy` Up**·**caddy 로그**에 에러 없는지.  
-3. 방화벽 **80·443**, 브라우저/`curl -4` 로 **HTTPS 헬스** 확인.  
+3. 방화벽 **80·443**, 서버에서 `bash check-ssl.sh` 및 브라우저로 **HTTPS 헬스** 확인.  
 4. **服务器域名** 호스트 = 미니프로그램 `apiBaseUrl` 호스트.  
-5. Caddy 없이 평소처럼만 쓰려면: `docker stop wechat-caddy` 후 시뮬레이터용으로 `CLOUD_USE_HTTPS_NIP = false` (`http://IP:3000`).
+5. Caddy 없이 평소처럼만 쓰려면: `docker stop wechat-caddy` 후 시뮬레이터용으로 `CLOUD_USE_HTTPS_OVERRIDE = false` (`http://IP:3000`).
 
 ### 5-4) 폰 실기 연결 — 초보용 (왜 시뮬레이터만 되나 / 두 가지 방법)
 
@@ -175,7 +269,7 @@ cloudflared tunnel --url http://127.0.0.1:8080
    - 상품 이미지·채팅 파일이 같은 주소에서 나오면 **download合法域名**에도 동일 호스트 추가.
 
 6. **미니프로그램 코드**  
-   `frontend/config/index.js` 에서 **`CLOUD_USE_HTTPS_NIP = true`** 로 바꾸고, `CLOUD_HTTPS_API_BASE` 가 위와 동일한 `https://…sslip.io` 인지 확인 → 저장 후 개발자도구 **컴파일** → 폰에서 **프리뷰 QR** 다시 스캔.
+   `frontend/config/index.js` 에서 `CLOUD_HTTPS_API_BASE` 가 위와 동일한 `https://…sslip.io` 인지 확인(정식 도메인은 `CLOUD_HTTPS_API_BASE_OVERRIDE` 사용) → 저장 후 개발자도구 **컴파일** → 폰에서 **프리뷰 QR** 다시 스캔.
 
 ---
 
@@ -204,10 +298,10 @@ cloudflared tunnel --url http://127.0.0.1:8080
 4. **微信公众平台** → **服务器域名** → **request合法域名** 에 **`xxxxx.trycloudflare.com`** 만 등록 (앞의 `https://` 제외).
 
 5. **미니프로그램**  
-   `CLOUD_USE_HTTPS_NIP = true` 로 두고, **`CLOUD_HTTPS_API_BASE`** 를 출력된 주소와 동일하게 설정:
+   **`CLOUD_HTTPS_API_BASE_OVERRIDE`** 를 출력된 주소와 동일하게 설정(끝 `/` 없음):
 
    ```js
-   const CLOUD_HTTPS_API_BASE = 'https://xxxxx.trycloudflare.com';
+   const CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://xxxxx.trycloudflare.com';
    ```
 
    저장 → 컴파일 → 폰 프리뷰.
@@ -220,7 +314,7 @@ cloudflared tunnel --url http://127.0.0.1:8080
 
 | 증상 | 볼 곳 |
 |------|--------|
-| 시뮬레이터도 안 됨 | `CLOUD_USE_HTTPS_NIP = false` 로 두고 `http://IP:3000` 으로 복구 |
+| 시뮬레이터도 안 됨 | `CLOUD_USE_HTTPS_OVERRIDE = false` 로 두고 `http://IP:3000` 으로 복구 |
 | HTTPS 페이지만 안 열림 | Caddy 로그, 방화벽 80·443, 호스트 80 포트 충돌 |
 | 폰만 여전히 안 됨 | 公众平台 도메인과 `apiBaseUrl` 호스트가 **완전히 동일한지**(대소문자·오타) |
 

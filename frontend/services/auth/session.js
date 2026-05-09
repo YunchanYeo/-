@@ -1,4 +1,5 @@
 import { config } from '../../config/index';
+import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 const TOKEN_KEY = 'auth.token';
 const USER_KEY = 'auth.user';
 const PREFETCH_ME_KEY = 'prefetch.me';
@@ -24,6 +25,7 @@ export function logout() {
 function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
     return new Promise((resolve, reject) => {
         wx.request({
+            ...wxRequestTransportOpts,
             url: `${config.apiBaseUrl}${path}`,
             method,
             data,

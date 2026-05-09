@@ -1,16 +1,53 @@
+/**
+ * ━━━ 폰에서 서버 연결 — 직접 할 일(코드만으로 불가) ━━━
+ * 1) https://mp.weixin.qq.com → 지금 쓰는小程序(아래 AppID와 반드시 동일) → 开发 → 开发设置 → 服务器域名
+ *    → request合法域名에 호스트만: 39-106-213-185.sslip.io (화면이 https:// 요구하면 그 형식으로 저장)
+ *    → 이미지 로드 실패 시 download合法域名에도 동일 호스트
+ * 2) project.config.json 의 appid = 그小程序의 AppID (= backend/.env 의 WECHAT_APPID). 다르면 폰만 실패함.
+ * 3) 공인 IP 바뀌면 Caddyfile·CLOUD_HTTPS_API_BASE·CLOUD_HTTP_API_BASE·微信公众平台 도메인 모두 같이 수정
+ *    정식 도메인 쓰면 CLOUD_HTTPS_API_BASE_OVERRIDE 만 맞추고(끝 / 없음), Caddyfile에 동일 호스트 블록 추가
+ * 4) 微信开发者工具: 编译 → 预览 QR 새로 찍기(구버전 패키지 버리기)
+ * ━━━ 자동: 폰=iOS/Android → HTTPS(sslip), 시뮬레이터(devtools) → HTTP:3000 ━━━
+ */
 /** 로컬에서 백엔드만 돌릴 때 true. 클라우드 서버 쓰면 false. */
 const USE_LOCAL_API = false;
 const LOCAL_API_BASE = 'http://127.0.0.1:3000';
 
 /**
- * false(기본) = http://공인IP:3000 — 개발자도구 시뮬레이터·daily 연동에 사용(Caddy 불필요).
- * true = https sslip/nip — 폰 프리뷰용. Caddy·80·443·Let's Encrypt 성공 후에만 켤 것. 안 열리면 false 유지.
+ * null = 자동: 개발자도구(platform===devtools)는 HTTP:3000(sslip TLS 끊김 회피), 폰(ios/android 등)은 HTTPS sslip.
+ * true/false 로 고정하고 싶으면 여기만 바꿈.
  */
-const CLOUD_USE_HTTPS_NIP = false;
-/** IP 각 옥텟을 하이픈으로: 39.106.213.185 → 39-106-213-185.sslip.io (Caddyfile 과 동일해야 함) */
+const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
+
+/** IP 각 옥텟을 하이픈으로: 39.106.213.185 → 39-106-213-185.sslip.io (Caddyfile·微信公众平台 과 동일) */
 const CLOUD_HTTPS_API_BASE = 'https://39-106-213-185.sslip.io';
+/**
+ * 비우면 위 sslip 주소 사용. 정식 도메인 전환 시 예: 'https://api.example.com' (끝 슬래시 없음).
+ * 설정 후: Caddyfile에 해당 호스트 블록 추가·LE 인증서 발급,微信公众平台 request合法域名 동일 호스트, 재编译.
+ */
+const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
 /** 백엔드 직접 URL(DB·업로드 경로에 남는 경우). 폰이 HTTPS 쓸 때 이미지 URL 치환에 사용 */
 const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
+
+function getCloudHttpsApiBase() {
+    const o = String(CLOUD_HTTPS_API_BASE_OVERRIDE || '').trim();
+    if (o)
+        return o.replace(/\/+$/, '');
+    return CLOUD_HTTPS_API_BASE.replace(/\/+$/, '');
+}
+
+function resolveCloudUseHttpsNip() {
+  if (CLOUD_USE_HTTPS_OVERRIDE !== null) return CLOUD_USE_HTTPS_OVERRIDE;
+  try {
+    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
+      const platform = wx.getSystemInfoSync().platform;
+      if (platform === 'devtools') return false;
+    }
+  } catch (_) {
+    /* wx 미초기화 시 폰 기준 HTTPS */
+  }
+  return true;
+}
 
 export const config = {
     /** 是否使用mock代替api返回 */
@@ -31,11 +68,12 @@ export const config = {
      *
      * 관리자 로그인: PC용 admin-web 과 동일한 계정입니다(backend/.env 의 ADMIN_USERNAME 등·동일 SQLite).
      */
-    apiBaseUrl: USE_LOCAL_API
-        ? LOCAL_API_BASE
-        : CLOUD_USE_HTTPS_NIP
-          ? CLOUD_HTTPS_API_BASE
-          : CLOUD_HTTP_API_BASE,
+    /** 매 접근 시 계산: config 로드 시점에 wx 없으면 HTTP로 고정되던 문제 방지(폰은 HTTPS 필요) */
+    get apiBaseUrl() {
+        if (USE_LOCAL_API)
+            return LOCAL_API_BASE;
+        return resolveCloudUseHttpsNip() ? getCloudHttpsApiBase() : CLOUD_HTTP_API_BASE;
+    },
     /** 로컬 모드가 아니면 공인 HTTP 원점(항상 CLOUD_HTTP_API_BASE). 이미지·채팅 미디어 URL 리라이트용 */
     cloudServerHttpOrigin: USE_LOCAL_API ? '' : CLOUD_HTTP_API_BASE.replace(/\/+$/, ''),
 };
