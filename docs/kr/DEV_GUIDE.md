@@ -25,6 +25,8 @@
   - `OSS_ACCESS_KEY_ID`
   - `OSS_ACCESS_KEY_SECRET`
   - `OSS_PUBLIC_BASE_URL` (권장, CDN/커스텀 도메인 사용 시)
+  - `OSS_REGION`은 콘솔 버킷 Endpoint와 동일한 형태(예: `oss-cn-hangzhou`)로 맞출 것. `cn-hangzhou`만 쓰면 URL·SDK 엔드포인트가 어긋날 수 있음.
+- 관리자 세션·이미지 업로드 API·배포 확인: **`docs/kr/ADMIN_MEDIA_SESSIONS.md`**
 - 적용 범위:
   - 관리자 상품 이미지 업로드
   - 고객센터 이미지/음성 업로드
