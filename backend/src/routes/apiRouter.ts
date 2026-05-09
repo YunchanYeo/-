@@ -1,7 +1,12 @@
 import { Router } from 'express';
+import multer from 'multer';
 
 export function createApiRouter(controller: any) {
   const router = Router();
+  const adminImageUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 30 * 1024 * 1024 },
+  });
 
   // public routes
   router.get('/health', controller.health);
@@ -47,6 +52,7 @@ export function createApiRouter(controller: any) {
   router.get('/admin/me', controller.requireAdmin, controller.adminMe);
   router.put('/admin/me/password', controller.requireAdmin, controller.adminUpdatePassword);
   router.put('/admin/me/username', controller.requireAdmin, controller.adminUpdateUsername);
+  router.post('/admin/admins', controller.requireAdmin, controller.adminCreateAccount);
 
   router.get('/admin/orders', controller.requireAdmin, controller.adminOrders);
   router.get('/admin/orders/:orderNo/logistics-trace', controller.requireAdmin, controller.adminOrderLogisticsTrace);
@@ -65,6 +71,8 @@ export function createApiRouter(controller: any) {
   router.delete('/admin/products/:id', controller.requireAdmin, controller.adminDeleteProduct);
   router.put('/admin/products/:id/stock', controller.requireAdmin, controller.adminUpdateProductStock);
   router.post('/admin/upload-image', controller.requireAdmin, controller.adminUploadImage);
+  router.post('/admin/upload-image-multipart', controller.requireAdmin, adminImageUpload.single('file'), controller.adminUploadImageMultipart);
+  router.post('/admin/upload-image-sign', controller.requireAdmin, controller.adminCreateUploadSignedUrl);
 
   router.get('/admin/categories', controller.requireAdmin, controller.adminListCategories);
   router.post('/admin/categories', controller.requireAdmin, controller.adminCreateCategory);

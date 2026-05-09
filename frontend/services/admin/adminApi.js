@@ -48,6 +48,11 @@ export const uploadAdminImage = ({ fileName, mimeType, base64Data }) =>
 export const fetchAdminMe = () => requestAdminJson('/api/admin/me', { method: 'GET' });
 export const updateAdminPassword = ({ currentPassword, newPassword }) => requestAdminJson('/api/admin/me/password', { method: 'PUT', data: { currentPassword, newPassword } });
 export const updateAdminUsername = ({ currentPassword, newUsername }) => requestAdminJson('/api/admin/me/username', { method: 'PUT', data: { currentPassword, newUsername } });
+export const createAdminAccount = ({ currentPassword, username, password }) =>
+    requestAdminJson('/api/admin/admins', {
+        method: 'POST',
+        data: { currentPassword, username, password },
+    });
 export const fetchAdminPointPolicy = () => requestAdminJson('/api/admin/point-policy', { method: 'GET' });
 export const updateAdminPointPolicy = (payload) => requestAdminJson('/api/admin/point-policy', { method: 'PUT', data: payload });
 export const fetchAdminProduct = (productId) => requestAdminJson(`/api/admin/products/${productId}`, { method: 'GET' });

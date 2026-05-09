@@ -37,6 +37,15 @@ function setupDb() {
       updatedAt TEXT DEFAULT (datetime('now'))
     );
   `);
+  db.exec(`
+    CREATE TABLE admin_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      adminId INTEGER NOT NULL UNIQUE,
+      token TEXT NOT NULL UNIQUE,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
+    );
+  `);
   return db;
 }
 

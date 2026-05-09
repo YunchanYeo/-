@@ -7,25 +7,14 @@ import {
   fetchCategories,
   fetchProduct,
   updateProduct,
+  createAdminImageUploadSign,
+  uploadAdminImageMultipart,
   uploadAdminImage,
   type CategoryRow,
   type ProductRow,
 } from '../api/admin';
 import { resolveUploadUrl } from '../api/client';
-
-function fileToBase64(file: File): Promise<{ base64: string; mime: string }> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const res = String(r.result || '');
-      const m = res.match(/^data:([^;]+);base64,(.+)$/);
-      if (m) resolve({ mime: m[1], base64: m[2] });
-      else reject(new Error('无法读取图片'));
-    };
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(file);
-  });
-}
+import { prepareAdminProductImage, readBlobAsDataUrlBase64 } from '../utils/prepareAdminProductImage';
 
 export default function ProductFormPage() {
   const { id } = useParams();
@@ -86,15 +75,48 @@ export default function ProductFormPage() {
     }
     setErr('');
     try {
-      const { base64, mime } = await fileToBase64(file);
-      const up = await uploadAdminImage(token, {
-        fileName: file.name,
-        mimeType: mime,
-        base64Data: base64,
+      const prepared = await prepareAdminProductImage(file);
+      const sign = await createAdminImageUploadSign(token, {
+        fileName: prepared.fileName,
+        mimeType: prepared.mimeType,
       });
-      setImage(up.imageUrl);
+      if (sign.enabled && sign.signedUrl && sign.publicUrl) {
+        const putRes = await fetch(sign.signedUrl, {
+          method: sign.method || 'PUT',
+          headers: sign.headers || { 'Content-Type': prepared.mimeType || 'image/jpeg' },
+          body: prepared.blob,
+        });
+        if (!putRes.ok) throw new Error(`OSS 上传失败 (${putRes.status})`);
+        setImage(sign.publicUrl);
+      } else {
+        const up = await uploadAdminImageMultipart(
+          token,
+          prepared.blob,
+          prepared.fileName,
+          prepared.mimeType,
+        );
+        setImage(up.imageUrl);
+      }
     } catch (ex: unknown) {
-      setErr(ex instanceof Error ? ex.message : '上传失败');
+      try {
+        // 구버전 서버 호환: multipart/oss 경로 없으면 기존 base64 업로드 재시도
+        const prepared = await prepareAdminProductImage(file);
+        const { base64, mime } = await readBlobAsDataUrlBase64(prepared.blob);
+        const up = await uploadAdminImage(token, {
+          fileName: prepared.fileName,
+          mimeType: prepared.mimeType || mime,
+          base64Data: base64,
+        });
+        setImage(up.imageUrl);
+      } catch (fallbackErr: unknown) {
+        setErr(
+          fallbackErr instanceof Error
+            ? fallbackErr.message
+            : ex instanceof Error
+              ? ex.message
+              : '上传失败',
+        );
+      }
     }
     e.target.value = '';
   }
@@ -253,7 +275,7 @@ export default function ProductFormPage() {
               ) : null}
               <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
                 上传图片
-                <input type="file" accept="image/*" hidden onChange={onPickImage} />
+                <input type="file" accept="image/*,.heic,.heif" hidden onChange={onPickImage} />
               </label>
               {image ? (
                 <button type="button" className="btn btn-danger" onClick={() => setImage('')}>
