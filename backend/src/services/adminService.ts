@@ -6,7 +6,15 @@ import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
 const ADMIN_IMAGE_MAX_BYTES = 15 * 1024 * 1024;
 
-export function createAdminService({ db }: { db: Db }) {
+/** data:image/...;base64, 접두사·공백 제거 — 브라우저 FileReader 와 일부 클라이언트 호환 */
+function normalizeProductImageBase64(input: string): string {
+  let s = String(input || '').trim();
+  const m = /^data:([^;]+);base64,(.+)$/s.exec(s);
+  if (m?.[2]) s = m[2];
+  return s.replace(/\s/g, '');
+}
+
+export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: string }) {
   const ORDER_STATUS_META: Record<number, string> = {
     5: '待付款',
     10: '待发货',
@@ -336,7 +344,7 @@ export function createAdminService({ db }: { db: Db }) {
     }
   }
 
-  function adminUploadImage(req: Request, res: Response) {
+  async function adminUploadImage(req: Request, res: Response) {
     const schema = z.object({
       fileName: z.string().optional(),
       mimeType: z.string().optional(),
@@ -344,18 +352,42 @@ export function createAdminService({ db }: { db: Db }) {
     });
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid upload body', issues: parsed.error.issues });
-    const { mimeType = 'image/jpeg', base64Data } = parsed.data;
+    const { fileName = 'image.jpg', mimeType = 'image/jpeg' } = parsed.data;
+    const base64Data = normalizeProductImageBase64(parsed.data.base64Data);
+    if (!base64Data) return res.status(400).json({ ok: false, message: 'Empty image data' });
     try {
       const buf = Buffer.from(base64Data, 'base64');
-      if (buf.length === 0) return res.status(400).json({ ok: false, message: 'Empty image data' });
+      if (buf.length === 0) return res.status(400).json({ ok: false, message: 'Invalid base64 image' });
       if (buf.length > ADMIN_IMAGE_MAX_BYTES) {
         return res.status(413).json({ ok: false, message: `Image too large (max ${ADMIN_IMAGE_MAX_BYTES} bytes)` });
       }
       const mt = String(mimeType || 'image/jpeg').trim().slice(0, 120) || 'image/jpeg';
-      const r = db.prepare(`INSERT INTO product_media (mimeType, data) VALUES (?, ?)`).run(mt, buf);
-      const id = Number(r.lastInsertRowid);
-      // 절대 URL(sslip 등)을 쓰면 관리자를 http://공인IP 로 열 때 이미지 도메인이 달라져 깨짐 → DB·API에는 **경로만** 저장, 미니프로그램은 normalizeGoodsImageUrl 이 apiBaseUrl 붙임
-      const imageUrl = `/api/media/product/${id}`;
+      // 동적 import — 테스트/샌드박스에서 ali-oss 사전 로드 방지; 채팅 업로드와 동일 파이프라인
+      const { saveMediaFromBase64 } = await import('../storage/mediaStorage.js');
+      const rawUrl = await saveMediaFromBase64({
+        kind: 'image',
+        mimeType: mt,
+        fileName,
+        base64Data,
+        req,
+        uploadsDir,
+        prefix: 'product',
+      });
+      const oss = String(process.env.MEDIA_PROVIDER || '').trim().toLowerCase() === 'aliyun-oss';
+      let imageUrl = rawUrl;
+      if (!oss) {
+        if (rawUrl.startsWith('/')) {
+          imageUrl = rawUrl;
+        } else {
+          try {
+            const u = new URL(rawUrl);
+            imageUrl = `${u.pathname}${u.search}`;
+          } catch {
+            const match = String(rawUrl).match(/\/uploads\/[^?#]+/);
+            imageUrl = match ? match[0] : rawUrl;
+          }
+        }
+      }
       return res.json({ ok: true, data: { imageUrl } });
     } catch (e) {
       return res.status(500).json({ ok: false, message: `Image save failed: ${String((e as any)?.message || e)}` });

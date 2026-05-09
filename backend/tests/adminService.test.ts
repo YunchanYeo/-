@@ -20,6 +20,10 @@ function createRes() {
   return { res: res as any, out };
 }
 
+function tmpUploadsDir() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'admin-svc-test-'));
+}
+
 function setupDb() {
   const db = new Database(':memory:');
   db.exec(`
@@ -45,8 +49,7 @@ describe('adminService account update', () => {
       'token-1',
     );
 
-    const uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'uploads-'));
-    const service = createAdminService({ db: db as any, uploadsDir });
+    const service = createAdminService({ db: db as any, uploadsDir: tmpUploadsDir() });
     const { res, out } = createRes();
     const req = {
       body: { currentPassword: 'old-pass', newUsername: 'admin_new' },
@@ -73,8 +76,7 @@ describe('adminService account update', () => {
       'token-1',
     );
 
-    const uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'uploads-'));
-    const service = createAdminService({ db: db as any, uploadsDir });
+    const service = createAdminService({ db: db as any, uploadsDir: tmpUploadsDir() });
     const { res, out } = createRes();
     const req = {
       body: { currentPassword: 'old-pass', newPassword: 'new-pass-123' },
