@@ -14,6 +14,8 @@ export function createApiController(services: Services) {
     wechatLogin: services.auth.wechatLogin as RequestHandler,
     publicProducts: services.product.publicProducts as RequestHandler,
     publicProductDetail: services.product.publicProductDetail as RequestHandler,
+    /** 관리자 업로드 상품 이미지(DB BLOB) 조회 */
+    serveProductImage: services.productMedia.serveProductImage as RequestHandler,
 
     // user
     me: services.user.me as RequestHandler,

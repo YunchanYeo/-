@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import type { Request } from 'express';
 import OSS from 'ali-oss';
+import { buildPublicSiteUrl } from '../util/publicSiteUrl';
 
 type MediaKind = 'image' | 'voice';
 
@@ -98,6 +99,6 @@ export async function saveMediaFromBuffer(params: {
   const targetPath = path.join(uploadsDir, finalName);
   fs.writeFileSync(targetPath, buffer);
   if (!req) throw new Error('req is required for local media url');
-  return `${req.protocol}://${req.get('host')}/uploads/${finalName}`;
+  return buildPublicSiteUrl(req, `/uploads/${finalName}`);
 }
 

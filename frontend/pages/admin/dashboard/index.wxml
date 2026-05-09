@@ -9,6 +9,8 @@
     </view>
   </view>
 
+  <view wx:if="{{loading}}" class="card muted-card">加载订单与商品数据…</view>
+
   <view class="tabs">
     <view class="tab {{activeTab==='orders'?'active':''}}" data-tab="orders" bind:tap="onTabChange">订单管理</view>
     <view class="tab {{activeTab==='products'?'active':''}}" data-tab="products" bind:tap="onTabChange">库存管理</view>
@@ -17,6 +19,7 @@
   </view>
 
   <view wx:if="{{activeTab==='orders'}}">
+    <view wx:if="{{!loading && orders.length===0}}" class="card muted-card">暂无订单。若刚登录，请确认小程序后台已配置 request 合法域名且网络正常。</view>
     <view class="card" wx:for="{{orders}}" wx:key="orderNo" wx:for-item="item">
       <view class="row"><text>订单号:</text><text>{{item.orderNo}}</text></view>
       <view class="row"><text>买家:</text><text>{{item.nickName || '匿名用户'}} / {{item.phoneNumber || '-'}}</text></view>
@@ -48,6 +51,7 @@
   </view>
 
   <view wx:if="{{activeTab==='products'}}">
+    <view wx:if="{{!loading && products.length===0}}" class="card muted-card">暂无商品，可在下方表单新增。</view>
     <view class="card form-card">
       <view class="form-title">新增商品</view>
       <t-input label="商品名" placeholder="必填" value="{{productForm.title}}" data-key="title" bind:change="onProductInput" />

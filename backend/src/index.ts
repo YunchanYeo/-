@@ -42,7 +42,8 @@ app.post(
   },
 );
 
-app.use(express.json());
+// 관리자 이미지: 디코드 최대 15MB → Base64+JSON 은 20MB 초과함. nginx client_max_body_size 와 함께 여유 있게 둠.
+app.use(express.json({ limit: '40mb' }));
 const apiRouter = createApiRouter(apiController);
 app.use('/api', apiRouter);
 

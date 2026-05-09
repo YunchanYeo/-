@@ -1,0 +1,11 @@
+# ━━━ Caddyfile 맨 아래에 붙여 넣을 조각 ━━━
+# 1) api.example.com → 본인 API 호스트(微信公众平台 request合法域名 과 동일)
+# 2) DNS A 가 이미 이 ECS 공인 IP 를 가리키는지 확인한 뒤 저장
+# 3) cd /root/wechat-app-live/deploy/china-test && docker compose restart caddy
+#
+api.example.com {
+	tls {
+		protocols tls1.2 tls1.3
+	}
+	reverse_proxy admin-web:80
+}

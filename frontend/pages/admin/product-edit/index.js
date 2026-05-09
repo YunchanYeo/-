@@ -1,6 +1,7 @@
 import { config } from '../../../config/index';
 import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
 import { fetchAdminProduct, updateAdminProduct, uploadAdminImage, deleteAdminProduct } from '../../../services/admin/adminApi';
+import { resolveAdminImageForDisplay, toStoredProductImagePath } from '../../../services/admin/adminImageUrl';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
@@ -61,7 +62,7 @@ Page({
                     originPrice: p.originPrice ? (Number(p.originPrice) / 100).toFixed(2) : '',
                     stock: String(p.stock ?? ''),
                     category: p.category || '',
-                    image: p.image || '',
+                    image: resolveAdminImageForDisplay(p.image),
                     brand: p.brand || '',
                     company: p.company || '',
                     description: p.description || '',
@@ -138,7 +139,7 @@ Page({
                 mimeType: file?.type ? `image/${file.type}` : 'image/jpeg',
                 base64Data,
             });
-            this.setData({ 'form.image': uploadRes.imageUrl || '' });
+            this.setData({ 'form.image': resolveAdminImageForDisplay(uploadRes.imageUrl) });
             showMessage('图片上传成功', 'success');
         }
         catch (e) {
@@ -166,7 +167,7 @@ Page({
                 originPrice: originFen,
                 stock,
                 category: f.category || '',
-                image: f.image || '',
+                image: toStoredProductImagePath(f.image),
                 brand: f.brand || '',
                 company: f.company || '',
                 description: f.description || '',

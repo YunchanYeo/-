@@ -27,8 +27,12 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    expose:
+      - "80"
+    # 공인 IP:8080 노출 안 함 — 관리자·API·미니프로그램은 모두 https://…(443) → Caddy → 본 컨테이너 80
+    # ECS 안에서만 점검할 때: curl http://127.0.0.1:8080/  (cloudflared 등도 동일)
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
 
   # 폰 프리뷰용 HTTPS(Let's Encrypt). 기본 함께 기동 — 80·443 이 비어 있어야 함(호스트 nginx 사용 중이면 중지).
   caddy:
