@@ -1,7 +1,9 @@
 import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/index';
+import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
+import { resolveAdminImageForDisplay, toStoredProductImagePath } from '../../../services/admin/adminImageUrl';
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
     wx.showToast({
@@ -75,6 +77,7 @@ Page({
     },
     loadCategories() {
         wx.request({
+            ...wxRequestTransportOpts,
             url: `${config.apiBaseUrl}/api/categories`,
             method: 'GET',
             timeout: 10000,
@@ -112,8 +115,16 @@ Page({
     async refreshAll() {
         this.setData({ loading: true });
         try {
-            const [orders, products] = await Promise.all([fetchAdminOrders(), fetchAdminProducts()]);
-            const normalizedOrders = (Array.isArray(orders) ? orders : []).map((o) => this.enrichAdminOrder(o));
+            const settled = await Promise.allSettled([fetchAdminOrders(), fetchAdminProducts()]);
+            const oRes = settled[0];
+            const pRes = settled[1];
+            const ordersRaw = oRes.status === 'fulfilled' ? oRes.value : [];
+            const products = pRes.status === 'fulfilled' ? pRes.value : [];
+            if (oRes.status === 'rejected')
+                showMessage(oRes.reason?.message || '订单列表加载失败', 'error');
+            if (pRes.status === 'rejected')
+                showMessage(pRes.reason?.message || '商品列表加载失败', 'error');
+            const normalizedOrders = (Array.isArray(ordersRaw) ? ordersRaw : []).map((x) => this.enrichAdminOrder(x));
             this.setData({ orders: normalizedOrders, products: products || [] });
         }
         catch (e) {
@@ -491,7 +502,7 @@ Page({
                 base64Data,
             });
             this.setData({
-                'productForm.image': uploadRes.imageUrl || '',
+                'productForm.image': resolveAdminImageForDisplay(uploadRes.imageUrl),
             });
             showMessage('图片上传成功', 'success');
         }
@@ -512,7 +523,7 @@ Page({
             stock: Number(productForm.stock),
             status: productForm.status || 'ON',
             originPrice: productForm.originPrice === '' ? undefined : Math.round(Number(productForm.originPrice) * 100),
-            image: productForm.image || '',
+            image: toStoredProductImagePath(productForm.image),
             category: productForm.category || '',
             description: productForm.description || '',
             brand: productForm.brand || '',

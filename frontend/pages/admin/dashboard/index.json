@@ -2,6 +2,7 @@
   "navigationBarTitleText": "管理员后台",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",
-    "t-button": "tdesign-miniprogram/button/button"
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-toast": "tdesign-miniprogram/toast/toast"
   }
 }

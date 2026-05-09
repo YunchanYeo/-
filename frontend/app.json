@@ -89,9 +89,6 @@
   "permission": {
     "scope.userLocation": {
       "desc": "你的位置信息将用于小程序位置接口的效果展示"
-    },
-    "scope.record": {
-      "desc": "需要使用你的麦克风以发送语音客服消息"
     }
   }
 }

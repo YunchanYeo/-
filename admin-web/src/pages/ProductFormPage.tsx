@@ -78,7 +78,12 @@ export default function ProductFormPage() {
 
   async function onPickImage(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !token) return;
+    if (!file) return;
+    if (!token) {
+      setErr('登录已失效，请重新登录后再上传');
+      e.target.value = '';
+      return;
+    }
     setErr('');
     try {
       const { base64, mime } = await fileToBase64(file);

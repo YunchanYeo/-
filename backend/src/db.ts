@@ -71,6 +71,16 @@ ensureColumn('soldNum', "soldNum INTEGER NOT NULL DEFAULT 0");
 ensureColumn('category', 'category TEXT');
 ensureColumn('categoryId', 'categoryId INTEGER');
 
+/** 관리자 상품 이미지(BLOB) — `/api/media/product/:id` 로 제공 */
+db.exec(`
+CREATE TABLE IF NOT EXISTS product_media (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mimeType TEXT NOT NULL,
+  data BLOB NOT NULL,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS product_categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

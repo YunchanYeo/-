@@ -1,6 +1,7 @@
 import { config } from '../../config/index';
 import { createAppError, ErrorCodes } from './errors';
 import { getToken } from '../auth/session';
+import { wxRequestTransportOpts } from './wxRequestTransport';
 function joinUrl(baseUrl, path) {
     const base = baseUrl.replace(/\/+$/, '');
     const p = path.startsWith('/') ? path : `/${path}`;
@@ -24,11 +25,12 @@ function getStatusHint(statusCode) {
     return map[statusCode] || 'HTTP 请求失败。';
 }
 export function requestJson(path, options = {}) {
-    const { method = 'GET', data, header = {}, timeoutMs = 8000 } = options;
+    const { method = 'GET', data, header = {}, timeoutMs = 15000 } = options;
     const url = joinUrl(config.apiBaseUrl, path);
     return new Promise((resolve, reject) => {
         const token = getToken();
         wx.request({
+            ...wxRequestTransportOpts,
             url,
             method,
             data,
@@ -62,9 +64,13 @@ export function requestJson(path, options = {}) {
                 resolve(body.data);
             },
             fail(err) {
-                const msg = err?.errMsg || '网络错误';
+                let msg = err?.errMsg || '网络错误';
                 if (String(msg).toLowerCase().includes('timeout')) {
                     return reject(createAppError(ErrorCodes.TIMEOUT, `请求超时：${url}`, err));
+                }
+                const m = String(msg);
+                if (/合法域名|domain|not in domain list|ssl|certificate|TLS|CONNECTION_RESET|connection reset/i.test(m)) {
+                    msg += `（请核对：1）mp.weixin.qq.com 服务器域名是否含请求主机；2）project.config.json 的 appid 是否与该小程序一致；3）重新编译后再预览；4）仍 RST 可试换自有域名 HTTPS）`;
                 }
                 reject(createAppError(ErrorCodes.NETWORK_ERROR, msg, { ...err, url, method }));
             },

@@ -9,13 +9,15 @@ import { createOrderService } from './orderService';
 import { createUserService } from './userService';
 import { createSupportService } from './supportService';
 import { createCouponService } from './couponService';
+import { createProductMediaService } from './productMediaService';
 
 export function createServices(ctx: RequestContext) {
   const health = createHealthService();
   const category = createCategoryService({ db: ctx.db });
   const auth = createAuthService({ db: ctx.db, wechatAppId: ctx.wechatAppId, wechatAppSecret: ctx.wechatAppSecret });
   const product = createProductService({ db: ctx.db });
-  const admin = createAdminService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
+  const admin = createAdminService({ db: ctx.db });
+  const productMedia = createProductMediaService({ db: ctx.db });
   const address = createAddressService({ db: ctx.db });
   const order = createOrderService({
     db: ctx.db,
@@ -26,5 +28,5 @@ export function createServices(ctx: RequestContext) {
   const support = createSupportService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
   const coupon = createCouponService({ db: ctx.db });
 
-  return { health, category, auth, product, admin, address, order, user, support, coupon };
+  return { health, category, auth, product, admin, productMedia, address, order, user, support, coupon };
 }

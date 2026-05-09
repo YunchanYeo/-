@@ -1,9 +1,11 @@
 import { config } from '../../config/index';
+import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 const ADMIN_TOKEN_KEY = 'admin.token';
 const ADMIN_USER_KEY = 'admin.user';
 function requestAdmin(path, { method = 'GET', data, token = '' } = {}) {
     return new Promise((resolve, reject) => {
         wx.request({
+            ...wxRequestTransportOpts,
             url: `${config.apiBaseUrl}${path}`,
             method,
             data,

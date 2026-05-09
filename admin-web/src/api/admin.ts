@@ -172,6 +172,7 @@ export function uploadAdminImage(
     method: 'POST',
     token,
     body: file,
+    timeoutMs: 120_000,
   });
 }
 

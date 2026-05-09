@@ -7,7 +7,20 @@ export function getApiBase(): string {
 
 export function resolveUploadUrl(image: string | null | undefined): string {
   if (!image) return '';
-  if (/^https?:\/\//i.test(image)) return image;
+  if (/^https?:\/\//i.test(image)) {
+    // HTTPS 페이지에서 http:// 업로드 URL(프록시 오구성) 혼합 콘텐츠 차단 방지
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && image.startsWith('http://')) {
+      try {
+        const u = new URL(image);
+        if (u.hostname === window.location.hostname) {
+          return `https://${u.host}${u.pathname}${u.search}`;
+        }
+      } catch {
+        /* */
+      }
+    }
+    return image;
+  }
   const base = getApiBase();
   const path = image.startsWith('/') ? image : `/${image}`;
   if (!base) return path;
@@ -46,6 +59,22 @@ type JsonOpts = {
   timeoutMs?: number;
 };
 
+function createTimeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  ctrl.signal.addEventListener(
+    'abort',
+    () => {
+      clearTimeout(t);
+    },
+    { once: true },
+  );
+  return ctrl.signal;
+}
+
 export async function adminJson<T>(path: string, opts: JsonOpts = {}): Promise<T> {
   const base = getApiBase();
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
@@ -55,14 +84,28 @@ export async function adminJson<T>(path: string, opts: JsonOpts = {}): Promise<T
   if (opts.token) headers['x-admin-token'] = opts.token;
 
   const signal =
-    opts.timeoutMs != null && opts.timeoutMs > 0 ? AbortSignal.timeout(opts.timeoutMs) : undefined;
+    opts.timeoutMs != null && opts.timeoutMs > 0 ? createTimeoutSignal(opts.timeoutMs) : undefined;
 
-  const res = await fetch(url, {
-    method: opts.method || 'GET',
-    headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    signal,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: opts.method || 'GET',
+      headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'Failed to fetch' || msg.includes('Load failed') || msg.includes('NetworkError')) {
+      throw new Error(
+        '网络请求失败（请确认管理后台与 API 同源部署，或检查 VITE_API_BASE_URL / HTTPS 混合内容）',
+      );
+    }
+    if (msg === 'The user aborted a request.' || msg.includes('aborted')) {
+      throw new Error('请求超时，请稍后重试或缩小图片');
+    }
+    throw e instanceof Error ? e : new Error(msg);
+  }
 
   const text = await res.text();
   let data: { ok?: boolean; message?: string; data?: T } = {};

@@ -6,7 +6,8 @@
 
 - 운영 가이드: `docs/kr/USER_GUIDE.md`
 - 개발 가이드: `docs/kr/DEV_GUIDE.md`
-- 중국 배포 가이드: `docs/kr/CHINA_DEPLOY_GUIDE.md`
+- 중국·微信 ECS 배포(통합): **`docs/kr/DEPLOY_CN_WECHAT.md`**
+- (구) 긴 배포 백업: `docs/kr/CHINA_DEPLOY_GUIDE.archive.md`
 - 최적화 보고서: `docs/kr/OPTIMIZATION_REPORT.md`
 - 중국어 문서 인덱스: `docs/cn/README.md`
 

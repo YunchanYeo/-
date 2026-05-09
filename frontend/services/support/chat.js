@@ -1,5 +1,6 @@
 import { requestJson } from '../_utils/http';
 import { config } from '../../config/index';
+import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 import { getAdminToken } from '../admin/session';
 
 /**
@@ -11,6 +12,7 @@ function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) 
   const token = getAdminToken();
   return new Promise((resolve, reject) => {
     wx.request({
+      ...wxRequestTransportOpts,
       url: `${config.apiBaseUrl}${path}`,
       method,
       data,
