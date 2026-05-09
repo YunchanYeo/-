@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth';
-import { fetchAdminMe, updateAdminPassword, updateAdminUsername } from '../api/admin';
+import { createAdminAccount, fetchAdminMe, updateAdminPassword, updateAdminUsername } from '../api/admin';
 import { useNavigate } from 'react-router-dom';
 
 export default function SettingsPage() {
@@ -14,6 +14,9 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [createCurrentPassword, setCreateCurrentPassword] = useState('');
+  const [createUsername, setCreateUsername] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -92,6 +95,35 @@ export default function SettingsPage() {
     }
   }
 
+  async function onSubmitCreateAdmin(e: FormEvent) {
+    e.preventDefault();
+    if (!token) return;
+    const nextUsername = createUsername.trim();
+    if (!createCurrentPassword || !nextUsername || !createPassword) {
+      setErr('현재 비밀번호/새 관리자 ID/초기 비밀번호를 모두 입력하세요');
+      setOk('');
+      return;
+    }
+    setSaving(true);
+    setErr('');
+    setOk('');
+    try {
+      const created = await createAdminAccount(token, {
+        currentPassword: createCurrentPassword,
+        username: nextUsername,
+        password: createPassword,
+      });
+      setCreateUsername('');
+      setCreatePassword('');
+      setCreateCurrentPassword('');
+      setOk(`관리자 계정이 생성되었습니다: ${created.username}`);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '관리자 계정 생성 실패');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <h2 style={{ margin: 0, fontSize: '1.25rem' }}>账号设置</h2>
@@ -144,6 +176,40 @@ export default function SettingsPage() {
         </label>
         <button className="btn btn-primary" type="submit" disabled={loading || saving}>
           {saving ? '保存中…' : '修改密码（会重新登录）'}
+        </button>
+      </form>
+      <form className="card" onSubmit={onSubmitCreateAdmin} style={{ display: 'grid', gap: '0.75rem', maxWidth: 520 }}>
+        <h3 style={{ margin: 0, fontSize: '1rem' }}>创建管理员账号</h3>
+        <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>현재 로그인한 관리자 비밀번호로 생성 권한을 확인합니다.</div>
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>현재 비밀번호(권한 확인)</span>
+          <input
+            type="password"
+            value={createCurrentPassword}
+            onChange={(e) => setCreateCurrentPassword(e.target.value)}
+            disabled={loading || saving}
+          />
+        </label>
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>새 관리자 ID</span>
+          <input
+            type="text"
+            value={createUsername}
+            onChange={(e) => setCreateUsername(e.target.value)}
+            disabled={loading || saving}
+          />
+        </label>
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>초기 비밀번호</span>
+          <input
+            type="password"
+            value={createPassword}
+            onChange={(e) => setCreatePassword(e.target.value)}
+            disabled={loading || saving}
+          />
+        </label>
+        <button className="btn btn-primary" type="submit" disabled={loading || saving}>
+          {saving ? '생성 중…' : '관리자 계정 생성'}
         </button>
       </form>
     </div>

@@ -252,6 +252,19 @@ const ensureAdminColumn = (name: string, ddl: string) => {
 };
 ensureAdminColumn('passwordHash', 'passwordHash TEXT');
 
+// 관리자 다중 단말 세션: 계정당 1개 활성 세션(같은 계정 재로그인 시 기존 세션 만료)
+db.exec(`
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  adminId INTEGER NOT NULL UNIQUE,
+  token TEXT NOT NULL UNIQUE,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (adminId) REFERENCES admins(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS support_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -11,9 +11,14 @@ export async function upsertAdminByCredentials(
     | { id: number }
     | undefined;
   if (exists) {
-    db.prepare(
-      `UPDATE admins SET passwordHash = ?, sessionToken = NULL, updatedAt = datetime('now') WHERE id = ?`,
-    ).run(passwordHash, exists.id);
+    const tx = db.transaction((adminId: number) => {
+      db.prepare(`UPDATE admins SET passwordHash = ?, sessionToken = NULL, updatedAt = datetime('now') WHERE id = ?`).run(
+        passwordHash,
+        adminId,
+      );
+      db.prepare(`DELETE FROM admin_sessions WHERE adminId = ?`).run(adminId);
+    });
+    tx(exists.id);
     return 'updated';
   }
   db.prepare(

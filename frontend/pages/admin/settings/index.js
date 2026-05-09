@@ -3,6 +3,7 @@ import {
     fetchAdminMe,
     updateAdminPassword,
     updateAdminUsername,
+    createAdminAccount,
 } from '../../../services/admin/adminApi';
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
@@ -16,6 +17,9 @@ Page({
         currentPassword: '',
         newPassword: '',
         newUsername: '',
+        createCurrentPassword: '',
+        createUsername: '',
+        createPassword: '',
     },
     onLoad() {
         this.loadData();
@@ -70,6 +74,31 @@ Page({
         }
         catch (e) {
             showMessage(e?.message || '修改失败', 'error');
+        }
+        finally {
+            this.setData({ submitting: false });
+        }
+    },
+    async onCreateAdminAccount() {
+        const { createCurrentPassword, createUsername, createPassword } = this.data;
+        if (!createCurrentPassword || !createUsername || !createPassword)
+            return showMessage('当前密码/新ID/初始密码 모두 입력해주세요');
+        try {
+            this.setData({ submitting: true });
+            const created = await createAdminAccount({
+                currentPassword: createCurrentPassword,
+                username: String(createUsername || '').trim(),
+                password: createPassword,
+            });
+            this.setData({
+                createCurrentPassword: '',
+                createUsername: '',
+                createPassword: '',
+            });
+            showMessage(`管理员创建成功: ${created?.username || ''}`, 'success');
+        }
+        catch (e) {
+            showMessage(e?.message || '创建管理员失败', 'error');
         }
         finally {
             this.setData({ submitting: false });

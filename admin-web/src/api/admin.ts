@@ -1,4 +1,4 @@
-import { adminJson } from './client';
+import { adminJson, getApiBase } from './client';
 
 export type AdminMe = { id: number; username: string };
 export type PointPolicy = { pointsEarnRatePercent: number; pointsUseThreshold: number };
@@ -79,6 +79,17 @@ export function updateAdminUsername(
 ) {
   return adminJson<AdminMe>('/api/admin/me/username', {
     method: 'PUT',
+    token,
+    body,
+  });
+}
+
+export function createAdminAccount(
+  token: string,
+  body: { currentPassword: string; username: string; password: string },
+) {
+  return adminJson<AdminMe>('/api/admin/admins', {
+    method: 'POST',
     token,
     body,
   });
@@ -174,6 +185,57 @@ export function uploadAdminImage(
     body: file,
     timeoutMs: 120_000,
   });
+}
+
+export function createAdminImageUploadSign(
+  token: string,
+  body: { fileName: string; mimeType?: string },
+) {
+  return adminJson<{
+    enabled: boolean;
+    method?: 'PUT';
+    signedUrl?: string;
+    publicUrl?: string;
+    objectKey?: string;
+    headers?: Record<string, string>;
+  }>('/api/admin/upload-image-sign', {
+    method: 'POST',
+    token,
+    body,
+    timeoutMs: 15000,
+  });
+}
+
+export async function uploadAdminImageMultipart(
+  token: string,
+  file: Blob,
+  fileName: string,
+  mimeType?: string,
+) {
+  const base = getApiBase();
+  const fd = new FormData();
+  const typedFile = new File([file], fileName || 'image.jpg', {
+    type: mimeType || 'image/jpeg',
+  });
+  fd.append('file', typedFile);
+  const res = await fetch(`${base}/api/admin/upload-image-multipart`, {
+    method: 'POST',
+    headers: {
+      'x-admin-token': token,
+    },
+    body: fd,
+  });
+  const text = await res.text();
+  let data: { ok?: boolean; message?: string; data?: { imageUrl: string } } = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`无效响应 (${res.status})`);
+  }
+  if (!res.ok || !data.ok || !data.data?.imageUrl) {
+    throw new Error(data.message || `HTTP ${res.status}`);
+  }
+  return data.data;
 }
 
 export function fetchOrders(token: string) {
