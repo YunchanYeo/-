@@ -11,6 +11,8 @@ function detectExt(kind: MediaKind, mimeType: string) {
   if (kind === 'image') {
     if (mimeType.includes('png')) return 'png';
     if (mimeType.includes('webp')) return 'webp';
+    // HEIC/HEIF 는 브라우저 표시 호환 위해 저장 확장자는 jpg 권장(클라이언트에서 JPEG 로 재인코딩하는 경우가 대부분)
+    if (mimeType.includes('heic') || mimeType.includes('heif')) return 'jpg';
     return 'jpg';
   }
   if (mimeType.includes('mpeg') || mimeType.includes('mp3')) return 'mp3';

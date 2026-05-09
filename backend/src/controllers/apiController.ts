@@ -68,6 +68,7 @@ export function createApiController(services: Services) {
     adminMe: services.admin.adminMe as RequestHandler,
     adminUpdatePassword: services.admin.adminUpdatePassword as RequestHandler,
     adminUpdateUsername: services.admin.adminUpdateUsername as RequestHandler,
+    adminCreateAccount: services.admin.adminCreateAccount as RequestHandler,
     adminOrders: services.admin.adminOrders as RequestHandler,
     adminOrderLogisticsTrace: services.admin.adminOrderLogisticsTrace as RequestHandler,
     adminUpdateOrderShipping: services.admin.adminUpdateOrderShipping as RequestHandler,
@@ -84,6 +85,8 @@ export function createApiController(services: Services) {
     adminDeleteProduct: services.product.adminDeleteProduct as RequestHandler,
     adminUpdateProductStock: services.product.adminUpdateProductStock as RequestHandler,
     adminUploadImage: services.admin.adminUploadImage as RequestHandler,
+    adminUploadImageMultipart: services.admin.adminUploadImageMultipart as RequestHandler,
+    adminCreateUploadSignedUrl: services.admin.adminCreateUploadSignedUrl as RequestHandler,
 
     adminListCategories: services.category.adminListCategories as RequestHandler,
     adminCreateCategory: services.category.adminCreateCategory as RequestHandler,

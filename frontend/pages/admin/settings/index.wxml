@@ -32,5 +32,28 @@
     <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onChangePassword">
       修改密码（会强制重新登录）
     </t-button>
+
+    <view class="divider" />
+
+    <t-input
+      label="权限确认密码"
+      type="password"
+      placeholder="当前管理员密码"
+      value="{{createCurrentPassword}}"
+      data-key="createCurrentPassword"
+      bind:change="onInput"
+    />
+    <t-input label="新管理员ID" placeholder="至少4位" value="{{createUsername}}" data-key="createUsername" bind:change="onInput" />
+    <t-input
+      label="新管理员初始密码"
+      type="password"
+      placeholder="至少6位"
+      value="{{createPassword}}"
+      data-key="createPassword"
+      bind:change="onInput"
+    />
+    <t-button variant="outline" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onCreateAdminAccount">
+      创建管理员账号
+    </t-button>
   </view>
 </view>

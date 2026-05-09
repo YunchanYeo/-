@@ -57,7 +57,15 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
   function requireAdmin(req: Request, res: Response, next: NextFunction) {
     const token = getAdminToken(req);
     if (!token) return res.status(401).json({ ok: false, message: 'Missing admin token' });
-    const admin = db.prepare(`SELECT id, username FROM admins WHERE sessionToken = ?`).get(token) as AuthedAdmin | undefined;
+    const admin = db
+      .prepare(
+        `SELECT a.id, a.username
+         FROM admins a
+         LEFT JOIN admin_sessions s ON s.adminId = a.id
+         WHERE s.token = ? OR a.sessionToken = ?
+         LIMIT 1`,
+      )
+      .get(token, token) as AuthedAdmin | undefined;
     if (!admin) return res.status(401).json({ ok: false, message: 'Invalid admin token' });
     (req as any).admin = admin;
     return next();
@@ -163,7 +171,17 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
     }
     if (!ok) return res.status(401).json({ ok: false, message: '管理员账号或密码错误' });
     const token = genSessionToken();
-    db.prepare(`UPDATE admins SET sessionToken = ?, updatedAt = datetime('now') WHERE id = ?`).run(token, admin.id);
+    const tx = db.transaction((adminId: number, tk: string) => {
+      // 같은 계정 재로그인 시 이전 세션 강제 종료
+      db.prepare(`DELETE FROM admin_sessions WHERE adminId = ?`).run(adminId);
+      db.prepare(
+        `INSERT INTO admin_sessions (adminId, token, createdAt, updatedAt)
+         VALUES (?, ?, datetime('now'), datetime('now'))`,
+      ).run(adminId, tk);
+      // 구버전 호환 fallback
+      db.prepare(`UPDATE admins SET sessionToken = ?, updatedAt = datetime('now') WHERE id = ?`).run(tk, adminId);
+    });
+    tx(admin.id, token);
     return res.json({ ok: true, data: { token, admin: { id: admin.id, username: admin.username } } });
   }
 
