@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
-import { fetchProducts, updateProductStock, type ProductRow } from '../api/admin';
+import { deleteProduct, fetchProducts, updateProductStock, type ProductRow } from '../api/admin';
 import { resolveUploadUrl } from '../api/client';
 
 export default function ProductsPage() {
@@ -11,6 +11,7 @@ export default function ProductsPage() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -55,11 +56,31 @@ export default function ProductsPage() {
     }
   }
 
+  async function removeProduct(id: number, title: string) {
+    if (!token) return;
+    if (!window.confirm(`确定删除「${title}」？删除后不可恢复（历史订单快照不受影响）。`)) return;
+    setDeletingId(id);
+    setErr('');
+    try {
+      await deleteProduct(token, id);
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      setDraft((d) => {
+        const next = { ...d };
+        delete next[id];
+        return next;
+      });
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.25rem' }}>商品与库存</h2>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div className="page-toolbar">
+        <h2 style={{ margin: 0, fontSize: 'clamp(1.05rem, 3.5vw, 1.25rem)' }}>商品与库存</h2>
+        <div className="page-toolbar__actions">
           <Link to="/products/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>
             新建商品
           </Link>
@@ -82,7 +103,7 @@ export default function ProductsPage() {
                 <th>售价</th>
                 <th style={{ width: 140 }}>库存</th>
                 <th>状态</th>
-                <th style={{ width: 160 }} />
+                <th style={{ width: 220 }} />
               </tr>
             </thead>
             <tbody>
@@ -130,9 +151,20 @@ export default function ProductsPage() {
                     <span className="badge">{r.status === 'ON' ? '上架' : '下架'}</span>
                   </td>
                   <td>
-                    <Link to={`/products/${r.id}`} style={{ fontSize: '0.875rem' }}>
-                      编辑详情 →
-                    </Link>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                      <Link to={`/products/${r.id}`} style={{ fontSize: '0.875rem' }}>
+                        编辑详情 →
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+                        disabled={deletingId === r.id || savingId === r.id}
+                        onClick={() => removeProduct(r.id, r.title)}
+                      >
+                        {deletingId === r.id ? '删除中…' : '删除'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

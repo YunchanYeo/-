@@ -6,6 +6,7 @@
 
 - 운영 가이드: `docs/kr/USER_GUIDE.md`
 - 개발 가이드: `docs/kr/DEV_GUIDE.md`
+- 중국 배포 가이드: `docs/kr/CHINA_DEPLOY_GUIDE.md`
 - 최적화 보고서: `docs/kr/OPTIMIZATION_REPORT.md`
 - 중국어 문서 인덱스: `docs/cn/README.md`
 
@@ -27,9 +28,15 @@
 - 고객센터 채팅
   - 사용자/관리자/React 관리자 모두 이모지 패널 지원
   - 상대방 입력 중 표시(`对方正在输入…`) 지원
+  - 사용자 문의에 주문 연동: 주문 선택 시 `meta.orderNo` 첨부
+  - 관리자 채팅에서 주문 태그 표시, React에서는 주문 태그 클릭 시 주문관리로 점프
   - 입력 중 상태 API 추가:
     - 사용자: `GET/POST /api/support/typing`
     - 관리자: `GET/POST /api/admin/support/typing/:userId`
+- 인프라(2단계)
+  - 미디어 저장소를 阿里云 OSS로 전환 가능 (`MEDIA_PROVIDER=aliyun-oss`)
+  - SQLite → PostgreSQL 이관 스크립트 추가 (`npm run migrate:pg`)
+  - 기존 로컬 업로드 파일 OSS 이관 스크립트 추가 (`npm run migrate:oss`)
 
 ## 디렉터리 개요
 

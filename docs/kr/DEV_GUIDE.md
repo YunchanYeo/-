@@ -14,6 +14,33 @@
 - 미니프로그램: WeChat DevTools에서 `frontend` 열기
 - 미니 API 주소: `frontend/config/index.js`의 `apiBaseUrl`
 
+## 2-1) 阿里云 전환(2단계) 실행
+
+### A. 미디어 저장소를 OSS로 전환
+
+- 백엔드 환경변수:
+  - `MEDIA_PROVIDER=aliyun-oss`
+  - `OSS_REGION`
+  - `OSS_BUCKET`
+  - `OSS_ACCESS_KEY_ID`
+  - `OSS_ACCESS_KEY_SECRET`
+  - `OSS_PUBLIC_BASE_URL` (권장, CDN/커스텀 도메인 사용 시)
+- 적용 범위:
+  - 관리자 상품 이미지 업로드
+  - 고객센터 이미지/음성 업로드
+- 기존 로컬 업로드 이관:
+  - `cd backend && npm run migrate:oss`
+  - 로컬 `backend/data/uploads` 파일을 OSS에 업로드하고 DB URL을 새 주소로 치환
+
+### B. DB를 PostgreSQL(RDS)로 이관
+
+- PostgreSQL 연결 문자열 준비: `POSTGRES_URL` (또는 `PG_URL`)
+- 이관 실행:
+  - `cd backend && npm run migrate:pg`
+- 이 스크립트는 SQLite의 핵심 테이블 데이터를 PostgreSQL로 복사
+  - 대상: `users`, `orders`, `support_messages`, `products`, `coupons` 등
+  - 방식: 대상 테이블 `TRUNCATE` 후 전체 재적재(초기 이관용)
+
 ## 3) 핵심 구현 포인트
 
 ### 주문 관리(관리자 웹)
@@ -34,6 +61,10 @@
   - 텍스트/이미지/음성 전송
   - 이모지 패널
   - 상대방 입력 중 표시(`对方正在输入…`)
+- 주문 연동(사용자 → 관리자):
+  - 사용자 채팅에서 `+` → `选择订单`로 **주문을 선택**하면, 메시지 `meta.orderNo`로 주문번호를 첨부
+  - 미니/React 관리자 채팅 UI는 `meta.orderNo`가 있으면 메시지 위에 **주문번호 태그**를 표시
+  - React 관리자 웹에서는 태그 클릭 시 `/orders?orderNo=...`로 이동하여 주문 상세를 자동 오픈
 - React 관리자:
   - 사용자별 대화 목록
   - 미디어 업로드
@@ -63,6 +94,8 @@
 - `backend/dist`는 빌드 결과물(JS), 소스 수정은 `backend/src`에서만 수행
 - SQLite WAL 모드 사용 중이므로 파일 직접 점검 시 WAL 반영 주의
 - 미니/웹이 동일 백엔드를 보도록 API Base URL 일치 확인
+- OSS 사용 시, 버킷 CORS/퍼블릭 읽기 정책(또는 CDN 서명 정책)을 운영정책에 맞게 설정
+- `migrate:pg`는 초기 전체 이관용이며, 운영 중 무중단 전환은 CDC/듀얼라이트 전략 권장
 
 ## 6) 검증 체크리스트
 
@@ -70,6 +103,7 @@
 - 관리자 웹: `cd admin-web && npm run build`
 - 채팅 회귀 확인:
   - 텍스트/이미지/음성 전송
+  - 주문 선택 후 메시지에 주문번호가 첨부/표시되는지(사용자/관리자/React)
   - 이모지 입력
   - `对方正在输入…` 표시/해제
   - 화면 전환 후 typing 상태 정리

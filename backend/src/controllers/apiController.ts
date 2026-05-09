@@ -79,6 +79,7 @@ export function createApiController(services: Services) {
     adminProductDetail: services.product.adminProductDetail as RequestHandler,
     adminCreateProduct: services.product.adminCreateProduct as RequestHandler,
     adminUpdateProduct: services.product.adminUpdateProduct as RequestHandler,
+    adminDeleteProduct: services.product.adminDeleteProduct as RequestHandler,
     adminUpdateProductStock: services.product.adminUpdateProductStock as RequestHandler,
     adminUploadImage: services.admin.adminUploadImage as RequestHandler,
 

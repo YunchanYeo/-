@@ -13,6 +13,7 @@ import {
   initRecorderRuntime,
   stopAudioRuntime,
   stopRecordingRuntime,
+  disposeRecorderRuntime,
   startRecordingRuntime,
   moveRecordingRuntime,
   endRecordingRuntime,
@@ -87,6 +88,7 @@ Page({
     this.stopRecordingIfNeeded();
     this.stopAudio();
     this.reportTyping(false);
+    disposeRecorderRuntime(this);
   },
 
   stopAudio() {
@@ -324,5 +326,11 @@ Page({
     const url = e.currentTarget.dataset.url;
     if (!url) return;
     wx.previewImage({ urls: [url], current: url });
+  },
+
+  onCopyOrderNo(e) {
+    const orderNo = String(e.currentTarget.dataset.orderno || '').trim();
+    if (!orderNo) return;
+    wx.setClipboardData({ data: orderNo });
   },
 });

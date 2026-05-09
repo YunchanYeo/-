@@ -1,6 +1,7 @@
 import Toast from 'tdesign-miniprogram/toast/index';
 import { fetchPerson } from '../../../services/usercenter/fetchPerson';
 import { getPrefetchedSupportMessages, setPrefetchedSupportMessages } from '../../../services/auth/session';
+import { requestJson } from '../../../services/_utils/http';
 import {
   listMySupportMessages,
   createMySupportMessage,
@@ -14,6 +15,7 @@ import {
   initRecorderRuntime,
   stopAudioRuntime,
   stopRecordingRuntime,
+  disposeRecorderRuntime,
   startRecordingRuntime,
   moveRecordingRuntime,
   endRecordingRuntime,
@@ -35,6 +37,7 @@ Page({
     myAvatarUrl: '',
     playingVoiceId: '',
     peerTyping: false,
+    selectedOrderNo: '',
   },
   _timer: null,
   _recorder: null,
@@ -182,7 +185,8 @@ Page({
     if (this.data.sending) return;
     this.setData({ sending: true });
     try {
-      await createMySupportMessage(content);
+      const orderNo = String(this.data.selectedOrderNo || '').trim();
+      await createMySupportMessage(orderNo ? { msgType: 'text', content, meta: { orderNo } } : content);
       this.setData({ inputText: '' });
       this._typingActive = false;
       this.reportTyping(false);
@@ -210,7 +214,8 @@ Page({
             mimeType: 'image/jpeg',
             fileName: 'chat.jpg',
           });
-          await createMySupportMessage({ msgType: 'image', content: url });
+          const orderNo = String(this.data.selectedOrderNo || '').trim();
+          await createMySupportMessage(orderNo ? { msgType: 'image', content: url, meta: { orderNo } } : { msgType: 'image', content: url });
           await this.fetchMessages();
         } catch (e) {
           Toast({ context: this, selector: '#t-toast', message: e?.message || '图片发送失败' });
@@ -224,12 +229,63 @@ Page({
   openMoreActions() {
     this.setData({ showEmojiPanel: false });
     wx.showActionSheet({
-      itemList: ['拍照', '从相册选择'],
+      itemList: ['选择订单', '拍照', '从相册选择', '不关联订单'],
       success: (res) => {
-        const sourceType = res.tapIndex === 0 ? ['camera'] : ['album'];
+        if (res.tapIndex === 0) return this.pickOrderForSupport();
+        if (res.tapIndex === 3) return this.setData({ selectedOrderNo: '' });
+        const sourceType = res.tapIndex === 1 ? ['camera'] : ['album'];
         this.chooseImageBySource(sourceType);
       },
     });
+  },
+
+  async pickOrderForSupport() {
+    try {
+      const rows = await requestJson('/api/orders', { method: 'GET', timeoutMs: 15000 });
+      const list = Array.isArray(rows) ? rows : [];
+      if (list.length === 0) {
+        wx.showToast({ title: '暂无订单可选', icon: 'none' });
+        return;
+      }
+      const top = list.slice(0, 20);
+      const itemList = top.map((o) => {
+        const no = String(o.orderNo || '').trim();
+        const st = String(o.orderStatusName || '').trim();
+        const createdAt = String(o.createdAt || '').trim();
+        let dateLabel = '';
+        try {
+          const d = new Date(createdAt.replace(' ', 'T'));
+          if (!Number.isNaN(d.getTime())) {
+            dateLabel = `${d.getMonth() + 1}/${d.getDate()}`;
+          }
+        } catch (_) {}
+        const items = Array.isArray(o.items) ? o.items : [];
+        const firstTitle = String(items?.[0]?.goodsName || items?.[0]?.title || items?.[0]?.name || '').trim();
+        const itemLabel = firstTitle ? `${firstTitle}${items.length > 1 ? ` 외 ${items.length - 1}개` : ''}` : '';
+        const parts = [
+          no,
+          st ? `(${st})` : '',
+          dateLabel ? `· ${dateLabel}` : '',
+          itemLabel ? `· ${itemLabel}` : '',
+        ].filter(Boolean);
+        return parts.join(' ');
+      });
+      const idx = await new Promise((resolve) => {
+        wx.showActionSheet({
+          itemList,
+          success: (r) => resolve(r.tapIndex),
+          fail: () => resolve(-1),
+        });
+      });
+      if (idx < 0) return;
+      const picked = top[idx];
+      const orderNo = String(picked?.orderNo || '').trim();
+      if (!orderNo) return;
+      this.setData({ selectedOrderNo: orderNo });
+      wx.showToast({ title: `已关联订单 ${orderNo}`, icon: 'none' });
+    } catch (e) {
+      wx.showToast({ title: '订单列表加载失败', icon: 'none' });
+    }
   },
 
   onEmojiTap() {
@@ -272,10 +328,11 @@ Page({
         mimeType: 'audio/mp4',
         fileName: 'voice.m4a',
       });
+      const orderNo = String(this.data.selectedOrderNo || '').trim();
       await createMySupportMessage({
         msgType: 'voice',
         content: url,
-        meta: { durationMs },
+        meta: orderNo ? { durationMs, orderNo } : { durationMs },
       });
       await this.fetchMessages();
     } catch (e) {
@@ -295,5 +352,15 @@ Page({
     const url = e.currentTarget.dataset.url;
     if (!url) return;
     wx.previewImage({ urls: [url], current: url });
+  },
+
+  onClearSelectedOrder() {
+    this.setData({ selectedOrderNo: '' });
+  },
+
+  onCopyOrderNo(e) {
+    const orderNo = String(e.currentTarget.dataset.orderno || '').trim();
+    if (!orderNo) return;
+    wx.setClipboardData({ data: orderNo });
   },
 });

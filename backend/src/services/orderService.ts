@@ -2,6 +2,14 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
+import {
+  buildMiniProgramPayParams,
+  decryptNotifyCiphertext,
+  jsapiTransactions,
+  shouldUseRealWechatPay,
+  verifyNotifySignature,
+  type WechatPayV3Config,
+} from './wechatPayV3';
 import { hydrateOrderItemsWithProduct } from './orderItemImages';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
@@ -12,7 +20,15 @@ function genTradeNo() {
   return `${ts}${rand}`;
 }
 
-export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMockMode: boolean }) {
+export function createOrderService({
+  db,
+  paymentMockMode,
+  wechatPayConfig,
+}: {
+  db: Db;
+  paymentMockMode: boolean;
+  wechatPayConfig: WechatPayV3Config | null;
+}) {
   function getPointPolicy() {
     const rows = db
       .prepare(`SELECT key, value FROM app_settings WHERE key IN ('pointsEarnRatePercent', 'pointsUseThreshold')`)
@@ -27,7 +43,51 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     return res.json({ ok: true, data: getPointPolicy() });
   }
 
-  function commitOrder(req: Request, res: Response) {
+  /** 支付成功落库（幂等）；notify 不传 requireUserId，用户主动确认传 userId */
+  function finalizeOrderPaid(orderNo: string, requireUserId?: number): { ok: true } | { ok: false; message: string } {
+    const order = db
+      .prepare(`SELECT id, userId, orderStatus, paymentAmount, pointsUsed FROM orders WHERE orderNo = ?`)
+      .get(orderNo) as { id: number; userId: number; orderStatus: number; paymentAmount: number; pointsUsed: number } | undefined;
+    if (!order) return { ok: false, message: 'Order not found' };
+    if (requireUserId !== undefined && order.userId !== requireUserId) return { ok: false, message: 'Order not found' };
+    if (order.orderStatus === 10 || order.orderStatus === 40 || order.orderStatus === 50) return { ok: true };
+    if (order.orderStatus !== 5) return { ok: false, message: '当前订单状态不可支付' };
+    const userId = order.userId;
+    const pointsUsed = Number(order.pointsUsed || 0);
+    const policy = getPointPolicy();
+    const pointsEarned = Math.floor((Number(order.paymentAmount || 0) * Number(policy.pointsEarnRatePercent || 0)) / 100);
+    const txn = db.transaction(() => {
+      if (pointsUsed > 0) {
+        const user = db.prepare(`SELECT points FROM users WHERE id = ?`).get(userId) as { points: number } | undefined;
+        const userPoints = Number(user?.points || 0);
+        if (userPoints < pointsUsed) {
+          throw new Error('积分不足，无法完成支付');
+        }
+      }
+      db.prepare(
+        `UPDATE users
+         SET points = MAX(points - ?, 0) + ?,
+             updatedAt = datetime('now')
+         WHERE id = ?`,
+      ).run(pointsUsed, pointsEarned, userId);
+      db.prepare(
+        `UPDATE orders
+         SET orderStatus = 10,
+             orderStatusName = '待发货',
+             pointsEarned = ?,
+             updatedAt = datetime('now')
+         WHERE id = ?`,
+      ).run(pointsEarned, order.id);
+    });
+    try {
+      txn();
+    } catch (e: any) {
+      return { ok: false, message: String(e?.message || '支付失败') };
+    }
+    return { ok: true };
+  }
+
+  async function commitOrder(req: Request, res: Response) {
     const userId = (req as any).user?.id;
     const schema = z.object({
       totalAmount: z.number().nonnegative().optional(),
@@ -84,20 +144,57 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
       );
     }
 
-    const payInfo = {
+    let payInfo: Record<string, string> = {
       timeStamp: String(Math.floor(Date.now() / 1000)),
       nonceStr: crypto.randomBytes(12).toString('hex'),
       package: `prepay_id=mock_${tradeNo}`,
       signType: 'RSA',
       paySign: 'MOCK_PAY_SIGN',
     };
+    let isMockPay = true;
+    let transactionId = `TXN_${tradeNo}`;
+
+    const useReal = userId && totalAmount > 0 && shouldUseRealWechatPay(paymentMockMode, wechatPayConfig);
+
+    if (useReal) {
+      const userRow = db.prepare(`SELECT openid FROM users WHERE id = ?`).get(userId) as { openid: string } | undefined;
+      const openid = String(userRow?.openid || '').trim();
+      if (!openid || /^dev_/i.test(openid)) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            '真实支付需要微信登录用户 openid；开发用 dev_ 开头 openid 无法调起微信支付。请使用真机/体验版授权登录，或保持 WECHAT_PAY_MOCK=true。',
+        });
+      }
+      try {
+        const js = await jsapiTransactions({
+          config: wechatPayConfig,
+          description: `订单${tradeNo}`,
+          outTradeNo: tradeNo,
+          totalFen: totalAmount,
+          openid,
+        });
+        payInfo = buildMiniProgramPayParams(wechatPayConfig.appId, js.prepay_id, wechatPayConfig.privateKeyPem);
+        isMockPay = false;
+        transactionId = js.prepay_id;
+      } catch (e: any) {
+        console.error('[wechat pay jsapi]', e);
+        return res.status(502).json({ ok: false, message: String(e?.message || '微信下单失败') });
+      }
+    } else if (userId && totalAmount > 0 && !paymentMockMode && !wechatPayConfig) {
+      return res.status(503).json({
+        ok: false,
+        message:
+          '已关闭模拟支付（WECHAT_PAY_MOCK=false），但未配置完整微信支付参数（WECHAT_MCH_ID、WECHAT_PAY_SERIAL_NO、WECHAT_PAY_PRIVATE_KEY、WECHAT_PAY_NOTIFY_URL、WECHAT_PAY_API_V3_KEY）。',
+      });
+    }
 
     return res.json({
       ok: true,
       data: {
         isSuccess: true,
         tradeNo,
-        transactionId: `TXN_${tradeNo}`,
+        transactionId,
         interactId: `INT_${tradeNo}`,
         channel: 'wechat',
         payAmt: totalAmount,
@@ -106,7 +203,7 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
         pluginPaymentData: null,
         commonPayInfo: null,
         globalPayInfo: null,
-        isMockPay: paymentMockMode,
+        isMockPay,
         limitGoodsList: null,
       },
       code: 'Success',
@@ -118,48 +215,110 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
     const userId = (req as any).user?.id;
     const orderNo = String(req.params.orderNo || '').trim();
     if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
-    const order = db
-      .prepare(`SELECT id, orderStatus, paymentAmount, pointsUsed FROM orders WHERE userId = ? AND orderNo = ?`)
-      .get(userId, orderNo) as { id: number; orderStatus: number; paymentAmount: number; pointsUsed: number } | undefined;
-    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
-    if (order.orderStatus === 10 || order.orderStatus === 40 || order.orderStatus === 50) {
-      return res.json({ ok: true, data: { ok: true } });
-    }
-    if (order.orderStatus !== 5) {
-      return res.status(409).json({ ok: false, message: '当前订单状态不可支付' });
-    }
-    const pointsUsed = Number(order.pointsUsed || 0);
-    const policy = getPointPolicy();
-    const pointsEarned = Math.floor((Number(order.paymentAmount || 0) * Number(policy.pointsEarnRatePercent || 0)) / 100);
-    const txn = db.transaction(() => {
-      if (pointsUsed > 0) {
-        const user = db.prepare(`SELECT points FROM users WHERE id = ?`).get(userId) as { points: number } | undefined;
-        const userPoints = Number(user?.points || 0);
-        if (userPoints < pointsUsed) {
-          throw new Error('积分不足，无法完成支付');
-        }
-      }
-      db.prepare(
-        `UPDATE users
-         SET points = MAX(points - ?, 0) + ?,
-             updatedAt = datetime('now')
-         WHERE id = ?`,
-      ).run(pointsUsed, pointsEarned, userId);
-      db.prepare(
-        `UPDATE orders
-         SET orderStatus = 10,
-             orderStatusName = '待发货',
-             pointsEarned = ?,
-             updatedAt = datetime('now')
-         WHERE id = ?`,
-      ).run(pointsEarned, order.id);
-    });
-    try {
-      txn();
-    } catch (e: any) {
-      return res.status(409).json({ ok: false, message: String(e?.message || '支付失败') });
+    const r = finalizeOrderPaid(orderNo, userId);
+    if (!r.ok) {
+      if (r.message === 'Order not found') return res.status(404).json({ ok: false, message: r.message });
+      return res.status(409).json({ ok: false, message: r.message });
     }
     return res.json({ ok: true, data: { ok: true } });
+  }
+
+  async function wechatPayNotify(req: Request, res: Response) {
+    if (!wechatPayConfig) {
+      res.status(503).json({ code: 'FAIL', message: '未配置微信支付' });
+      return;
+    }
+    const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body ?? '');
+    const ts = String(req.headers['wechatpay-timestamp'] ?? '');
+    const nonce = String(req.headers['wechatpay-nonce'] ?? '');
+    const sig = String(req.headers['wechatpay-signature'] ?? '');
+    const serial = String(req.headers['wechatpay-serial'] ?? '');
+
+    if (wechatPayConfig.platformCertPem && sig && ts && nonce) {
+      const ok = verifyNotifySignature({
+        body: rawBody,
+        timestamp: ts,
+        nonce,
+        signatureBase64: sig,
+        platformCertPem: wechatPayConfig.platformCertPem,
+      });
+      if (!ok) {
+        console.warn('[wechat pay notify] signature verify failed', { serial });
+        res.status(401).json({ code: 'FAIL', message: 'sign' });
+        return;
+      }
+    } else if (!wechatPayConfig.platformCertPem) {
+      console.warn('[wechat pay notify] WECHAT_PAY_PLATFORM_CERT_PEM 未设置，跳过签名校验（生产务必配置）');
+    }
+
+    let payload: { resource?: { algorithm?: string; ciphertext?: string; nonce?: string; associated_data?: string } };
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      res.status(400).json({ code: 'FAIL', message: 'bad json' });
+      return;
+    }
+
+    const resource = payload.resource;
+    if (!resource || resource.algorithm !== 'AEAD_AES_256_GCM' || !resource.ciphertext || !resource.nonce) {
+      res.status(400).json({ code: 'FAIL', message: 'bad resource' });
+      return;
+    }
+
+    let plain: string;
+    try {
+      plain = decryptNotifyCiphertext(
+        wechatPayConfig.apiV3Key,
+        resource.associated_data ?? '',
+        resource.nonce,
+        resource.ciphertext,
+      );
+    } catch (e: any) {
+      console.error('[wechat pay notify] decrypt', e);
+      res.status(500).json({ code: 'FAIL', message: 'decrypt' });
+      return;
+    }
+
+    let data: { out_trade_no?: string; trade_state?: string; amount?: { total?: number } };
+    try {
+      data = JSON.parse(plain);
+    } catch {
+      res.status(400).json({ code: 'FAIL', message: 'bad plaintext' });
+      return;
+    }
+
+    if (data.trade_state !== 'SUCCESS') {
+      res.json({ code: 'SUCCESS', message: '成功' });
+      return;
+    }
+
+    const orderNo = String(data.out_trade_no || '').trim();
+    if (!orderNo) {
+      res.status(400).json({ code: 'FAIL', message: 'no out_trade_no' });
+      return;
+    }
+
+    const order = db
+      .prepare(`SELECT orderNo, paymentAmount FROM orders WHERE orderNo = ?`)
+      .get(orderNo) as { orderNo: string; paymentAmount: number } | undefined;
+    if (!order) {
+      res.status(404).json({ code: 'FAIL', message: 'order' });
+      return;
+    }
+    if (data.amount?.total != null && Number(data.amount.total) !== Number(order.paymentAmount)) {
+      console.error('[wechat pay notify] amount mismatch', orderNo, data.amount?.total, order.paymentAmount);
+      res.status(400).json({ code: 'FAIL', message: 'amount' });
+      return;
+    }
+
+    const r = finalizeOrderPaid(orderNo);
+    if (!r.ok) {
+      console.warn('[wechat pay notify] finalize', orderNo, r);
+      res.status(500).json({ code: 'FAIL', message: r.message });
+      return;
+    }
+
+    res.json({ code: 'SUCCESS', message: '成功' });
   }
 
   function cancelOrder(req: Request, res: Response) {
@@ -429,6 +588,7 @@ export function createOrderService({ db, paymentMockMode }: { db: Db; paymentMoc
 
   return {
     commitOrder,
+    wechatPayNotify,
     markOrderPaid,
     cancelOrder,
     confirmOrderReceived,

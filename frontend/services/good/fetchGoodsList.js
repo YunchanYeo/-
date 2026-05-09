@@ -1,17 +1,7 @@
 /* eslint-disable no-param-reassign */
 import { config, cdnBase } from '../../config/index';
 import { requestJson } from '../_utils/http';
-function normalizeImageUrl(image) {
-    if (!image)
-        return '';
-    if (/^https?:\/\//i.test(image)) {
-        // 后端历史数据可能写死 localhost/127.0.0.1，这里统一改成当前 apiBaseUrl 域名，避免缩略图加载失败。
-        return String(image).replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, config.apiBaseUrl);
-    }
-    if (String(image).startsWith('/'))
-        return `${config.apiBaseUrl}${image}`;
-    return `${config.apiBaseUrl}/${image}`;
-}
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchGoodsList(params) {
     const { delay } = require('../_utils/delay');
     const { getSearchResult } = require('../../model/search');
@@ -37,7 +27,7 @@ export function fetchGoodsList(params) {
         return {
             spuList: list.map((p) => ({
                 spuId: String(p.id),
-                thumb: p.thumb || normalizeImageUrl(p.image) || fallbackThumb,
+                thumb: p.thumb || normalizeGoodsImageUrl(p.image) || fallbackThumb,
                 title: p.title,
                 price: p.price,
                 originPrice: p.originPrice || 0,

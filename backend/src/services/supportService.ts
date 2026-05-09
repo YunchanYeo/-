@@ -1,9 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
+import { saveMediaFromBase64 } from '../storage/mediaStorage';
 
 const MSG_SELECT = `id, userId, fromRole, msgType, content, metaJson, adminRead, userRead, createdAt`;
 
@@ -44,34 +42,7 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
     return parsed.data;
   }
 
-  /**
-   * Saves uploaded chat media (base64) and returns an absolute URL served under `/uploads`.
-   */
-  function saveChatMedia(params: { kind: 'image' | 'voice'; mimeType: string; fileName: string; base64Data: string; req: Request }) {
-    const { kind, mimeType, fileName, base64Data, req } = params;
-    let ext = 'bin';
-    if (kind === 'image') {
-      ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
-    } else {
-      if (mimeType.includes('mpeg') || mimeType.includes('mp3')) ext = 'mp3';
-      else if (mimeType.includes('mp4') || mimeType.includes('m4a') || mimeType.includes('aac')) ext = 'm4a';
-      else if (mimeType.includes('wav')) ext = 'wav';
-      else ext = 'mp3';
-    }
-    const safeBaseName = String(fileName || 'upload')
-      .replace(/\.[^/.]+$/, '')
-      .replace(/[^a-zA-Z0-9-_]/g, '')
-      .slice(0, 40);
-    const prefix = kind === 'image' ? 'chat_img' : 'chat_voice';
-    const finalName = `${prefix}_${Date.now()}_${safeBaseName || kind}_${crypto.randomInt(1000, 9999)}.${ext}`;
-    const targetPath = path.join(uploadsDir, finalName);
-    const buffer = Buffer.from(base64Data, 'base64');
-    fs.writeFileSync(targetPath, buffer);
-    const url = `${req.protocol}://${req.get('host')}/uploads/${finalName}`;
-    return url;
-  }
-
-  function uploadMediaBody(req: Request, res: Response) {
+  async function uploadMediaBody(req: Request, res: Response) {
     const schema = z.object({
       kind: z.enum(['image', 'voice']),
       fileName: z.string().optional(),
@@ -82,18 +53,26 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid upload body', issues: parsed.error.issues });
     const { kind, fileName = '', mimeType = kind === 'image' ? 'image/jpeg' : 'audio/mpeg', base64Data } = parsed.data;
     try {
-      const url = saveChatMedia({ kind, mimeType, fileName, base64Data, req });
+      const url = await saveMediaFromBase64({
+        kind,
+        mimeType,
+        fileName,
+        base64Data,
+        req,
+        uploadsDir,
+        prefix: kind === 'image' ? 'chat_img' : 'chat_voice',
+      });
       return res.json({ ok: true, data: { url } });
-    } catch {
-      return res.status(500).json({ ok: false, message: '文件保存失败' });
+    } catch (e) {
+      return res.status(500).json({ ok: false, message: `文件保存失败: ${String((e as any)?.message || e)}` });
     }
   }
 
-  function uploadMyMedia(req: Request, res: Response) {
+  async function uploadMyMedia(req: Request, res: Response) {
     return uploadMediaBody(req, res);
   }
 
-  function uploadAdminMedia(req: Request, res: Response) {
+  async function uploadAdminMedia(req: Request, res: Response) {
     return uploadMediaBody(req, res);
   }
 
@@ -103,6 +82,7 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
     meta: z
       .object({
         durationMs: z.number().int().positive().max(600000).optional(),
+        orderNo: z.string().min(1).max(64).optional(),
       })
       .optional(),
   });

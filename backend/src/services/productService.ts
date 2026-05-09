@@ -160,6 +160,14 @@ export function createProductService({ db }: { db: Db }) {
     return res.json({ ok: true, data: updated });
   }
 
+  function adminDeleteProduct(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, message: 'Invalid product id' });
+    const result = db.prepare(`DELETE FROM products WHERE id = ?`).run(id);
+    if ((result.changes ?? 0) < 1) return res.status(404).json({ ok: false, message: 'Product not found' });
+    return res.json({ ok: true, data: { deleted: true } });
+  }
+
   return {
     publicProducts,
     publicProductDetail,
@@ -168,5 +176,6 @@ export function createProductService({ db }: { db: Db }) {
     adminCreateProduct,
     adminUpdateProduct,
     adminUpdateProductStock,
+    adminDeleteProduct,
   };
 }

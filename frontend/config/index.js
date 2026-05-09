@@ -1,3 +1,17 @@
+/** 로컬에서 백엔드만 돌릴 때 true. 클라우드 서버 쓰면 false. */
+const USE_LOCAL_API = false;
+const LOCAL_API_BASE = 'http://127.0.0.1:3000';
+
+/**
+ * false(기본) = http://공인IP:3000 — 개발자도구 시뮬레이터·daily 연동에 사용(Caddy 불필요).
+ * true = https sslip/nip — 폰 프리뷰용. Caddy·80·443·Let's Encrypt 성공 후에만 켤 것. 안 열리면 false 유지.
+ */
+const CLOUD_USE_HTTPS_NIP = false;
+/** IP 각 옥텟을 하이픈으로: 39.106.213.185 → 39-106-213-185.sslip.io (Caddyfile 과 동일해야 함) */
+const CLOUD_HTTPS_API_BASE = 'https://39-106-213-185.sslip.io';
+/** 백엔드 직접 URL(DB·업로드 경로에 남는 경우). 폰이 HTTPS 쓸 때 이미지 URL 치환에 사용 */
+const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
+
 export const config = {
     /** 是否使用mock代替api返回 */
     /**
@@ -12,15 +26,18 @@ export const config = {
      * 백엔드 API Base URL
      *
      * 예)
-     * - 로컬 개발(컴퓨터에서 서버 실행): 'http://127.0.0.1:3000'
-     * - 배포 서버: 'https://api.example.com'
+     * - 로컬 개발(컴퓨터에서 서버 실행): USE_LOCAL_API = true
+     * - 배포 서버: https 도메인 권장, 위챗小程序后台 → 开发管理 → 服务器域名 → request合法域名 에 등록
      *
      * 관리자 로그인: PC용 admin-web 과 동일한 계정입니다(backend/.env 의 ADMIN_USERNAME 등·동일 SQLite).
-     *
-     * 위챗 개발자도구에서는 “요청 도메인” 설정이 필요할 수 있습니다.
-     * (개발 단계에서는 DevTools에서 URL 검사/도메인 체크를 임시로 끄는 경우도 많습니다.)
      */
-    apiBaseUrl: 'http://127.0.0.1:3000',
+    apiBaseUrl: USE_LOCAL_API
+        ? LOCAL_API_BASE
+        : CLOUD_USE_HTTPS_NIP
+          ? CLOUD_HTTPS_API_BASE
+          : CLOUD_HTTP_API_BASE,
+    /** 로컬 모드가 아니면 공인 HTTP 원점(항상 CLOUD_HTTP_API_BASE). 이미지·채팅 미디어 URL 리라이트용 */
+    cloudServerHttpOrigin: USE_LOCAL_API ? '' : CLOUD_HTTP_API_BASE.replace(/\/+$/, ''),
 };
 export const cdnBase = 'https://we-retail-static-1300977798.cos.ap-guangzhou.myqcloud.com/retail-mp';
 export const areaData = [

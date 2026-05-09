@@ -18,6 +18,9 @@
           <text class="avatar-text">客</text>
         </view>
         <view class="col-bubble">
+          <view wx:if="{{item.orderNo}}" class="order-tag" bindtap="onCopyOrderNo" data-orderno="{{item.orderNo}}">
+            订单 {{item.orderNo}}
+          </view>
           <view wx:if="{{item.msgType === 'text'}}" class="bubble bubble--text">{{item.content}}</view>
           <image
             wx:elif="{{item.msgType === 'image'}}"
@@ -76,6 +79,11 @@
   </view>
 
   <view wx:if="{{peerTyping}}" class="typing-tip">对方正在输入…</view>
+
+  <view wx:if="{{selectedOrderNo}}" class="selected-order">
+    已关联订单：<text class="selected-order-no">{{selectedOrderNo}}</text>
+    <text class="selected-order-clear" bindtap="onClearSelectedOrder">取消</text>
+  </view>
 
   <view class="input-dock safe-bottom">
     <view class="circle-btn" hover-class="circle-btn--hover" bindtap="toggleInputMode">

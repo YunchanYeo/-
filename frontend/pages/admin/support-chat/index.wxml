@@ -31,6 +31,9 @@
             <text class="avatar-text">用</text>
           </view>
           <view class="col-bubble">
+            <view wx:if="{{item.orderNo}}" class="order-tag" bindtap="onCopyOrderNo" data-orderno="{{item.orderNo}}">
+              订单 {{item.orderNo}}
+            </view>
             <view wx:if="{{item.msgType === 'text'}}" class="bubble bubble--text">{{item.content}}</view>
             <image
               wx:elif="{{item.msgType === 'image'}}"

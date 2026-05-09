@@ -1,0 +1,12 @@
+# 공인 IP 바뀌면 두 호스트 모두 같은 규칙으로 수정하세요.
+# Let's Encrypt: 외부 TCP 80·443 필요. `deploy/china-test` 에서 `docker compose up -d` 시 Caddy 함께 기동.
+#
+# sslip.io — 하이픈 IP 형식, nip.io보다 열리는 경우가 많음 (미니프로그램·브라우저 기본 권장)
+39-106-213-185.sslip.io {
+	reverse_proxy admin-web:80
+}
+
+# nip.io — 예비 (DNS 되는 환경에서만). 위와 동일 백엔드.
+39.106.213.185.nip.io {
+	reverse_proxy admin-web:80
+}

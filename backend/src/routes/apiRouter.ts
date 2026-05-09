@@ -61,6 +61,7 @@ export function createApiRouter(controller: any) {
   router.get('/admin/products/:id', controller.requireAdmin, controller.adminProductDetail);
   router.post('/admin/products', controller.requireAdmin, controller.adminCreateProduct);
   router.put('/admin/products/:id', controller.requireAdmin, controller.adminUpdateProduct);
+  router.delete('/admin/products/:id', controller.requireAdmin, controller.adminDeleteProduct);
   router.put('/admin/products/:id/stock', controller.requireAdmin, controller.adminUpdateProductStock);
   router.post('/admin/upload-image', controller.requireAdmin, controller.adminUploadImage);
 

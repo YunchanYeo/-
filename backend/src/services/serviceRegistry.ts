@@ -17,7 +17,11 @@ export function createServices(ctx: RequestContext) {
   const product = createProductService({ db: ctx.db });
   const admin = createAdminService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
   const address = createAddressService({ db: ctx.db });
-  const order = createOrderService({ db: ctx.db, paymentMockMode: ctx.paymentMockMode });
+  const order = createOrderService({
+    db: ctx.db,
+    paymentMockMode: ctx.paymentMockMode,
+    wechatPayConfig: ctx.wechatPayConfig,
+  });
   const user = createUserService({ db: ctx.db });
   const support = createSupportService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
   const coupon = createCouponService({ db: ctx.db });

@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth';
 import {
   fetchAdminOrderVisibility,
@@ -13,7 +14,24 @@ import TraceLeafletMap, { type TraceLeafletMapHandle } from '../TraceLeafletMap'
 
 const ADMIN_HIDDEN_ORDERS_KEY = 'admin_web_hidden_order_nos';
 const VIRTUAL_ROW_HEIGHT = 52;
-const VIRTUAL_CONTAINER_HEIGHT = 560;
+const DEFAULT_LIST_VIEWPORT = 560;
+
+function useOrdersListViewportHeight(): number {
+  const [h, setH] = useState(DEFAULT_LIST_VIEWPORT);
+  useEffect(() => {
+    const calc = () => {
+      const w = window.innerWidth;
+      const ih = window.innerHeight;
+      if (w <= 480) setH(Math.max(220, Math.round(ih * 0.34)));
+      else if (w <= 768) setH(Math.max(300, Math.round(ih * 0.42)));
+      else setH(DEFAULT_LIST_VIEWPORT);
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
+  return h;
+}
 
 const ORDER_STATUS_OPTIONS = [
   { value: 10, label: '待发货' },
@@ -50,11 +68,15 @@ function getXlsx() {
 }
 
 export default function OrdersPage() {
+  const listViewportH = useOrdersListViewportHeight();
   const { token } = useAuth();
+  const location = useLocation();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [modalOrder, setModalOrder] = useState<OrderRow | null>(null);
+  const [detailOrder, setDetailOrder] = useState<OrderRow | null>(null);
+  const [focusOrderNo, setFocusOrderNo] = useState<string>('');
   const [traceOpen, setTraceOpen] = useState<OrderRow | null>(null);
   const [traceData, setTraceData] = useState<LogisticsTraceData | null>(null);
   const [traceErr, setTraceErr] = useState('');
@@ -94,6 +116,24 @@ export default function OrdersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // 从客服会话跳转过来时：/orders?orderNo=xxxx 自动定位并打开详情
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const q = String(params.get('orderNo') || '').trim();
+    if (!q) return;
+    setFocusOrderNo(q);
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!focusOrderNo) return;
+    const hit = rows.find((r) => String(r.orderNo || '').trim() === focusOrderNo);
+    if (!hit) return;
+    setShowHiddenOnly(false);
+    setDetailOrder(hit);
+    const t = window.setTimeout(() => setFocusOrderNo(''), 2200);
+    return () => window.clearTimeout(t);
+  }, [focusOrderNo, rows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +202,40 @@ export default function OrdersPage() {
     setCompanyName(o.logisticsCompanyName || '');
     setLogisticsNo(o.logisticsNo || '');
     setRemark(o.logisticsRemark || '');
+  }
+
+  function openDetail(o: OrderRow) {
+    setDetailOrder(o);
+  }
+
+  function formatAddress(addr: Record<string, any> | null | undefined) {
+    const a = addr || {};
+    const name = String(a.name || a.receiverName || a.userName || '').trim();
+    const phone = String(a.phone || a.phoneNumber || a.tel || a.mobile || '').trim();
+    const province = String(a.provinceName || a.province || '').trim();
+    const city = String(a.cityName || a.city || '').trim();
+    const district = String(a.districtName || a.district || a.county || '').trim();
+    const detail = String(a.detailAddress || a.address || a.addressDetail || '').trim();
+    const line1 = [province, city, district].filter(Boolean).join(' ');
+    const line2 = detail;
+    return {
+      name,
+      phone,
+      line1,
+      line2,
+      raw: a,
+    };
+  }
+
+  function normalizeItems(items: unknown) {
+    const arr = Array.isArray(items) ? items : [];
+    return arr.map((it: any, idx: number) => {
+      const title = String(it?.goodsName || it?.title || it?.name || '商品').trim();
+      const qty = Number(it?.quantity ?? it?.buyQuantity ?? 1) || 1;
+      const price = Number(it?.price ?? it?.actualPrice ?? it?.settlePrice ?? 0) || 0;
+      const image = String(it?.primaryImage || it?.thumb || it?.image || '').trim();
+      return { idx: idx + 1, title, qty, price, image, raw: it };
+    });
   }
 
   async function onShipSubmit(e: FormEvent) {
@@ -448,7 +522,7 @@ export default function OrdersPage() {
   const allVisibleSelected = visibleRows.length > 0 && visibleSelectedCount === visibleRows.length;
   const importFailCount = importFailures.length;
   const startIndex = Math.max(0, Math.floor(virtualScrollTop / VIRTUAL_ROW_HEIGHT) - 6);
-  const endIndex = Math.min(visibleRows.length, startIndex + Math.ceil(VIRTUAL_CONTAINER_HEIGHT / VIRTUAL_ROW_HEIGHT) + 12);
+  const endIndex = Math.min(visibleRows.length, startIndex + Math.ceil(listViewportH / VIRTUAL_ROW_HEIGHT) + 12);
   const windowRows = visibleRows.slice(startIndex, endIndex);
   const topSpacer = startIndex * VIRTUAL_ROW_HEIGHT;
   const bottomSpacer = Math.max(0, (visibleRows.length - endIndex) * VIRTUAL_ROW_HEIGHT);
@@ -487,9 +561,9 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.25rem' }}>订单与发货</h2>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="page-toolbar">
+        <h2 style={{ margin: 0, fontSize: 'clamp(1.05rem, 3.5vw, 1.25rem)' }}>订单与发货</h2>
+        <div className="page-toolbar__actions">
           <button type="button" className="btn btn-ghost" onClick={exportOrders} disabled={loading}>
             导出 Excel
           </button>
@@ -613,7 +687,7 @@ export default function OrdersPage() {
         </div>
       ) : null}
 
-      <div className="card table-wrap" style={{ maxHeight: VIRTUAL_CONTAINER_HEIGHT + 80, overflow: 'auto' }} onScroll={(e) => setVirtualScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}>
+      <div className="card table-wrap" style={{ maxHeight: listViewportH + 80, overflow: 'auto' }} onScroll={(e) => setVirtualScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}>
         {loading ? (
           <p style={{ color: 'var(--muted)', margin: 0 }}>加载中…</p>
         ) : (
@@ -636,7 +710,14 @@ export default function OrdersPage() {
                 </tr>
               ) : null}
               {windowRows.map((o) => (
-                <tr key={o.orderNo}>
+                <tr
+                  key={o.orderNo}
+                  style={
+                    focusOrderNo && o.orderNo === focusOrderNo
+                      ? { outline: '2px solid var(--accent)', outlineOffset: -2, boxShadow: '0 0 0 3px rgba(61,139,253,0.18) inset' }
+                      : undefined
+                  }
+                >
                   <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{o.orderNo}</td>
                   <td>{o.nickName || o.phoneNumber || `用户 ${o.userId}`}</td>
                   <td>¥{(o.paymentAmount / 100).toFixed(2)}</td>
@@ -654,6 +735,14 @@ export default function OrdersPage() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '0.35rem 0.55rem', fontSize: '0.8rem' }}
+                        onClick={() => openDetail(o)}
+                      >
+                        详情
+                      </button>
                       <button type="button" className="btn btn-primary" style={{ padding: '0.35rem 0.55rem', fontSize: '0.8rem' }} onClick={() => openShip(o)}>
                         发货 / 改物流
                       </button>
@@ -737,6 +826,88 @@ export default function OrdersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {detailOrder ? (
+        <div
+          role="dialog"
+          aria-modal
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 49,
+          }}
+          onClick={() => setDetailOrder(null)}
+        >
+          <div className="card" style={{ width: '100%', maxWidth: 720, maxHeight: '82vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem' }}>订单详情 · {detailOrder.orderNo}</h3>
+              <button type="button" className="btn btn-ghost" onClick={() => setDetailOrder(null)}>关闭</button>
+            </div>
+
+            {(() => {
+              const addr = formatAddress(detailOrder.address as any);
+              const items = normalizeItems(detailOrder.items);
+              return (
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  <div style={{ display: 'grid', gap: '0.35rem' }}>
+                    <strong style={{ fontSize: '0.9rem' }}>收货信息</strong>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                      <div>
+                        {addr.name || '—'} {addr.phone ? <span style={{ marginLeft: 10, fontFamily: 'monospace' }}>{addr.phone}</span> : null}
+                      </div>
+                      <div>{[addr.line1, addr.line2].filter(Boolean).join(' ') || '—'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '0.45rem' }}>
+                    <strong style={{ fontSize: '0.9rem' }}>购买商品</strong>
+                    {items.length ? (
+                      <div style={{ display: 'grid', gap: '0.5rem' }}>
+                        {items.map((it) => (
+                          <div key={it.idx} style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: '0.55rem 0.65rem', background: 'var(--surface)' }}>
+                            <div style={{ width: 46, height: 46, borderRadius: 10, overflow: 'hidden', flex: '0 0 auto', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)' }}>
+                              {it.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={it.image} alt={it.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : null}
+                            </div>
+                            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                              <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {it.title}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: '0.78rem', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                <span>数量：{it.qty}</span>
+                                <span style={{ fontFamily: 'monospace' }}>单价：{Number.isFinite(it.price) ? it.price : 0}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>—</div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '0.35rem' }}>
+                    <strong style={{ fontSize: '0.9rem' }}>订单信息</strong>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                      <div>用户：{detailOrder.nickName || detailOrder.phoneNumber || `用户 ${detailOrder.userId}`}</div>
+                      <div>金额：¥{(detailOrder.paymentAmount / 100).toFixed(2)}</div>
+                      <div>状态：{detailOrder.orderStatusName}</div>
+                      <div>创建：{detailOrder.createdAt || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       ) : null}

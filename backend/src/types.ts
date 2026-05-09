@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import type { WechatPayV3Config } from './services/wechatPayV3';
 
 export type Db = Database.Database;
 
@@ -8,6 +9,8 @@ export type RequestContext = {
   wechatAppId: string;
   wechatAppSecret: string;
   paymentMockMode: boolean;
+  /** 商户证书与 v3 密钥齐全时非 null；与 paymentMockMode 共同决定是否走真实 JSAPI */
+  wechatPayConfig: WechatPayV3Config | null;
 };
 
 export type AuthedUser = {

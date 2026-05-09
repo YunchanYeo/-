@@ -12,6 +12,14 @@ export function initRecorderRuntime(page, { onValidStop }) {
   page._windowHeight = Number(sys.windowHeight || 667);
   const recorder = wx.getRecorderManager();
   page._recorder = recorder;
+
+  // 避免重复进入页面导致事件回调叠加
+  try {
+    recorder.offStart();
+    recorder.offStop();
+    recorder.offError();
+  } catch (_) {}
+
   recorder.onStart(() => {
     page.setData({ recordWillCancel: false });
   });
@@ -48,12 +56,25 @@ export function stopAudioRuntime(page) {
 }
 
 export function stopRecordingRuntime(page) {
-  if (!page.data.recording || !page._recorder) return;
+  if (!page._recorder) return;
   page._cancelVoiceSend = true;
   page.setData({ recording: false, recordWillCancel: false });
   try {
     page._recorder.stop();
   } catch (_) {}
+}
+
+export function disposeRecorderRuntime(page) {
+  if (!page?._recorder) return;
+  try {
+    page._recorder.stop();
+  } catch (_) {}
+  try {
+    page._recorder.offStart();
+    page._recorder.offStop();
+    page._recorder.offError();
+  } catch (_) {}
+  page._recorder = null;
 }
 
 export function ensureRecordPermission(page) {
