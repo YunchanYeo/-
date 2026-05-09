@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../auth';
 import {
   createProduct,
+  deleteProduct,
   fetchCategories,
   fetchProduct,
   updateProduct,
@@ -37,6 +38,7 @@ export default function ProductFormPage() {
   const [loading, setLoading] = useState(!isNew);
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [title, setTitle] = useState('');
   const [priceYuan, setPriceYuan] = useState('');
@@ -150,13 +152,28 @@ export default function ProductFormPage() {
     }
   }
 
+  async function onDelete() {
+    if (!token || isNew || !Number.isFinite(productId)) return;
+    if (!window.confirm(`确定删除「${title || '该商品'}」？删除后不可恢复。`)) return;
+    setDeleting(true);
+    setErr('');
+    try {
+      await deleteProduct(token, productId);
+      nav('/products');
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : '删除失败');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (!isNew && !Number.isFinite(productId)) {
     return <p style={{ color: 'var(--muted)' }}>无效的商品 ID</p>;
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 680 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+      <div style={{ width: '100%', maxWidth: 680, minWidth: 0, padding: '0 clamp(0, 2vw, 0.5rem)', boxSizing: 'border-box' }}>
         <div style={{ marginBottom: '1rem' }}>
           <Link to="/products" style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
             ← 返回列表
@@ -240,13 +257,18 @@ export default function ProductFormPage() {
               ) : null}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="submit" className="btn btn-primary" disabled={saving || deleting}>
               {saving ? '保存中…' : '保存'}
             </button>
-            <button type="button" className="btn btn-ghost" onClick={() => nav('/products')}>
+            <button type="button" className="btn btn-ghost" onClick={() => nav('/products')} disabled={deleting}>
               取消
             </button>
+            {!isNew ? (
+              <button type="button" className="btn btn-danger" onClick={() => void onDelete()} disabled={saving || deleting}>
+                {deleting ? '删除中…' : '删除商品'}
+              </button>
+            ) : null}
           </div>
           </form>
         )}

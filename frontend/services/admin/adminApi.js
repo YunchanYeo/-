@@ -43,6 +43,7 @@ export const fetchAdminPointPolicy = () => requestAdminJson('/api/admin/point-po
 export const updateAdminPointPolicy = (payload) => requestAdminJson('/api/admin/point-policy', { method: 'PUT', data: payload });
 export const fetchAdminProduct = (productId) => requestAdminJson(`/api/admin/products/${productId}`, { method: 'GET' });
 export const updateAdminProduct = (productId, payload) => requestAdminJson(`/api/admin/products/${productId}`, { method: 'PUT', data: payload });
+export const deleteAdminProduct = (productId) => requestAdminJson(`/api/admin/products/${productId}`, { method: 'DELETE' });
 export const updateAdminProductStock = (productId, stock) => requestAdminJson(`/api/admin/products/${productId}/stock`, { method: 'PUT', data: { stock: Number(stock) } });
 
 export const fetchAdminCategories = () => requestAdminJson('/api/admin/categories', { method: 'GET' });

@@ -1,16 +1,6 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
-function normalizeImageUrl(image) {
-    if (!image)
-        return '';
-    if (/^https?:\/\//i.test(image)) {
-        // 后端历史数据可能写死 localhost/127.0.0.1，这里统一改成当前 apiBaseUrl 域名，避免详情图加载失败。
-        return String(image).replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, config.apiBaseUrl);
-    }
-    if (String(image).startsWith('/'))
-        return `${config.apiBaseUrl}${image}`;
-    return `${config.apiBaseUrl}/${image}`;
-}
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchGood(ID = 0) {
     const { delay } = require('../_utils/delay');
     const { genGood } = require('../../model/good');
@@ -20,7 +10,7 @@ export function fetchGood(ID = 0) {
     if (config.useMock)
         return mockFetchGood(ID);
     return requestJson(`/api/products/${ID}`, { method: 'GET' }).then((p) => {
-        const fallbackImage = normalizeImageUrl(p.image) || '';
+        const fallbackImage = normalizeGoodsImageUrl(p.image) || '';
         const minSalePrice = p.price || 0;
         const maxLinePrice = p.originPrice || p.price || 0;
         const stockQty = p.stock || 0;

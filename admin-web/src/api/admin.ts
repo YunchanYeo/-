@@ -157,6 +157,13 @@ export function updateProduct(token: string, id: number, payload: ProductPayload
   });
 }
 
+export function deleteProduct(token: string, id: number) {
+  return adminJson<{ deleted: boolean }>(`/api/admin/products/${id}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export function uploadAdminImage(
   token: string,
   file: { fileName: string; mimeType: string; base64Data: string },
@@ -265,7 +272,7 @@ export type SupportMessageRow = {
   fromRole: 'user' | 'admin';
   msgType?: string;
   content: string;
-  meta?: { durationMs?: number } | null;
+  meta?: { durationMs?: number; orderNo?: string } | null;
   adminRead: number;
   userRead: number;
   createdAt: string;
@@ -291,7 +298,7 @@ export function postSupportReply(
   body: {
     msgType?: 'text' | 'image' | 'voice';
     content: string;
-    meta?: { durationMs?: number };
+    meta?: { durationMs?: number; orderNo?: string };
   },
 ) {
   return adminJson<SupportMessageRow>(`/api/admin/support/messages/${userId}`, {

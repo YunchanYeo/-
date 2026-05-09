@@ -22,11 +22,27 @@
       <view class="row"><text>买家:</text><text>{{item.nickName || '匿名用户'}} / {{item.phoneNumber || '-'}}</text></view>
       <view class="row"><text>状态:</text><text>{{item.orderStatusName}}</text></view>
       <view class="row"><text>运单:</text><text>{{item.logisticsCompanyName || '-'}} {{item.logisticsNo || ''}}</text></view>
+      <view class="row"><text>收货人:</text><text>{{item._receiverText || '-'}}</text></view>
+      <view class="row"><text>地址:</text><text class="row-right">{{item._addressText || '-'}}</text></view>
+      <view class="row"><text>商品:</text><text class="row-right">{{item._itemsSummary || '-'}}</text></view>
+      <view wx:if="{{expandedOrderNo === item.orderNo}}" class="order-detail">
+        <view class="order-detail-title">购买明细</view>
+        <view wx:if="{{item._items && item._items.length}}">
+          <view class="order-detail-item" wx:for="{{item._items}}" wx:key="index" wx:for-item="g">
+            <text class="order-detail-item__name">{{g.title}}</text>
+            <text class="order-detail-item__qty">×{{g.qty}}</text>
+          </view>
+        </view>
+        <view wx:else class="order-detail-empty">-</view>
+      </view>
       <view class="btn-row">
-        <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">填写/更新运单</t-button>
-        <t-button size="small" variant="outline" bind:tap="onChangeOrderStatus" data-item="{{item}}">修改状态</t-button>
-        <t-button size="small" variant="outline" bind:tap="onViewLogisticsTrace" data-item="{{item}}">查看轨迹</t-button>
-        <t-button size="small" variant="outline" bind:tap="onDeleteOrder" data-item="{{item}}">删除订单</t-button>
+        <t-button size="small" variant="outline" bind:tap="onToggleOrderDetail" data-item="{{item}}">
+          {{expandedOrderNo === item.orderNo ? '收起' : '明细'}}
+        </t-button>
+        <t-button size="small" theme="primary" bind:tap="onFillShipping" data-item="{{item}}">运单</t-button>
+        <t-button size="small" variant="outline" bind:tap="onChangeOrderStatus" data-item="{{item}}">状态</t-button>
+        <t-button size="small" variant="outline" bind:tap="onViewLogisticsTrace" data-item="{{item}}">轨迹</t-button>
+        <t-button size="small" variant="outline" bind:tap="onDeleteOrder" data-item="{{item}}">删除</t-button>
       </view>
     </view>
   </view>
@@ -85,6 +101,7 @@
       <view class="btn-row">
         <t-button size="small" theme="primary" bind:tap="onEditStock" data-item="{{item}}">改库存</t-button>
         <t-button size="small" variant="outline" bind:tap="gotoEditProduct" data-id="{{item.id}}">编辑商品</t-button>
+        <t-button size="small" variant="outline" bind:tap="onDeleteProduct" data-item="{{item}}">删除</t-button>
       </view>
     </view>
   </view>

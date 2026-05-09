@@ -48,6 +48,15 @@ export function normalizeChatMediaUrl(url) {
     if (u.hostname === '127.0.0.1' || u.hostname === 'localhost') {
       return `${base}${u.pathname}${u.search}`;
     }
+    const legacy = config.cloudServerHttpOrigin;
+    if (legacy) {
+      const lu = new URL(legacy.startsWith('http') ? legacy : `http://${legacy}`);
+      const p = lu.port || (lu.protocol === 'https:' ? '443' : '80');
+      const up = u.port || (u.protocol === 'https:' ? '443' : '80');
+      if (u.hostname === lu.hostname && String(up) === String(p)) {
+        return `${base}${u.pathname}${u.search}`;
+      }
+    }
   } catch (_) {
     /* 非绝对 URL 时当作相对路径 */
     if (!/^https?:\/\//i.test(s)) {
@@ -65,6 +74,9 @@ export function enrichSupportMessage(m) {
   const msgType = /** @type {'text'|'image'|'voice'} */ (m.msgType || 'text');
   const displayUrl =
     msgType === 'image' || msgType === 'voice' ? normalizeChatMediaUrl(String(m.content || '')) : '';
+  const orderNo = m.meta && typeof /** @type {{ orderNo?: unknown }} */ (m.meta).orderNo === 'string'
+    ? String(/** @type {{ orderNo?: string }} */ (m.meta).orderNo || '').trim()
+    : '';
   let voiceSec = 0;
   let voiceBarWidth = 0;
   if (msgType === 'voice') {
@@ -76,7 +88,7 @@ export function enrichSupportMessage(m) {
     /* 微信语音条：时长越长条越宽（长语音接近屏宽） */
     voiceBarWidth = Math.min(560, Math.max(148, 120 + voiceSec * 32));
   }
-  return { ...m, msgType, displayUrl, voiceSec, voiceBarWidth };
+  return { ...m, msgType, displayUrl, voiceSec, voiceBarWidth, orderNo };
 }
 
 /**

@@ -1,12 +1,10 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import crypto from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
+import { saveMediaFromBase64 } from '../storage/mediaStorage';
 
 export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: string }) {
   const ORDER_STATUS_META: Record<number, string> = {
@@ -338,7 +336,7 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     }
   }
 
-  function adminUploadImage(req: Request, res: Response) {
+  async function adminUploadImage(req: Request, res: Response) {
     const schema = z.object({
       fileName: z.string().optional(),
       mimeType: z.string().optional(),
@@ -347,18 +345,20 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid upload body', issues: parsed.error.issues });
     const { fileName = '', mimeType = 'image/jpeg', base64Data } = parsed.data;
-    const extFromMime = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
-    const safeBaseName = String(fileName || 'upload').replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9-_]/g, '').slice(0, 40);
-    const finalName = `${Date.now()}_${safeBaseName || 'img'}_${crypto.randomInt(1000, 9999)}.${extFromMime}`;
-    const targetPath = path.join(uploadsDir, finalName);
     try {
-      const buffer = Buffer.from(base64Data, 'base64');
-      fs.writeFileSync(targetPath, buffer);
+      const imageUrl = await saveMediaFromBase64({
+        kind: 'image',
+        mimeType,
+        fileName,
+        base64Data,
+        req,
+        uploadsDir,
+        prefix: 'admin_img',
+      });
+      return res.json({ ok: true, data: { imageUrl } });
     } catch (e) {
-      return res.status(500).json({ ok: false, message: 'Image save failed' });
+      return res.status(500).json({ ok: false, message: `Image save failed: ${String((e as any)?.message || e)}` });
     }
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${finalName}`;
-    return res.json({ ok: true, data: { imageUrl } });
   }
 
   return {

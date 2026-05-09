@@ -9,10 +9,11 @@ import { getDb } from './db';
 import { createServices } from './services/serviceRegistry';
 import { createApiController } from './controllers/apiController';
 import { createApiRouter } from './routes/apiRouter';
+import { loadWechatPayConfigFromEnv } from './services/wechatPayV3';
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors());
-app.use(express.json());
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,9 +28,21 @@ await syncAdminPasswordFromEnvOnStart(db);
 const paymentMockMode = process.env.WECHAT_PAY_MOCK !== 'false';
 const wechatAppId = process.env.WECHAT_APPID || '';
 const wechatAppSecret = process.env.WECHAT_APPSECRET || '';
+const wechatPayConfig = loadWechatPayConfigFromEnv();
 
-const services = createServices({ db, uploadsDir, paymentMockMode, wechatAppId, wechatAppSecret });
+const services = createServices({ db, uploadsDir, paymentMockMode, wechatAppId, wechatAppSecret, wechatPayConfig });
 const apiController = createApiController(services);
+
+/** 微信支付异步通知：须使用原始 body 校验签名（application/json） */
+app.post(
+  '/api/wechat-pay/notify',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  (req, res, next) => {
+    void Promise.resolve(services.order.wechatPayNotify(req, res)).catch(next);
+  },
+);
+
+app.use(express.json());
 const apiRouter = createApiRouter(apiController);
 app.use('/api', apiRouter);
 

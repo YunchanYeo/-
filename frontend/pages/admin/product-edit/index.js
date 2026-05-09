@@ -1,5 +1,5 @@
 import { config } from '../../../config/index';
-import { fetchAdminProduct, updateAdminProduct, uploadAdminImage } from '../../../services/admin/adminApi';
+import { fetchAdminProduct, updateAdminProduct, uploadAdminImage, deleteAdminProduct } from '../../../services/admin/adminApi';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
@@ -9,6 +9,7 @@ Page({
     data: {
         loading: true,
         submitting: false,
+        deleting: false,
         categoriesTree: [],
         form: {
             id: '',
@@ -178,6 +179,35 @@ Page({
         }
         finally {
             this.setData({ submitting: false });
+        }
+    },
+    async onDelete() {
+        const f = this.data.form;
+        const id = f.id;
+        if (!id)
+            return;
+        const confirm = await new Promise((resolve) => {
+            wx.showModal({
+                title: '删除商品',
+                content: `确定删除「${f.title || '该商品'}」？删除后不可恢复。`,
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!confirm.confirm)
+            return;
+        try {
+            this.setData({ deleting: true });
+            await deleteAdminProduct(id);
+            bumpProductDataVersion();
+            showMessage('已删除', 'success');
+            setTimeout(() => wx.navigateBack(), 400);
+        }
+        catch (e) {
+            showMessage(e?.message || '删除失败', 'error');
+        }
+        finally {
+            this.setData({ deleting: false });
         }
     },
 });

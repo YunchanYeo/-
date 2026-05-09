@@ -1,4 +1,5 @@
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import {
   fetchSupportConversations,
@@ -38,8 +39,14 @@ function fileToBase64Parts(file: File): Promise<{ mime: string; b64: string }> {
   });
 }
 
+function safeOrderNo(m: SupportMessageRow): string {
+  const raw = m?.meta && typeof (m.meta as any).orderNo === 'string' ? String((m.meta as any).orderNo || '').trim() : '';
+  return raw;
+}
+
 export default function SupportChatPage() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<SupportConversationRow[]>([]);
   const [activeUserId, setActiveUserId] = useState<number | null>(null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
@@ -323,6 +330,7 @@ export default function SupportChatPage() {
               const isAdmin = m.fromRole === 'admin';
               const msgType = (m.msgType || 'text') as 'text' | 'image' | 'voice';
               const mediaSrc = msgType === 'image' || msgType === 'voice' ? normalizeSupportMediaUrl(m.content) : '';
+              const orderNo = safeOrderNo(m);
               return (
                 <div
                   key={m.id}
@@ -340,6 +348,42 @@ export default function SupportChatPage() {
                       border: '1px solid var(--border)',
                     }}
                   >
+                    {orderNo ? (
+                      <div style={{ marginBottom: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{
+                            padding: '0.15rem 0.5rem',
+                            fontSize: '0.72rem',
+                            borderRadius: 999,
+                            border: '1px solid rgba(25,135,84,0.35)',
+                            background: 'rgba(25,135,84,0.12)',
+                            color: 'rgba(25,135,84,0.95)',
+                          }}
+                          onClick={() => navigate(`/orders?orderNo=${encodeURIComponent(orderNo)}`)}
+                          title="点击查看该订单"
+                        >
+                          订单 {orderNo}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', marginLeft: 6 }}
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(orderNo);
+                              window.alert('已复制订单号');
+                            } catch {
+                              window.alert('复制失败');
+                            }
+                          }}
+                          title="复制订单号"
+                        >
+                          复制
+                        </button>
+                      </div>
+                    ) : null}
                     {msgType === 'text' ? (
                       <div style={{ fontSize: '0.875rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.content}</div>
                     ) : null}

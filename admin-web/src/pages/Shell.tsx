@@ -1,24 +1,7 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { fetchAdminMe, type AdminMe } from '../api/admin';
-
-const navStyle: CSSProperties = {
-  display: 'flex',
-  gap: '0.35rem',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-};
-
-const linkStyle = ({ isActive }: { isActive: boolean }): CSSProperties => ({
-  padding: '0.45rem 0.85rem',
-  borderRadius: 8,
-  textDecoration: 'none',
-  color: isActive ? '#fff' : 'var(--muted)',
-  background: isActive ? 'var(--accent)' : 'transparent',
-  fontSize: '0.875rem',
-  fontWeight: isActive ? 600 : 400,
-});
 
 export default function Shell() {
   const { token, logout } = useAuth();
@@ -35,49 +18,52 @@ export default function Shell() {
       });
   }, [token, logout, nav]);
 
+  const navCls = ({ isActive }: { isActive: boolean }) =>
+    `shell-nav-link${isActive ? ' shell-nav-link--active' : ''}`;
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-      <header
-        style={{
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)',
-          padding: '0.65rem 1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={navStyle}>
-          <strong style={{ marginRight: '0.75rem', fontSize: '0.95rem' }}>管理员后台 · PC</strong>
-          <NavLink to="/products" style={linkStyle}>
-            商品与库存
-          </NavLink>
-          <NavLink to="/orders" style={linkStyle}>
-            订单发货
-          </NavLink>
-          <NavLink to="/categories" style={linkStyle}>
-            分类
-          </NavLink>
-          <NavLink to="/coupons" style={linkStyle}>
-            优惠券
-          </NavLink>
-          <NavLink to="/settings" style={linkStyle}>
-            账号设置
-          </NavLink>
-          <NavLink to="/support" style={linkStyle}>
-            客服会话
-          </NavLink>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem' }}>
-          <span style={{ color: 'var(--muted)' }}>{me?.username ?? '…'}</span>
-          <button type="button" className="btn btn-ghost" onClick={() => { logout(); nav('/login'); }}>
-            退出
-          </button>
+    <div className="shell-root">
+      <header className="shell-header">
+        <div className="shell-header-inner">
+          <strong className="shell-brand">管理员后台</strong>
+          <nav className="shell-nav" aria-label="主导航">
+            <NavLink to="/products" className={navCls} end={false}>
+              商品与库存
+            </NavLink>
+            <NavLink to="/orders" className={navCls}>
+              订单发货
+            </NavLink>
+            <NavLink to="/categories" className={navCls}>
+              分类
+            </NavLink>
+            <NavLink to="/coupons" className={navCls}>
+              优惠券
+            </NavLink>
+            <NavLink to="/settings" className={navCls}>
+              账号设置
+            </NavLink>
+            <NavLink to="/support" className={navCls}>
+              客服会话
+            </NavLink>
+          </nav>
+          <div className="shell-user">
+            <span style={{ color: 'var(--muted)' }} title={me?.username ?? ''}>
+              {me?.username ?? '…'}
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                logout();
+                nav('/login');
+              }}
+            >
+              退出
+            </button>
+          </div>
         </div>
       </header>
-      <main style={{ flex: 1, padding: '1.25rem', maxWidth: 1280, width: '100%', margin: '0 auto' }}>
+      <main className="shell-main">
         <Outlet />
       </main>
     </div>

@@ -1,4 +1,4 @@
-import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, } from '../../../services/admin/adminApi';
+import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/index';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
@@ -14,6 +14,7 @@ Page({
     data: {
         activeTab: 'orders',
         orders: [],
+        expandedOrderNo: '',
         products: [],
         loading: false,
         createSubmitting: false,
@@ -112,7 +113,8 @@ Page({
         this.setData({ loading: true });
         try {
             const [orders, products] = await Promise.all([fetchAdminOrders(), fetchAdminProducts()]);
-            this.setData({ orders: orders || [], products: products || [] });
+            const normalizedOrders = (Array.isArray(orders) ? orders : []).map((o) => this.enrichAdminOrder(o));
+            this.setData({ orders: normalizedOrders, products: products || [] });
         }
         catch (e) {
             showMessage(e?.message || '加载失败', 'error');
@@ -130,6 +132,62 @@ Page({
         if (tab === 'coupons') {
             this.loadAdminCoupons();
         }
+    },
+
+    enrichAdminOrder(order) {
+        const o = order || {};
+        const address = this.formatOrderAddress(o.address || o.addressJson || {});
+        const items = this.normalizeOrderItems(o.items || o.itemsJson || []);
+        const itemsSummary = this.formatItemsSummary(items);
+        return {
+            ...o,
+            _addressText: address.text,
+            _receiverText: address.receiver,
+            _items: items,
+            _itemsSummary: itemsSummary,
+        };
+    },
+
+    formatOrderAddress(addr) {
+        const a = addr && typeof addr === 'object' ? addr : {};
+        const name = String(a.name || a.receiverName || a.userName || '').trim();
+        const phone = String(a.phone || a.phoneNumber || a.tel || a.mobile || '').trim();
+        const province = String(a.provinceName || a.province || '').trim();
+        const city = String(a.cityName || a.city || '').trim();
+        const district = String(a.districtName || a.district || a.county || '').trim();
+        const detail = String(a.detailAddress || a.address || a.addressDetail || '').trim();
+        const region = [province, city, district].filter(Boolean).join(' ');
+        const text = [region, detail].filter(Boolean).join(' ') || '-';
+        const receiver = [name || '-', phone || ''].filter(Boolean).join(' ').trim() || '-';
+        return { receiver, text };
+    },
+
+    normalizeOrderItems(items) {
+        const arr = Array.isArray(items) ? items : [];
+        return arr.map((it) => {
+            const title = String(it?.goodsName || it?.title || it?.name || '商品').trim();
+            const qty = Number(it?.quantity ?? it?.buyQuantity ?? 1) || 1;
+            return { title, qty, raw: it };
+        });
+    },
+
+    formatItemsSummary(items) {
+        const arr = Array.isArray(items) ? items : [];
+        if (arr.length === 0)
+            return '-';
+        const first = arr[0];
+        if (arr.length === 1)
+            return `${first.title} ×${first.qty}`;
+        const restCount = arr.length - 1;
+        return `${first.title} ×${first.qty} 외 ${restCount}개`;
+    },
+
+    onToggleOrderDetail(e) {
+        const item = e.currentTarget.dataset.item;
+        const orderNo = String(item?.orderNo || '');
+        if (!orderNo)
+            return;
+        this.setData({ expandedOrderNo: this.data.expandedOrderNo === orderNo ? '' : orderNo });
     },
     async loadAdminCoupons() {
         this.setData({ couponsLoading: true });
@@ -526,6 +584,30 @@ Page({
         }
         catch (e) {
             showMessage(e?.message || '更新失败', 'error');
+        }
+    },
+    async onDeleteProduct(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        const confirm = await new Promise((resolve) => {
+            wx.showModal({
+                title: '删除商品',
+                content: `确定删除「${item.title}」？删除后不可恢复（历史订单快照不受影响）。`,
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!confirm.confirm)
+            return;
+        try {
+            await deleteAdminProduct(item.id);
+            bumpProductDataVersion();
+            showMessage('商品已删除', 'success');
+            this.refreshAll();
+        }
+        catch (e) {
+            showMessage(e?.message || '删除失败', 'error');
         }
     },
     onViewLogisticsTrace(e) {

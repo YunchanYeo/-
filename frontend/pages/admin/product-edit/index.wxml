@@ -18,6 +18,7 @@
     <t-input label="公司" value="{{form.company}}" data-key="company" bind:change="onInput" />
     <t-input label="描述" value="{{form.description}}" data-key="description" bind:change="onInput" />
 
-    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onSubmit">保存</t-button>
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting || deleting}}" bind:tap="onSubmit">保存</t-button>
+    <t-button variant="outline" block loading="{{deleting}}" disabled="{{submitting || deleting}}" bind:tap="onDelete">删除商品</t-button>
   </view>
 </view>

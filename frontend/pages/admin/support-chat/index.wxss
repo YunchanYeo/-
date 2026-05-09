@@ -364,6 +364,20 @@
   background: #f7f7f7;
 }
 
+.order-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6rpx 12rpx;
+  margin-bottom: 10rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: #0f5132;
+  background: #d1e7dd;
+  border: 1rpx solid #badbcc;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .input-dock {
   display: flex;
   flex-direction: row;

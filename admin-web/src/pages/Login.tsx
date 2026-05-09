@@ -35,13 +35,13 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: 'max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))',
         background:
           'radial-gradient(ellipse 80% 60% at 50% -20%, rgba(61,139,253,0.25), transparent), var(--bg)',
       }}
     >
       <div className="card" style={{ width: '100%', maxWidth: 400 }}>
-        <h1 style={{ margin: '0 0 0.35rem', fontSize: '1.35rem' }}>管理员登录（PC）</h1>
+        <h1 style={{ margin: '0 0 0.35rem', fontSize: 'clamp(1.1rem, 4vw, 1.35rem)' }}>管理员登录</h1>
         <p style={{ margin: '0 0 1.25rem', color: 'var(--muted)', fontSize: '0.875rem' }}>
           请输入管理员账号与密码登录。
         </p>
