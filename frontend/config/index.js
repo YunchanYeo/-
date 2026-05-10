@@ -6,7 +6,8 @@
  *    → 이미지 로드 실패 시 download合法域名에도 동일 호스트
  * 2) project.config.json 의 appid = 그小程序의 AppID (= backend/.env 의 WECHAT_APPID). 다르면 폰만 실패함.
  * 3) 공인 IP 바뀌면 Caddyfile·CLOUD_HTTPS_API_BASE·CLOUD_HTTP_API_BASE·微信公众平台 도메인 모두 같이 수정
- *    정식 도메인 쓰면 CLOUD_HTTPS_API_BASE_OVERRIDE 만 맞추고(끝 / 없음), Caddyfile에 동일 호스트 블록 추가
+ *    정식 도메인: 서버에서 CUSTOM_DOMAIN=api.xxx.com bash deploy/china-test/enable-public-domain.sh
+ *    → frontend CLOUD_HTTPS_API_BASE_OVERRIDE·backend API_PUBLIC_BASE_URL 을 동일 https://api.xxx.com 로
  * 4) 微信开发者工具: 编译 → 预览 QR 새로 찍기(구버전 패키지 버리기)
  * ━━━ 자동: 폰=iOS/Android → HTTPS(sslip), 시뮬레이터(devtools) → HTTP:3000 ━━━
  */

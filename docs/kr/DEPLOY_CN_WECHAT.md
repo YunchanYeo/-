@@ -132,17 +132,26 @@ echo | openssl s_client -connect 39-106-213-185.sslip.io:443 -servername 39-106-
 
 **당신이 할 일**
 
-1. 도메인 구매 (阿里云·DNSPod·해외 등록사 등).  
-2. DNS **A 레코드** → ECS 공인 IP. 전파 확인.  
-3. 위 **服务器域名** 에 새 호스트 등록.  
-4. (중국 본토 대외 서비스 시) **ICP备案** 등은 阿里云·정책 문서로 확인.
+1. 도메인 구매 (阿里云·DNSPod·Cloudflare·해외 등록사 등).  
+2. DNS **A 레코드** (예: `api.你的域名.com`) → ECS 공인 IP. `dig +short api.你的域名.com` 으로 전파 확인.  
+3. **微信公众平台 → 服务器域名** 에 동일 호스트 등록 (`https://` 없이). web-view(支付宝 등) 쓰면 **业务域名** 도.  
+4. (중국 본토 대외 서비스 시) **ICP备案** 요구 여부는 호스팅·정책 문서로 확인.
 
-**레포에서 할 일**
+**레포에서 할 일 (권장: 스크립트)**
 
-1. `caddy-snippet-custom-domain.txt` 의 `api.example.com` 을 본인 호스트로 바꿔 `Caddyfile` 에 추가.  
-2. `docker compose restart caddy`  
-3. `CLOUD_HTTPS_API_BASE_OVERRIDE` 에 동일 베이스 URL.  
-4. 미니프로그램 재编译·새 QR.
+1. ECS 에서 (DNS 가 IP 를 가리킨 **후**):
+
+```bash
+cd /root/wechat-app-live   # 실제 레포 경로
+CUSTOM_DOMAIN=api.你的域名.com bash deploy/china-test/enable-public-domain.sh
+cd deploy/china-test && docker compose restart caddy && docker compose logs --tail=40 caddy
+```
+
+2. `backend/.env`: `API_PUBLIC_BASE_URL=https://api.你的域名.com` (끝 `/` 없음).  
+3. `frontend/config/index.js`: `CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://api.你的域名.com'`.  
+4. 미니프로그램 **清缓存 → 编译 → 新预览 QR**.
+
+**수동으로 Caddy 만 넣을 때**: `caddy-snippet-custom-domain.txt` 의 호스트를 바꿔 `Caddyfile` 맨 아래에 붙이고 위와 동일하게 `restart caddy`·`.env`·`OVERRIDE`·公众平台.
 
 ---
 

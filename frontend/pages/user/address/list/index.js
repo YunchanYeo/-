@@ -3,6 +3,7 @@ import { fetchDeliveryAddressList, deleteDeliveryAddress, createDeliveryAddress 
 import Toast from 'tdesign-miniprogram/toast/index';
 import { resolveAddress, rejectAddress } from '../../../../services/address/list';
 import { getAddressPromise } from '../../../../services/address/edit';
+import { ensureAuthSession } from '../../../../services/auth/session';
 Page({
     data: {
         addressList: [],
@@ -21,9 +22,22 @@ Page({
             id,
         });
         this.selectMode = !!selectMode;
-        this.init();
+        void this.init();
     },
-    init() {
+    async init() {
+        try {
+            await ensureAuthSession({ allowLogin: true });
+        }
+        catch (e) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: e?.message || '请先登录后再查看地址',
+                icon: '',
+                duration: 2000,
+            });
+            return;
+        }
         this.getAddressList();
     },
     onUnload() {

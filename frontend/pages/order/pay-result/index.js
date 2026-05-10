@@ -11,7 +11,20 @@ Page({
         payChannelLabel: '微信支付',
     },
     onLoad(options) {
-        const { totalPaid = 0, orderNo = '', groupId = '', channel = '' } = options;
+        const { totalPaid = 0, orderNo = '', groupId = '' } = options;
+        let channel = String(options.channel || options.payChannel || '').trim().toLowerCase();
+        if (channel !== 'alipay' && channel !== 'wechat') {
+            try {
+                const stored = String(wx.getStorageSync('payResultChannel') || '').trim().toLowerCase();
+                if (stored === 'alipay' || stored === 'wechat')
+                    channel = stored;
+            }
+            catch (e) { }
+        }
+        try {
+            wx.removeStorageSync('payResultChannel');
+        }
+        catch (e) { }
         const payChannelLabel = channel === 'alipay' ? '支付宝支付' : '微信支付';
         this.setData({
             totalPaid,

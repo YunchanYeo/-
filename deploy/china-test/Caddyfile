@@ -26,6 +26,7 @@
 	reverse_proxy admin-web:80
 }
 
-# ━━━ 정식 도메인 (sslip 대신 · 위챗 안정화) ━━━
-# 정식 도메인 절차: docs/kr/DEPLOY_CN_WECHAT.md 섹션 8
-# 붙여 넣기용 조각: deploy/china-test/caddy-snippet-custom-domain.txt
+# ━━━ 정식 도메인 (sslip 대신 · 위챗 폰 테스트 안정화) ━━━
+# 서버에서: CUSTOM_DOMAIN=api.你的域名.com bash deploy/china-test/enable-public-domain.sh
+# 수동 조각: deploy/china-test/caddy-snippet-custom-domain.txt
+# 전체 절차: docs/kr/DEPLOY_CN_WECHAT.md 섹션 8

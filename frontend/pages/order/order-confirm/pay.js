@@ -41,10 +41,20 @@ export const paySuccess = (payOrderInfo) => {
         totalPaid: payAmt,
         orderNo: tradeNo,
     };
-    const ch = payOrderInfo.channel;
-    if (ch === 'alipay' || ch === 'wechat') {
-        params.channel = ch;
+    let ch = payOrderInfo.channel;
+    if (ch !== 'alipay' && ch !== 'wechat') {
+        try {
+            const stored = wx.getStorageSync('payResultChannel');
+            if (stored === 'alipay' || stored === 'wechat')
+                ch = stored;
+            else
+                ch = 'wechat';
+        }
+        catch (e) {
+            ch = 'wechat';
+        }
     }
+    params.channel = ch;
     if (groupId) {
         params.groupId = groupId;
     }
@@ -52,7 +62,7 @@ export const paySuccess = (payOrderInfo) => {
         params.promotionId = promotionId;
     }
     const paramsStr = Object.keys(params)
-        .map((k) => `${k}=${params[k]}`)
+        .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(String(params[k] ?? ''))}`)
         .join('&');
     // 跳转支付结果页面
     wx.redirectTo({ url: `/pages/order/pay-result/index?${paramsStr}` });

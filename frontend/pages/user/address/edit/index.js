@@ -3,6 +3,7 @@ import { fetchDeliveryAddress, createDeliveryAddress, updateDeliveryAddress } fr
 import { areaData } from '../../../../config/index';
 import { resolveAddress, rejectAddress } from '../../../../services/address/edit';
 import { getErrorMessage } from '../../../../services/_utils/errors';
+import { ensureAuthSession } from '../../../../services/auth/session';
 const innerPhoneReg = '^1(?:3\\d|4[4-9]|5[0-35-9]|6[67]|7[0-8]|8\\d|9\\d)\\d{8}$';
 const innerNameReg = '^[a-zA-Z\\d\\u4e00-\\u9fa5]+$';
 const labelsOptions = [
@@ -46,8 +47,27 @@ Page({
     privateData: {
         verifyTips: '',
     },
+    /** 从列表/订单进来时的 query，用于 navigateBack 失败时 redirect 回列表 */
+    _addressListQuery: {},
     onLoad(options) {
-        const { id } = options;
+        void this.bootstrap(options);
+    },
+    async bootstrap(options) {
+        try {
+            await ensureAuthSession({ allowLogin: true });
+        }
+        catch (e) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: e?.message || '请先登录后再管理地址',
+                icon: '',
+                duration: 2000,
+            });
+            return;
+        }
+        this._addressListQuery = options && typeof options === 'object' ? { ...options } : {};
+        const { id } = options || {};
         this.init(id);
     },
     onUnload() {
@@ -352,6 +372,7 @@ Page({
         };
         let saved;
         try {
+            await ensureAuthSession({ allowLogin: true });
             if (locationState.addressId) {
                 saved = await updateDeliveryAddress(locationState.addressId, payload);
             }
@@ -397,7 +418,30 @@ Page({
             longitude: saved.longitude,
             storeId: null,
         });
-        wx.navigateBack({ delta: 1 });
+        const q = this._addressListQuery || {};
+        const parts = [];
+        if (q.selectMode)
+            parts.push(`selectMode=${encodeURIComponent(String(q.selectMode))}`);
+        if (q.isOrderSure)
+            parts.push(`isOrderSure=${encodeURIComponent(String(q.isOrderSure))}`);
+        if (q.id)
+            parts.push(`id=${encodeURIComponent(String(q.id))}`);
+        const listSuffix = parts.length > 0 ? `?${parts.join('&')}` : '';
+        const listUrl = `/pages/user/address/list/index${listSuffix}`;
+        wx.navigateBack({
+            delta: 1,
+            success: () => {
+                const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+                const top = pages[pages.length - 1];
+                const route = top && top.route ? String(top.route) : '';
+                if (route.includes('address/list') && typeof top.getAddressList === 'function') {
+                    top.getAddressList();
+                }
+            },
+            fail: () => {
+                wx.redirectTo({ url: listUrl });
+            },
+        });
     },
     getWeixinAddress(e) {
         const { locationState } = this.data;

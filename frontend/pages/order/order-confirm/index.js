@@ -443,8 +443,15 @@ Page({
     handlePay(data, settleDetailData) {
         const { channel, payInfo, tradeNo, interactId, transactionId, isMockPay, virtualPayInfo, pluginPaymentData, commonPayInfo, globalPayInfo, paymentMethod, alipayWebViewUrl, } = data;
         const { totalAmount, totalPayAmount } = settleDetailData;
+        /** 用户在本页选的支付方式（结果页文案以用户选择为准，避免接口未带 channel 时误显示微信） */
+        const userPayChannel = this.data.payChannel === 'alipay' ? 'alipay' : 'wechat';
+        try {
+            wx.setStorageSync('payResultChannel', userPayChannel);
+        }
+        catch (e) { }
+        const resolvedChannel = channel === 'alipay' || channel === 'wechat' ? channel : userPayChannel;
         const payOrderInfo = {
-            channel,
+            channel: resolvedChannel,
             paymentMethod: paymentMethod || 'requestPayment',
             payInfo: payInfo,
             virtualPayInfo,
@@ -461,10 +468,10 @@ Page({
             goodsRequestList: this.goodsRequestList,
             alipayWebViewUrl,
         };
-        if (channel === 'alipay') {
+        if (resolvedChannel === 'alipay') {
             alipayPayOrder(payOrderInfo);
         }
-        else if (channel === 'wechat') {
+        else {
             wechatPayOrder(payOrderInfo);
         }
     },
