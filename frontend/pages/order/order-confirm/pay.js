@@ -41,6 +41,10 @@ export const paySuccess = (payOrderInfo) => {
         totalPaid: payAmt,
         orderNo: tradeNo,
     };
+    const ch = payOrderInfo.channel;
+    if (ch === 'alipay' || ch === 'wechat') {
+        params.channel = ch;
+    }
     if (groupId) {
         params.groupId = groupId;
     }

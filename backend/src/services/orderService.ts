@@ -761,7 +761,7 @@ export function createOrderService({
   var orderNo = ${safeOrderNo};
   var totalPaid = ${totalPaid};
   if (typeof wx !== 'undefined' && wx.miniProgram) {
-    wx.miniProgram.redirectTo({ url: '/pages/order/pay-result/index?orderNo=' + encodeURIComponent(orderNo) + '&totalPaid=' + encodeURIComponent(String(totalPaid)) });
+    wx.miniProgram.redirectTo({ url: '/pages/order/pay-result/index?orderNo=' + encodeURIComponent(orderNo) + '&totalPaid=' + encodeURIComponent(String(totalPaid)) + '&channel=alipay' });
   }
 })();
 </script>
