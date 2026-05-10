@@ -1,8 +1,31 @@
 .order-sure {
   box-sizing: border-box;
   background: #f6f6f6;
-  padding: 24rpx 0 calc(env(safe-area-inset-bottom) + 136rpx);
+  padding: 24rpx 0 calc(env(safe-area-inset-bottom) + 200rpx);
   min-height: 100vh;
+}
+
+.pay-channel {
+  margin: 16rpx 24rpx 0;
+  padding: 24rpx 32rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.pay-channel__title {
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.pay-channel__group {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.pay-channel__item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
 }
 
 .order-sure .wx-pay-cover {

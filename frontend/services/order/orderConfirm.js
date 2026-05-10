@@ -120,18 +120,22 @@ async function realFetchSettleDetail(params = {}) {
         },
     };
 }
-function mockDispatchCommitPay() {
+function mockDispatchCommitPay(params = {}) {
     const { delay } = require('../_utils/delay');
+    const payChannel = params.payChannel === 'alipay' ? 'alipay' : 'wechat';
     return delay().then(() => ({
         data: {
             isSuccess: true,
             tradeNo: '350930961469409099',
             payInfo: '{}',
             code: null,
-            transactionId: 'E-200915180100299000',
+            transactionId: payChannel === 'alipay' ? 'ALIPAY_MOCK' : 'E-200915180100299000',
             msg: null,
             interactId: '15145',
-            channel: 'wechat',
+            channel: payChannel,
+            paymentMethod: payChannel === 'alipay' ? 'wapWebView' : 'requestPayment',
+            alipayWebViewUrl: null,
+            isMockPay: true,
             limitGoodsList: null,
         },
         code: 'Success',

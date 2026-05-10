@@ -22,6 +22,7 @@ export const commitPay = (params) => {
         storeInfoList: params.storeInfoList, //备注信息列表
         couponList: params.couponList,
         groupInfo: params.groupInfo,
+        payChannel: params.payChannel || 'wechat',
     });
 };
 export const paySuccess = (payOrderInfo) => {
@@ -263,5 +264,47 @@ export const wechatPayOrder = (payOrderInfo) => {
         }
         // 기본값: 실물상품 결제는 wx.requestPayment
         requestWechatPay(payOrderInfo).then(resolve);
+    });
+};
+
+/** 支付宝（手机网站支付）：web-view 打开服务端 wap-launch 返回的 HTML 表单 */
+export const alipayPayOrder = (payOrderInfo) => {
+    return new Promise((resolve) => {
+        if (payOrderInfo.isMockPay) {
+            wx.showModal({
+                title: '模拟支付（支付宝）',
+                content: '当前为开发环境 mock，是否直接标记为支付成功？',
+                confirmText: '完成支付',
+                cancelText: '取消',
+                success: ({ confirm }) => {
+                    if (confirm) {
+                        paySuccess(payOrderInfo);
+                    }
+                    else {
+                        payFail(payOrderInfo, 'requestPayment:fail cancel');
+                    }
+                    resolve();
+                },
+                fail: () => {
+                    payFail(payOrderInfo, 'requestPayment:fail cancel');
+                    resolve();
+                },
+            });
+            return;
+        }
+        const url = payOrderInfo.alipayWebViewUrl;
+        if (!url || typeof url !== 'string') {
+            payFail(payOrderInfo, '缺少 alipayWebViewUrl，请配置 API_PUBLIC_BASE_URL 与支付宝参数');
+            resolve();
+            return;
+        }
+        wx.navigateTo({
+            url: `/pages/order/alipay-webview/index?src=${encodeURIComponent(url)}`,
+            fail: (err) => {
+                payFail(payOrderInfo, err.errMsg || '无法打开支付页');
+                resolve();
+            },
+            success: () => resolve(),
+        });
     });
 };

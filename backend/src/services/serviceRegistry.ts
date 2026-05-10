@@ -23,6 +23,8 @@ export function createServices(ctx: RequestContext) {
     db: ctx.db,
     paymentMockMode: ctx.paymentMockMode,
     wechatPayConfig: ctx.wechatPayConfig,
+    alipayPaymentMockMode: ctx.alipayPaymentMockMode,
+    alipayWapConfig: ctx.alipayWapConfig,
   });
   const user = createUserService({ db: ctx.db });
   const support = createSupportService({ db: ctx.db, uploadsDir: ctx.uploadsDir });

@@ -1,0 +1,2 @@
+<web-view wx:if="{{src}}" src="{{src}}" />
+<view wx:else class="empty">缺少支付地址</view>
