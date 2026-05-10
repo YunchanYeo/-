@@ -9,8 +9,11 @@ export function resolveAdminImageForDisplay(url) {
     const s = String(url || '').trim();
     if (!s)
         return '';
-    if (/^https?:\/\//i.test(s))
+    if (/^https?:\/\//i.test(s)) {
+        if (s.toLowerCase().startsWith('http://'))
+            return `https://${s.slice('http://'.length)}`;
         return s;
+    }
     const base = config.apiBaseUrl.replace(/\/+$/, '');
     return `${base}${s.startsWith('/') ? s : `/${s}`}`;
 }

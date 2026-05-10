@@ -45,8 +45,11 @@ function normalizeStoredImageUrl(rawUrl: string): string {
 }
 
 function resolveOssPublicUrl(objectKey: string): string {
-  const customBase = String(process.env.OSS_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
-  if (customBase) return `${customBase}/${objectKey}`;
+  let customBase = String(process.env.OSS_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (customBase) {
+    if (customBase.toLowerCase().startsWith('http://')) customBase = `https://${customBase.slice('http://'.length)}`;
+    return `${customBase}/${objectKey}`;
+  }
   const bucket = String(process.env.OSS_BUCKET || '').trim();
   const region = String(process.env.OSS_REGION || '').trim();
   if (!bucket || !region) throw new Error('OSS_PUBLIC_BASE_URL or OSS_BUCKET/OSS_REGION required');

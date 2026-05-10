@@ -1,8 +1,15 @@
 import { config } from '../../config/index';
 
+function ensureHttps(s) {
+    const out = String(s || '').trim();
+    if (out.toLowerCase().startsWith('http://'))
+        return `https://${out.slice('http://'.length)}`;
+    return out;
+}
+
 function rewriteAbsoluteToApiBase(s) {
     const base = config.apiBaseUrl.replace(/\/+$/, '');
-    let out = s.replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, base);
+    let out = ensureHttps(s).replace(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i, base);
     const legacy = config.cloudServerHttpOrigin;
     if (legacy && /^https?:\/\//i.test(out)) {
         const prefix = legacy.replace(/\/+$/, '');
@@ -24,7 +31,7 @@ function rewriteAbsoluteToApiBase(s) {
  */
 export function normalizeGoodsImageUrl(image) {
     if (!image) return '';
-    const s = String(image).trim();
+    const s = ensureHttps(image);
     const base = config.apiBaseUrl.replace(/\/+$/, '');
     if (/^https?:\/\//i.test(s)) {
         return rewriteAbsoluteToApiBase(s);
