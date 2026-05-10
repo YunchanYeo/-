@@ -176,7 +176,41 @@ cd deploy/china-test && docker compose restart caddy && docker compose logs --ta
 
 ---
 
-## 11. Cloudflare Quick Tunnel (대안)
+## 11. 무료 서브도메인 쓰는 법 (유료 도메인 없이)
+
+**개념**: 본인이 산 `example.com` 대신, **무료 DNS 서비스가 주는** `이름.duckdns.org` 같은 호스트를 만들고, **A 레코드를 ECS 공인 IP**로 맞춘 뒤, 지금과 같이 **Caddy + Let’s Encrypt + 公众平台**에 그 호스트만 등록하면 됩니다.
+
+### 11.1 DuckDNS (가장 단순한 편)
+
+1. https://www.duckdns.org 에 GitHub 등으로 로그인.  
+2. **Subdomain** 하나 정해서 생성 (예: `myshop` → **`myshop.duckdns.org`**).  
+3. **IP**를 ECS 공인 IP로 설정하고 **update** 저장.  
+4. 서버에서 (DNS 전파 후):
+
+```bash
+CUSTOM_DOMAIN=myshop.duckdns.org bash deploy/china-test/enable-public-domain.sh
+cd deploy/china-test && docker compose restart caddy
+```
+
+5. `backend/.env`: `API_PUBLIC_BASE_URL=https://myshop.duckdns.org`  
+6. `frontend/config/index.js`: `CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://myshop.duckdns.org'`  
+7. **微信公众平台 → 服务器域名**에 `myshop.duckdns.org` (스킴 없이).  
+8. 小程序 **清缓存 → 编译 → 新预览**.
+
+### 11.2 FreeDNS (afraid.org) 등
+
+- https://freedns.afraid.org 등에서 **다른 사람 도메인 아래 무료 서브도메인**을 받는 방식도 있음.  
+- 절차는 동일: **A 레코드 → 공인 IP → Caddy 사이트 블록 → .env / OVERRIDE / 公众平台**.
+
+### 11.3 주의 (위챗·운영)
+
+- **무료 호스트도** 公众平台에 **등록 가능 여부·ICP 요구**는 계정·정책에 따라 다름. 막히면 **유료 1차 도메인**이 더 잘 통과하는 경우가 많음.  
+- DuckDNS는 **토큰으로 IP 자동 갱신**을 써 두는 것이 좋음(집 회선처럼 IP가 바뀌면 끊김). **ECS 고정 IP**면 거의 문제 없음.  
+- **sslip.io**도 “돈 안 내는 호스트”이지만 **등록사 서브도메인이 아님**; WeChat이 거부하면 **DuckDNS 같은 등록 가능한 호스트**를 시도.
+
+---
+
+## 12. Cloudflare Quick Tunnel (대안)
 
 공인 80/443 이 어려울 때 서버에서:
 
@@ -188,14 +222,14 @@ cloudflared tunnel --url http://127.0.0.1:8080
 
 ---
 
-## 12. 그 외 (OSS / PostgreSQL)
+## 13. 그 외 (OSS / PostgreSQL)
 
 - OSS·`migrate:oss`·PostgreSQL·기능 체크리스트 등 **예전 긴 배포 문서**는 같은 폴더의 **`CHINA_DEPLOY_GUIDE.archive.md`** (백업본)을 연다.  
 - 일상 개발은 **`DEV_GUIDE.md`**.
 
 ---
 
-## 13. 재배포 스크립트
+## 14. 재배포 스크립트
 
 레포 루트에서:
 
