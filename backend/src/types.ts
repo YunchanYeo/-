@@ -12,7 +12,7 @@ export type RequestContext = {
   /** 商户证书与 v3 密钥齐全时非 null；与 paymentMockMode 共同决定是否走真实 JSAPI */
   wechatPayConfig: WechatPayV3Config | null;
 };
-
+//dfdfd
 export type AuthedUser = {
   id: number;
   customerId: string | null;
