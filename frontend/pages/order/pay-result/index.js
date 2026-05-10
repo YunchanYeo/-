@@ -7,13 +7,17 @@ Page({
         groupon: null,
         spu: null,
         adUrl: '',
+        /** 支付渠道展示：与 order-confirm paySuccess 的 channel 一致 */
+        payChannelLabel: '微信支付',
     },
     onLoad(options) {
-        const { totalPaid = 0, orderNo = '', groupId = '' } = options;
+        const { totalPaid = 0, orderNo = '', groupId = '', channel = '' } = options;
+        const payChannelLabel = channel === 'alipay' ? '支付宝支付' : '微信支付';
         this.setData({
             totalPaid,
             orderNo,
             groupId,
+            payChannelLabel,
         });
     },
     onTapReturn(e) {

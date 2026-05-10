@@ -7,6 +7,7 @@
 - 운영 가이드: `docs/kr/USER_GUIDE.md`
 - 개발 가이드: `docs/kr/DEV_GUIDE.md`
 - 중국·微信 ECS 배포(통합): **`docs/kr/DEPLOY_CN_WECHAT.md`**
+- **관리자 세션·이미지·OSS·계정 생성(최근 변경):** `docs/kr/ADMIN_MEDIA_SESSIONS.md`
 - (구) 긴 배포 백업: `docs/kr/CHINA_DEPLOY_GUIDE.archive.md`
 - 최적화 보고서: `docs/kr/OPTIMIZATION_REPORT.md`
 - 중국어 문서 인덱스: `docs/cn/README.md`
@@ -38,6 +39,11 @@
   - 미디어 저장소를 阿里云 OSS로 전환 가능 (`MEDIA_PROVIDER=aliyun-oss`)
   - SQLite → PostgreSQL 이관 스크립트 추가 (`npm run migrate:pg`)
   - 기존 로컬 업로드 파일 OSS 이관 스크립트 추가 (`npm run migrate:oss`)
+- 관리자·미디어(최근)
+  - 관리자 세션 테이블 `admin_sessions` — 계정당 하나의 활성 세션, 재로그인 시 교체, 비번·아이디 변경 시 무효화
+  - 상품 이미지: Base64·multipart·OSS 서명 URL 업로드, HEIC/MIME 보정, React 측 모바일 사전 압축 (`prepareAdminProductImage`)
+  - 관리자 계정 생성: `POST /api/admin/admins` — React·미니프로그램 계정 설정 화면
+  - 상세: **`docs/kr/ADMIN_MEDIA_SESSIONS.md`**
 
 ## 디렉터리 개요
 

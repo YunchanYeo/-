@@ -23,6 +23,7 @@
       "name": "order",
       "pages": [
         "order-confirm/index",
+        "alipay-webview/index",
         "receipt/index",
         "pay-result/index",
         "order-list/index",
