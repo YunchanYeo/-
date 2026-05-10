@@ -61,6 +61,7 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
         req,
         uploadsDir,
         prefix: kind === 'image' ? 'chat_img' : 'chat_voice',
+        objectPrefix: 'support/chat',
       });
       return res.json({ ok: true, data: { url } });
     } catch (e) {

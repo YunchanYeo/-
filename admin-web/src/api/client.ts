@@ -8,7 +8,7 @@ export function getApiBase(): string {
 export function resolveUploadUrl(image: string | null | undefined): string {
   if (!image) return '';
   if (/^https?:\/\//i.test(image)) {
-    // HTTPS 페이지에서 http:// 업로드 URL(프록시 오구성) 혼합 콘텐츠 차단 방지
+    // HTTPS 页面若上传 URL 仍为 http（代理误配），会被混合内容策略拦截
     if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && image.startsWith('http://')) {
       try {
         const u = new URL(image);

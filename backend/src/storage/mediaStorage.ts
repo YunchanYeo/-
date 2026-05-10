@@ -63,8 +63,10 @@ export async function saveMediaFromBase64(params: {
   req: Request;
   uploadsDir: string;
   prefix: string;
+  /** OSS 时使用；本地模式仍写入 uploadsDir 根目录文件名不变 */
+  objectPrefix?: string;
 }) {
-  const { kind, mimeType, fileName, base64Data, req, uploadsDir, prefix } = params;
+  const { kind, mimeType, fileName, base64Data, req, uploadsDir, prefix, objectPrefix } = params;
   const ext = detectExt(kind, mimeType);
   const base = safeBaseName(fileName || kind);
   const finalName = `${prefix}_${Date.now()}_${base || kind}_${crypto.randomInt(1000, 9999)}.${ext}`;
@@ -76,6 +78,7 @@ export async function saveMediaFromBase64(params: {
     buffer: buf,
     req,
     uploadsDir,
+    ...(objectPrefix != null && objectPrefix !== '' ? { objectPrefix } : {}),
   });
 }
 
@@ -88,17 +91,18 @@ export async function saveMediaFromBuffer(params: {
   req?: Request;
   objectPrefix?: string;
 }) {
-  const { buffer, uploadsDir, fileName, req, objectPrefix = 'uploads' } = params;
+  const { buffer, uploadsDir, fileName, mimeType, req, objectPrefix = 'uploads' } = params;
   const finalName = String(fileName || '').trim();
   if (!finalName) throw new Error('fileName required');
   if (isAliyunOssEnabled()) {
     const client = createAliyunClient();
     const objectKey = `${String(objectPrefix || 'uploads').replace(/^\/+|\/+$/g, '')}/${finalName}`;
-    await client.put(objectKey, buffer, {
-      headers: {
-        'Cache-Control': 'public, max-age=31536000',
-      },
-    });
+    const headers: Record<string, string> = {
+      'Cache-Control': 'public, max-age=31536000',
+    };
+    const ct = String(mimeType || '').trim();
+    if (ct) headers['Content-Type'] = ct;
+    await client.put(objectKey, buffer, { headers });
     return buildOssPublicUrl(objectKey);
   }
   const targetPath = path.join(uploadsDir, finalName);

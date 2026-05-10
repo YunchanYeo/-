@@ -100,7 +100,7 @@ export default function SettingsPage() {
     if (!token) return;
     const nextUsername = createUsername.trim();
     if (!createCurrentPassword || !nextUsername || !createPassword) {
-      setErr('현재 비밀번호/새 관리자 ID/초기 비밀번호를 모두 입력하세요');
+      setErr('请填写当前密码、新管理员账号与初始密码');
       setOk('');
       return;
     }
@@ -116,9 +116,9 @@ export default function SettingsPage() {
       setCreateUsername('');
       setCreatePassword('');
       setCreateCurrentPassword('');
-      setOk(`관리자 계정이 생성되었습니다: ${created.username}`);
+      setOk(`管理员账号已创建：${created.username}`);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : '관리자 계정 생성 실패');
+      setErr(e instanceof Error ? e.message : '创建管理员失败');
     } finally {
       setSaving(false);
     }
@@ -180,9 +180,11 @@ export default function SettingsPage() {
       </form>
       <form className="card" onSubmit={onSubmitCreateAdmin} style={{ display: 'grid', gap: '0.75rem', maxWidth: 520 }}>
         <h3 style={{ margin: 0, fontSize: '1rem' }}>创建管理员账号</h3>
-        <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>현재 로그인한 관리자 비밀번호로 생성 권한을 확인합니다.</div>
+        <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+          将使用当前登录管理员的密码校验创建权限。
+        </div>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>현재 비밀번호(권한 확인)</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>当前密码（权限校验）</span>
           <input
             type="password"
             value={createCurrentPassword}
@@ -191,7 +193,7 @@ export default function SettingsPage() {
           />
         </label>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>새 관리자 ID</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>新管理员账号</span>
           <input
             type="text"
             value={createUsername}
@@ -200,7 +202,7 @@ export default function SettingsPage() {
           />
         </label>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>초기 비밀번호</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>初始密码</span>
           <input
             type="password"
             value={createPassword}
@@ -209,7 +211,7 @@ export default function SettingsPage() {
           />
         </label>
         <button className="btn btn-primary" type="submit" disabled={loading || saving}>
-          {saving ? '생성 중…' : '관리자 계정 생성'}
+          {saving ? '创建中…' : '创建管理员'}
         </button>
       </form>
     </div>

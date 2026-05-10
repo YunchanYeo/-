@@ -5,7 +5,7 @@
       wx:key="name"
       wx:for-index="idx"
       class="cat-side-item {{activeIndex === idx ? 'cat-side-item--active' : ''}}"
-      bindtap="onPickCategory"
+      catchtap="onPickCategory"
       data-index="{{idx}}"
     >
       {{item.name}}

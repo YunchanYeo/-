@@ -159,8 +159,15 @@ Page({
     onLoad() {
         try {
             const sys = wx.getSystemInfoSync();
-            const h = Number(sys.windowHeight) || 500;
-            this.setData({ categoryScrollPx: h });
+            const windowH = Number(sys.windowHeight) || 500;
+            // 自定义 tabBar（TDesign tab-bar fixed=true）占底部区域；scroll-view 与之等高重叠时部分机型侧栏/内容 tap 失效
+            let safeBottom = 0;
+            if (sys.safeArea && typeof sys.screenHeight === 'number') {
+                safeBottom = Math.max(0, Number(sys.screenHeight) - Number(sys.safeArea.bottom));
+            }
+            const tabBarReservePx = 52 + safeBottom;
+            const categoryScrollPx = Math.max(240, windowH - tabBarReservePx);
+            this.setData({ categoryScrollPx });
         }
         catch (_) {
             /* ignore */

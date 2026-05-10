@@ -204,7 +204,7 @@ export default function SupportChatPage() {
   const activeConv = conversations.find((c) => c.userId === activeUserId);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: 'calc(100vh - 5.5rem)', minHeight: 420 }}>
+    <div className="support-chat-root">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>客服会话</h2>
         <button type="button" className="btn btn-ghost" onClick={() => loadConversations()} disabled={loadingList}>
@@ -213,26 +213,9 @@ export default function SupportChatPage() {
       </div>
       {err ? <div className="err-banner">{err}</div> : null}
 
-      <div
-        className="card"
-        style={{
-          flex: 1,
-          display: 'flex',
-          overflow: 'hidden',
-          padding: 0,
-          minHeight: 0,
-        }}
-      >
+      <div className="card support-chat-split">
         {/* 左侧会话 */}
-        <aside
-          style={{
-            width: 280,
-            flexShrink: 0,
-            borderRight: '1px solid var(--border)',
-            overflowY: 'auto',
-            background: 'var(--surface2)',
-          }}
-        >
+        <aside className="support-chat-aside">
           {loadingList && conversations.length === 0 ? (
             <p style={{ padding: '1rem', color: 'var(--muted)', margin: 0 }}>加载中…</p>
           ) : conversations.length === 0 ? (
@@ -310,7 +293,7 @@ export default function SupportChatPage() {
         </aside>
 
         {/* 右侧消息 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div className="support-chat-main">
           <div
             style={{
               padding: '0.65rem 1rem',
@@ -393,7 +376,7 @@ export default function SupportChatPage() {
                       </a>
                     ) : null}
                     {msgType === 'voice' ? (
-                      <div style={{ padding: '0.35rem 0.5rem', minWidth: 200 }}>
+                      <div className="support-chat-voice-wrap">
                         <audio src={mediaSrc} controls style={{ width: '100%', height: 32 }} />
                         {m.meta?.durationMs != null ? (
                           <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
@@ -435,7 +418,8 @@ export default function SupportChatPage() {
               placeholder={activeUserId == null ? '请先选择用户' : '输入回复，Enter 发送（Shift+Enter 换行）'}
               disabled={activeUserId == null || sending}
               rows={2}
-              style={{ flex: 1, minWidth: 200, resize: 'vertical', maxHeight: 120 }}
+              className="support-chat-input"
+              style={{ resize: 'vertical', maxHeight: 120 }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

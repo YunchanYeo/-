@@ -5,11 +5,11 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 export type Point = { latitude: number; longitude: number };
 
 export type TraceLeafletMapHandle = {
-  /** 전체 경로가 보이도록 맞춤 */
+  /** 适配视图以显示整条轨迹 */
   fitAll: () => void;
-  /** 마지막(현재) 포인트로 이동·강조 */
+  /** 跳转并突出最后一个（当前）轨迹点 */
   flyToCurrent: () => void;
-  /** 단일 좌표로 이동·강조 (트레이스 행 클릭 등) */
+  /** 跳转并突出单个坐标（如点击轨迹行） */
   flyTo: (lat: number, lng: number, zoom?: number) => void;
 };
 

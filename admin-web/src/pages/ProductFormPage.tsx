@@ -99,7 +99,7 @@ export default function ProductFormPage() {
       }
     } catch (ex: unknown) {
       try {
-        // 구버전 서버 호환: multipart/oss 경로 없으면 기존 base64 업로드 재시도
+        // 兼容旧版服务端：若无 multipart/OSS 路径则回退 base64 上传
         const prepared = await prepareAdminProductImage(file);
         const { base64, mime } = await readBlobAsDataUrlBase64(prepared.blob);
         const up = await uploadAdminImage(token, {

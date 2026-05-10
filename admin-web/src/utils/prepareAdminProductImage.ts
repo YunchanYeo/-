@@ -12,7 +12,7 @@ export function isHeicLikeFile(file: File): boolean {
   return false;
 }
 
-/** 모바일·HEIC·대용량 원본은 JPEG 로 줄여 업로드 */
+/** 移动端 / HEIC / 大图：压缩为 JPEG 后再上传 */
 export function shouldPrecompressProductImage(file: File): boolean {
   if (isHeicLikeFile(file)) return true;
   if (isLikelyMobileUserAgent()) return true;
@@ -56,7 +56,7 @@ export function readBlobAsDataUrlBase64(blob: Blob): Promise<{ mime: string; bas
 }
 
 /**
- * 관리자 상품 이미지: 모바일/HEIC/대용량 시 캔버스로 JPEG 재인코딩
+ * 管理端商品图：移动端 / HEIC / 大图时用画布重编码为 JPEG
  */
 export async function prepareAdminProductImage(file: File): Promise<{ blob: Blob; fileName: string; mimeType: string }> {
   if (!shouldPrecompressProductImage(file)) {

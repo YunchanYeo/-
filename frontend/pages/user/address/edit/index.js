@@ -2,6 +2,7 @@ import Toast from 'tdesign-miniprogram/toast/index';
 import { fetchDeliveryAddress, createDeliveryAddress, updateDeliveryAddress } from '../../../../services/address/fetchAddress';
 import { areaData } from '../../../../config/index';
 import { resolveAddress, rejectAddress } from '../../../../services/address/edit';
+import { getErrorMessage } from '../../../../services/_utils/errors';
 const innerPhoneReg = '^1(?:3\\d|4[4-9]|5[0-35-9]|6[67]|7[0-8]|8\\d|9\\d)\\d{8}$';
 const innerNameReg = '^[a-zA-Z\\d\\u4e00-\\u9fa5]+$';
 const labelsOptions = [
@@ -62,7 +63,9 @@ Page({
     },
     getAddressDetail(id) {
         fetchDeliveryAddress(id).then((detail) => {
-            this.setData({ locationState: detail }, () => {
+            this.setData({
+                locationState: { ...this.data.locationState, ...detail, isEdit: true },
+            }, () => {
                 const { isLegal, tips } = this.onVerifyInputLegal();
                 this.setData({
                     submitActive: isLegal,
@@ -92,7 +95,13 @@ Page({
             });
         }
         else {
-            const { value = '' } = e.detail;
+            let { value = '' } = e.detail;
+            if (item === 'phone') {
+                value = String(value ?? '').replace(/\s/g, '');
+            }
+            else if (item === 'name') {
+                value = String(value ?? '').trim();
+            }
             this.setData({
                 [`locationState.${item}`]: value,
             }, () => {
@@ -325,18 +334,18 @@ Page({
         }
         const { locationState } = this.data;
         const payload = {
-            name: locationState.name,
-            phone: locationState.phone,
-            countryName: locationState.countryName || '',
-            countryCode: locationState.countryCode || '',
-            provinceName: locationState.provinceName || '',
-            provinceCode: locationState.provinceCode || '',
-            cityName: locationState.cityName || '',
-            cityCode: locationState.cityCode || '',
-            districtName: locationState.districtName || '',
-            districtCode: locationState.districtCode || '',
-            detailAddress: locationState.detailAddress || '',
-            addressTag: locationState.addressTag || '',
+            name: String(locationState.name ?? '').trim(),
+            phone: String(locationState.phone ?? '').replace(/\s/g, ''),
+            countryName: String(locationState.countryName ?? ''),
+            countryCode: String(locationState.countryCode ?? ''),
+            provinceName: String(locationState.provinceName ?? ''),
+            provinceCode: String(locationState.provinceCode ?? ''),
+            cityName: String(locationState.cityName ?? ''),
+            cityCode: String(locationState.cityCode ?? ''),
+            districtName: String(locationState.districtName ?? ''),
+            districtCode: String(locationState.districtCode ?? ''),
+            detailAddress: String(locationState.detailAddress ?? ''),
+            addressTag: String(locationState.addressTag ?? ''),
             isDefault: locationState.isDefault === 1 || locationState.isDefault === true ? 1 : 0,
             latitude: locationState.latitude,
             longitude: locationState.longitude,
@@ -351,12 +360,16 @@ Page({
             }
         }
         catch (e) {
+            const hint = getErrorMessage(e);
+            const msg = hint && hint.length > 0 && hint !== 'Unknown error'
+                ? (hint.length > 72 ? `${hint.slice(0, 72)}…` : hint)
+                : '地址保存失败，请稍后重试';
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: '地址保存失败，请稍后重试',
+                message: msg,
                 icon: '',
-                duration: 1200,
+                duration: 2200,
             });
             return;
         }

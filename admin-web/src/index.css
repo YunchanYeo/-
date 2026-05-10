@@ -328,3 +328,85 @@ table.data tr:hover td {
     justify-content: flex-start;
   }
 }
+
+/* 窄屏：避免整页横向漂移（表格区域仍用 .table-wrap 滚动） */
+.login-page {
+  min-height: 100dvh;
+}
+
+@media (max-width: 767px) {
+  html {
+    overflow-x: hidden;
+  }
+}
+
+/* 客服会话：窄屏上下分栏，避免侧栏 280px + 聊天区超出视口 */
+.support-chat-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: calc(100vh - 5.5rem);
+  height: calc(100dvh - 5.5rem);
+  min-height: min(420px, 70dvh);
+}
+
+@media (max-width: 767px) {
+  .support-chat-root {
+    height: calc(100dvh - 8.5rem);
+    min-height: 0;
+  }
+}
+
+.support-chat-split {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  padding: 0;
+  min-height: 0;
+}
+
+.support-chat-aside {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--surface2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.support-chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.support-chat-voice-wrap {
+  padding: 0.35rem 0.5rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.support-chat-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  .support-chat-split {
+    flex-direction: column;
+  }
+
+  .support-chat-aside {
+    width: 100%;
+    max-height: 38vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .support-chat-input {
+    flex: 1 1 100%;
+  }
+}

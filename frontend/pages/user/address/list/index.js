@@ -1,5 +1,5 @@
 /* eslint-disable no-param-reassign */
-import { fetchDeliveryAddressList, deleteDeliveryAddress } from '../../../../services/address/fetchAddress';
+import { fetchDeliveryAddressList, deleteDeliveryAddress, createDeliveryAddress } from '../../../../services/address/fetchAddress';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { resolveAddress, rejectAddress } from '../../../../services/address/list';
 import { getAddressPromise } from '../../../../services/address/edit';
@@ -33,18 +33,29 @@ Page({
     },
     getAddressList() {
         const { id } = this.data;
-        fetchDeliveryAddressList().then((addressList) => {
-            addressList.forEach((address) => {
-                if (address.id === id) {
-                    address.checked = true;
-                }
+        return fetchDeliveryAddressList()
+            .then((addressList) => {
+                addressList.forEach((address) => {
+                    if (String(address.id) === String(id)) {
+                        address.checked = true;
+                    }
+                });
+                this.setData({ addressList });
+                return addressList;
+            })
+            .catch(() => {
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '加载地址列表失败',
+                    icon: '',
+                    duration: 2000,
+                });
             });
-            this.setData({ addressList });
-        });
     },
     getWXAddressHandle() {
         wx.chooseAddress({
-            success: (res) => {
+            success: async (res) => {
                 if (res.errMsg.indexOf('ok') === -1) {
                     Toast({
                         context: this,
@@ -55,24 +66,43 @@ Page({
                     });
                     return;
                 }
-                Toast({
-                    context: this,
-                    selector: '#t-toast',
-                    message: '添加成功',
-                    icon: '',
-                    duration: 1000,
-                });
-                const { length: len } = this.data.addressList;
-                this.setData({
-                    [`addressList[${len}]`]: {
-                        name: res.userName,
-                        phoneNumber: res.telNumber,
-                        address: `${res.provinceName}${res.cityName}${res.countryName}${res.detailInfo}`,
-                        isDefault: 0,
-                        tag: '微信地址',
-                        id: len,
-                    },
-                });
+                const district = res.countyName || res.countryName || '';
+                const phone = String(res.telNumber || '').replace(/\s/g, '');
+                const payload = {
+                    name: res.userName || '',
+                    phone,
+                    countryName: '',
+                    countryCode: res.nationalCode || '',
+                    provinceName: res.provinceName || '',
+                    provinceCode: '',
+                    cityName: res.cityName || '',
+                    cityCode: '',
+                    districtName: district,
+                    districtCode: '',
+                    detailAddress: res.detailInfo || '',
+                    addressTag: '微信地址',
+                    isDefault: 0,
+                };
+                try {
+                    await createDeliveryAddress(payload);
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: '添加成功',
+                        icon: '',
+                        duration: 1000,
+                    });
+                    await this.getAddressList();
+                }
+                catch (e) {
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: '地址保存失败，请稍后重试',
+                        icon: '',
+                        duration: 2000,
+                    });
+                }
             },
         });
     },
@@ -114,7 +144,7 @@ Page({
             return;
         }
         this.setData({
-            addressList: this.data.addressList.filter((address) => address.id !== id),
+            addressList: this.data.addressList.filter((address) => String(address.id) !== String(id)),
             deleteID: '',
             showDeleteConfirm: false,
         });
@@ -148,10 +178,11 @@ Page({
         getAddressPromise()
             .then((newAddress) => {
             let addressList = [...this.data.addressList];
+            const aid = String(newAddress.addressId ?? newAddress.id ?? '').trim();
             newAddress.phoneNumber = newAddress.phone;
             newAddress.address = `${newAddress.provinceName}${newAddress.cityName}${newAddress.districtName}${newAddress.detailAddress}`;
             newAddress.tag = newAddress.addressTag;
-            if (!newAddress.addressId) {
+            if (!aid) {
                 newAddress.id = `${addressList.length}`;
                 newAddress.addressId = `${addressList.length}`;
                 if (newAddress.isDefault === 1) {
@@ -166,12 +197,22 @@ Page({
                 addressList.push(newAddress);
             }
             else {
+                let matched = false;
                 addressList = addressList.map((address) => {
-                    if (address.addressId === newAddress.addressId) {
-                        return newAddress;
+                    const rid = String(address.addressId ?? address.id ?? '');
+                    if (rid === aid) {
+                        matched = true;
+                        return { ...address, ...newAddress, id: aid, addressId: aid };
                     }
                     return address;
                 });
+                if (!matched) {
+                    const row = { ...newAddress, id: aid, addressId: aid };
+                    if (row.isDefault === 1) {
+                        addressList = addressList.map((address) => ({ ...address, isDefault: 0 }));
+                    }
+                    addressList.push(row);
+                }
             }
             addressList.sort((prevAddress, nextAddress) => {
                 if (prevAddress.isDefault && !nextAddress.isDefault) {

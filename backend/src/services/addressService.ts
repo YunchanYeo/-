@@ -2,6 +2,54 @@ import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
 
+/** wx / 表单可能传入字符串或 null；SQLite REAL 也可能读出非 number */
+const optionalCoord = z.preprocess((v) => {
+  if (v === null || v === undefined || v === '') return undefined;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}, z.number().optional());
+
+/** 小程序 t-input number 等会把 phone 打成数字；null 字段也需收紧 */
+function normalizeAddressBody(body: unknown): Record<string, unknown> {
+  const b = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
+  return {
+    name: s(b.name).trim(),
+    phone: s(b.phone).replace(/\s/g, ''),
+    countryName: s(b.countryName),
+    countryCode: s(b.countryCode),
+    provinceName: s(b.provinceName),
+    provinceCode: s(b.provinceCode),
+    cityName: s(b.cityName),
+    cityCode: s(b.cityCode),
+    districtName: s(b.districtName),
+    districtCode: s(b.districtCode),
+    detailAddress: s(b.detailAddress),
+    addressTag: s(b.addressTag),
+    isDefault: b.isDefault,
+    latitude: b.latitude,
+    longitude: b.longitude,
+  };
+}
+
+const addressWriteSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(1),
+  countryName: z.string().optional(),
+  countryCode: z.string().optional(),
+  provinceName: z.string().optional(),
+  provinceCode: z.string().optional(),
+  cityName: z.string().optional(),
+  cityCode: z.string().optional(),
+  districtName: z.string().optional(),
+  districtCode: z.string().optional(),
+  detailAddress: z.string().optional(),
+  addressTag: z.string().optional(),
+  isDefault: z.union([z.boolean(), z.number()]).optional(),
+  latitude: optionalCoord,
+  longitude: optionalCoord,
+});
+
 export function createAddressService({ db }: { db: Db }) {
   function listAddresses(req: Request, res: Response) {
     const userId = (req as any).user?.id;
@@ -33,24 +81,7 @@ export function createAddressService({ db }: { db: Db }) {
 
   function createAddress(req: Request, res: Response) {
     const userId = (req as any).user?.id;
-    const schema = z.object({
-      name: z.string().min(1),
-      phone: z.string().min(1),
-      countryName: z.string().optional(),
-      countryCode: z.string().optional(),
-      provinceName: z.string().optional(),
-      provinceCode: z.string().optional(),
-      cityName: z.string().optional(),
-      cityCode: z.string().optional(),
-      districtName: z.string().optional(),
-      districtCode: z.string().optional(),
-      detailAddress: z.string().optional(),
-      addressTag: z.string().optional(),
-      isDefault: z.union([z.boolean(), z.number()]).optional(),
-      latitude: z.number().optional(),
-      longitude: z.number().optional(),
-    });
-    const parsed = schema.safeParse(req.body || {});
+    const parsed = addressWriteSchema.safeParse(normalizeAddressBody(req.body));
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid address body', issues: parsed.error.issues });
     const d = parsed.data;
     const isDefault = d.isDefault === true || d.isDefault === 1 ? 1 : 0;
@@ -86,24 +117,7 @@ export function createAddressService({ db }: { db: Db }) {
 
   function updateAddress(req: Request, res: Response) {
     const userId = (req as any).user?.id;
-    const schema = z.object({
-      name: z.string().min(1),
-      phone: z.string().min(1),
-      countryName: z.string().optional(),
-      countryCode: z.string().optional(),
-      provinceName: z.string().optional(),
-      provinceCode: z.string().optional(),
-      cityName: z.string().optional(),
-      cityCode: z.string().optional(),
-      districtName: z.string().optional(),
-      districtCode: z.string().optional(),
-      detailAddress: z.string().optional(),
-      addressTag: z.string().optional(),
-      isDefault: z.union([z.boolean(), z.number()]).optional(),
-      latitude: z.number().optional(),
-      longitude: z.number().optional(),
-    });
-    const parsed = schema.safeParse(req.body || {});
+    const parsed = addressWriteSchema.safeParse(normalizeAddressBody(req.body));
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid address body', issues: parsed.error.issues });
     const exists = db.prepare(`SELECT id FROM user_addresses WHERE id = ? AND userId = ?`).get(req.params.id, userId);
     if (!exists) return res.status(404).json({ ok: false, message: 'Address not found' });
