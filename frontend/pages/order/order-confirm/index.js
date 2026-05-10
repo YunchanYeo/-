@@ -1,7 +1,7 @@
 import Toast from 'tdesign-miniprogram/toast/index';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 import { fetchSettleDetail, deriveGoodsRequestListFromSettleDetail } from '../../../services/order/orderConfirm';
-import { commitPay, wechatPayOrder } from './pay';
+import { commitPay, wechatPayOrder, alipayPayOrder } from './pay';
 import { getAddressPromise } from '../../../services/address/list';
 const stripeImg = `https://tdesign.gtimg.com/miniprogram/template/retail/order/stripe.png`;
 Page({
@@ -40,6 +40,8 @@ Page({
         currentStoreId: null, //当前优惠券storeId
         userAddress: null,
         usePoints: false,
+        /** 支付方式：wechat | alipay（支付宝为手机网站支付 + web-view） */
+        payChannel: 'wechat',
     },
     payLock: false,
     noteInfo: [],
@@ -358,6 +360,7 @@ Page({
             invoiceRequest: null,
             storeInfoList,
             couponList: resSubmitCouponList,
+            payChannel: this.data.payChannel || 'wechat',
         };
         if (invoiceData && invoiceData.email) {
             params.invoiceRequest = invoiceData;
@@ -438,7 +441,7 @@ Page({
     },
     // 处理支付
     handlePay(data, settleDetailData) {
-        const { channel, payInfo, tradeNo, interactId, transactionId, isMockPay, virtualPayInfo, pluginPaymentData, commonPayInfo, globalPayInfo, paymentMethod, } = data;
+        const { channel, payInfo, tradeNo, interactId, transactionId, isMockPay, virtualPayInfo, pluginPaymentData, commonPayInfo, globalPayInfo, paymentMethod, alipayWebViewUrl, } = data;
         const { totalAmount, totalPayAmount } = settleDetailData;
         const payOrderInfo = {
             channel,
@@ -456,10 +459,17 @@ Page({
             transactionId: transactionId,
             isMockPay: !!isMockPay,
             goodsRequestList: this.goodsRequestList,
+            alipayWebViewUrl,
         };
-        if (channel === 'wechat') {
+        if (channel === 'alipay') {
+            alipayPayOrder(payOrderInfo);
+        }
+        else if (channel === 'wechat') {
             wechatPayOrder(payOrderInfo);
         }
+    },
+    onPayChannelChange(e) {
+        this.setData({ payChannel: e.detail.value === 'alipay' ? 'alipay' : 'wechat' });
     },
     hide() {
         // 隐藏 popup

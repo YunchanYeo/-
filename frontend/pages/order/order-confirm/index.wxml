@@ -122,6 +122,19 @@
       <price class="total-price" price="{{settleDetailData.totalPayAmount}}" fill="{{false}}" decimalSmaller />
     </view>
   </view>
+  <view class="pay-channel" wx:if="{{settleDetailData.settleType === 1}}">
+    <view class="pay-channel__title">支付方式</view>
+    <radio-group class="pay-channel__group" value="{{payChannel}}" bindchange="onPayChannelChange">
+      <label class="pay-channel__item">
+        <radio value="wechat" color="#fa4126" />
+        <text>微信支付</text>
+      </label>
+      <label class="pay-channel__item">
+        <radio value="alipay" color="#1677ff" />
+        <text>支付宝（网页收银台）</text>
+      </label>
+    </radio-group>
+  </view>
   <view class="wx-pay-cover">
     <view class="wx-pay">
       <price decimalSmaller fill class="price" price="{{settleDetailData.totalPayAmount || '0'}}" />

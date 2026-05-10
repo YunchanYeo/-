@@ -10,6 +10,13 @@ import {
   verifyNotifySignature,
   type WechatPayV3Config,
 } from './wechatPayV3';
+import {
+  isAlipayTradeSuccess,
+  requestAlipayTradeWapPayHtml,
+  shouldUseRealAlipayPay,
+  verifyAlipayNotifyParams,
+  type AlipayWapConfig,
+} from './alipayWap';
 import { hydrateOrderItemsWithProduct } from './orderItemImages';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
@@ -20,14 +27,39 @@ function genTradeNo() {
   return `${ts}${rand}`;
 }
 
+function getPayLaunchSecret(): string {
+  return String(
+    process.env.PAY_LAUNCH_TOKEN_SECRET || process.env.ALIPAY_WAP_LAUNCH_SECRET || 'dev-pay-launch-secret-change-me',
+  ).trim();
+}
+
+function signPayLaunch(parts: string[]): string {
+  return crypto.createHmac('sha256', getPayLaunchSecret()).update(parts.join('|')).digest('hex');
+}
+
+function verifyWapLaunch(orderNo: string, exp: number, sig: string): boolean {
+  if (!orderNo || !sig || !Number.isFinite(exp)) return false;
+  if (exp * 1000 < Date.now()) return false;
+  return signPayLaunch([orderNo, String(exp), 'wap']) === sig;
+}
+
+function verifyBridgeSig(orderNo: string, kind: 'return' | 'quit', sig: string): boolean {
+  if (!orderNo || !sig) return false;
+  return signPayLaunch([orderNo, kind]) === sig;
+}
+
 export function createOrderService({
   db,
   paymentMockMode,
   wechatPayConfig,
+  alipayPaymentMockMode,
+  alipayWapConfig,
 }: {
   db: Db;
   paymentMockMode: boolean;
   wechatPayConfig: WechatPayV3Config | null;
+  alipayPaymentMockMode: boolean;
+  alipayWapConfig: AlipayWapConfig | null;
 }) {
   function getPointPolicy() {
     const rows = db
@@ -94,6 +126,7 @@ export function createOrderService({
       pointsToUse: z.number().int().nonnegative().optional(),
       goodsRequestList: z.array(z.any()).optional(),
       userName: z.string().optional(),
+      payChannel: z.enum(['wechat', 'alipay']).optional().default('wechat'),
       paymentMethod: z
         .enum(['requestPayment', 'requestPluginPayment', 'requestCommonPayment', 'requestGlobalPayment', 'requestVirtualPayment'])
         .optional(),
@@ -104,7 +137,8 @@ export function createOrderService({
     const tradeNo = genTradeNo();
     const totalAmount = parsed.data.totalAmount ?? 0;
     const pointsToUseRequested = parsed.data.pointsToUse ?? 0;
-    const paymentMethod = parsed.data.paymentMethod || 'requestPayment';
+    let paymentMethod: string = parsed.data.paymentMethod || 'requestPayment';
+    const payChannel = parsed.data.payChannel ?? 'wechat';
     const orderItemsRaw = parsed.data.goodsRequestList ?? [];
     const orderItems = hydrateOrderItemsWithProduct(db, orderItemsRaw);
     const orderAddress = (req.body as any)?.userAddressReq ?? {};
@@ -153,40 +187,74 @@ export function createOrderService({
     };
     let isMockPay = true;
     let transactionId = `TXN_${tradeNo}`;
+    let channel: 'wechat' | 'alipay' = 'wechat';
+    let alipayWebViewUrl: string | null = null;
 
-    const useReal = userId && totalAmount > 0 && shouldUseRealWechatPay(paymentMockMode, wechatPayConfig);
-
-    if (useReal) {
-      const userRow = db.prepare(`SELECT openid FROM users WHERE id = ?`).get(userId) as { openid: string } | undefined;
-      const openid = String(userRow?.openid || '').trim();
-      if (!openid || /^dev_/i.test(openid)) {
-        return res.status(400).json({
+    if (payChannel === 'alipay') {
+      channel = 'alipay';
+      paymentMethod = 'wapWebView';
+      const useRealAli = userId && totalAmount > 0 && shouldUseRealAlipayPay(alipayPaymentMockMode, alipayWapConfig);
+      if (useRealAli) {
+        const host = String(req.get('host') || '').trim();
+        const publicBase = String(process.env.API_PUBLIC_BASE_URL || '')
+          .trim()
+          .replace(/\/+$/, '') || (host ? `${req.protocol}://${host}` : '');
+        if (!publicBase) {
+          return res.status(503).json({
+            ok: false,
+            message:
+              '支付宝手机网站支付需要可公网访问的 HTTPS 业务域名：请配置环境变量 API_PUBLIC_BASE_URL（例如 https://你的域名），并在小程序后台配置 web-view 业务域名。',
+          });
+        }
+        const exp = Math.floor(Date.now() / 1000) + 30 * 60;
+        const sig = signPayLaunch([tradeNo, String(exp), 'wap']);
+        alipayWebViewUrl = `${publicBase}/api/alipay/wap-launch?orderNo=${encodeURIComponent(tradeNo)}&exp=${exp}&sig=${encodeURIComponent(sig)}`;
+        isMockPay = false;
+        transactionId = `ALIPAY_${tradeNo}`;
+        payInfo = {};
+      } else if (userId && totalAmount > 0 && !alipayPaymentMockMode && !alipayWapConfig) {
+        return res.status(503).json({
           ok: false,
           message:
-            '真实支付需要微信登录用户 openid；开发用 dev_ 开头 openid 无法调起微信支付。请使用真机/体验版授权登录，或保持 WECHAT_PAY_MOCK=true。',
+            '已关闭支付宝模拟（ALIPAY_PAY_MOCK=false），但未配置完整支付宝参数（ALIPAY_APP_ID、ALIPAY_APP_PRIVATE_KEY、ALIPAY_ALIPAY_PUBLIC_KEY、ALIPAY_NOTIFY_URL）。可选：ALIPAY_GATEWAY（默认正式网关）。',
         });
       }
-      try {
-        const js = await jsapiTransactions({
-          config: wechatPayConfig,
-          description: `订单${tradeNo}`,
-          outTradeNo: tradeNo,
-          totalFen: totalAmount,
-          openid,
+    } else {
+      channel = 'wechat';
+      const useReal = userId && totalAmount > 0 && shouldUseRealWechatPay(paymentMockMode, wechatPayConfig);
+
+      if (useReal) {
+        const userRow = db.prepare(`SELECT openid FROM users WHERE id = ?`).get(userId) as { openid: string } | undefined;
+        const openid = String(userRow?.openid || '').trim();
+        if (!openid || /^dev_/i.test(openid)) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              '真实支付需要微信登录用户 openid；开发用 dev_ 开头 openid 无法调起微信支付。请使用真机/体验版授权登录，或保持 WECHAT_PAY_MOCK=true。',
+          });
+        }
+        try {
+          const js = await jsapiTransactions({
+            config: wechatPayConfig,
+            description: `订单${tradeNo}`,
+            outTradeNo: tradeNo,
+            totalFen: totalAmount,
+            openid,
+          });
+          payInfo = buildMiniProgramPayParams(wechatPayConfig.appId, js.prepay_id, wechatPayConfig.privateKeyPem);
+          isMockPay = false;
+          transactionId = js.prepay_id;
+        } catch (e: any) {
+          console.error('[wechat pay jsapi]', e);
+          return res.status(502).json({ ok: false, message: String(e?.message || '微信下单失败') });
+        }
+      } else if (userId && totalAmount > 0 && !paymentMockMode && !wechatPayConfig) {
+        return res.status(503).json({
+          ok: false,
+          message:
+            '已关闭模拟支付（WECHAT_PAY_MOCK=false），但未配置完整微信支付参数（WECHAT_MCH_ID、WECHAT_PAY_SERIAL_NO、WECHAT_PAY_PRIVATE_KEY、WECHAT_PAY_NOTIFY_URL、WECHAT_PAY_API_V3_KEY）。',
         });
-        payInfo = buildMiniProgramPayParams(wechatPayConfig.appId, js.prepay_id, wechatPayConfig.privateKeyPem);
-        isMockPay = false;
-        transactionId = js.prepay_id;
-      } catch (e: any) {
-        console.error('[wechat pay jsapi]', e);
-        return res.status(502).json({ ok: false, message: String(e?.message || '微信下单失败') });
       }
-    } else if (userId && totalAmount > 0 && !paymentMockMode && !wechatPayConfig) {
-      return res.status(503).json({
-        ok: false,
-        message:
-          '已关闭模拟支付（WECHAT_PAY_MOCK=false），但未配置完整微信支付参数（WECHAT_MCH_ID、WECHAT_PAY_SERIAL_NO、WECHAT_PAY_PRIVATE_KEY、WECHAT_PAY_NOTIFY_URL、WECHAT_PAY_API_V3_KEY）。',
-      });
     }
 
     return res.json({
@@ -196,7 +264,7 @@ export function createOrderService({
         tradeNo,
         transactionId,
         interactId: `INT_${tradeNo}`,
-        channel: 'wechat',
+        channel,
         payAmt: totalAmount,
         payInfo: JSON.stringify(payInfo),
         paymentMethod,
@@ -204,6 +272,7 @@ export function createOrderService({
         commonPayInfo: null,
         globalPayInfo: null,
         isMockPay,
+        alipayWebViewUrl,
         limitGoodsList: null,
       },
       code: 'Success',
@@ -586,9 +655,145 @@ export function createOrderService({
     }
   }
 
+  function flattenUrlEncodedBody(body: unknown): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (!body || typeof body !== 'object') return out;
+    for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+      if (v === undefined || v === null) continue;
+      out[String(k)] = Array.isArray(v) ? String(v[0]) : String(v);
+    }
+    return out;
+  }
+
+  async function alipayWapLaunch(req: Request, res: Response) {
+    const orderNo = String(req.query.orderNo || '').trim();
+    const exp = Number(req.query.exp || 0);
+    const sig = String(req.query.sig || '').trim();
+    if (!verifyWapLaunch(orderNo, exp, sig)) {
+      return res.status(403).type('html').send('<html><meta charset="utf-8"><body>链接无效或已过期</body></html>');
+    }
+    const order = db
+      .prepare(`SELECT orderNo, paymentAmount, orderStatus FROM orders WHERE orderNo = ?`)
+      .get(orderNo) as { orderNo: string; paymentAmount: number; orderStatus: number } | undefined;
+    if (!order || order.orderStatus !== 5) {
+      return res.status(404).type('html').send('<html><meta charset="utf-8"><body>订单不可支付</body></html>');
+    }
+    if (!alipayWapConfig) {
+      return res.status(503).type('html').send('<html><meta charset="utf-8"><body>未配置支付宝参数</body></html>');
+    }
+    try {
+      const host = String(req.get('host') || '').trim();
+      const publicBase = String(process.env.API_PUBLIC_BASE_URL || '')
+        .trim()
+        .replace(/\/+$/, '') || (host ? `${req.protocol}://${host}` : '');
+      if (!publicBase) {
+        return res.status(503).type('html').send('<html><meta charset="utf-8"><body>缺少 API_PUBLIC_BASE_URL</body></html>');
+      }
+      const sigRet = signPayLaunch([orderNo, 'return']);
+      const sigQuit = signPayLaunch([orderNo, 'quit']);
+      const returnUrl = `${publicBase}/api/alipay/return?orderNo=${encodeURIComponent(orderNo)}&sig=${encodeURIComponent(sigRet)}`;
+      const quitUrl = `${publicBase}/api/alipay/quit?orderNo=${encodeURIComponent(orderNo)}&sig=${encodeURIComponent(sigQuit)}`;
+      const html = await requestAlipayTradeWapPayHtml(alipayWapConfig, {
+        outTradeNo: orderNo,
+        totalFen: Number(order.paymentAmount || 0),
+        subject: `订单${orderNo}`,
+        notifyUrl: alipayWapConfig.notifyUrl,
+        returnUrl,
+        quitUrl,
+      });
+      return res.type('text/html; charset=utf-8').send(html);
+    } catch (e: any) {
+      console.error('[alipay wap launch]', e);
+      const msg = String(e?.message || e);
+      return res.status(502).type('html').send(`<html><meta charset="utf-8"><body>支付宝下单失败：${msg}</body></html>`);
+    }
+  }
+
+  async function alipayNotify(req: Request, res: Response) {
+    const params = flattenUrlEncodedBody(req.body);
+    if (!alipayWapConfig) {
+      return res.status(503).type('text/plain').send('fail');
+    }
+    if (!verifyAlipayNotifyParams(params, alipayWapConfig.alipayPublicKeyPem)) {
+      console.warn('[alipay notify] verify failed');
+      return res.status(400).type('text/plain').send('fail');
+    }
+    if (!isAlipayTradeSuccess(params)) {
+      return res.type('text/plain').send('success');
+    }
+    const orderNo = String(params.out_trade_no || '').trim();
+    if (!orderNo) return res.status(400).type('text/plain').send('fail');
+    const order = db
+      .prepare(`SELECT orderNo, paymentAmount, orderStatus FROM orders WHERE orderNo = ?`)
+      .get(orderNo) as { orderNo: string; paymentAmount: number; orderStatus: number } | undefined;
+    if (!order) {
+      console.warn('[alipay notify] order not found', orderNo);
+      return res.type('text/plain').send('success');
+    }
+    const notifyFen = Math.round(Number(params.total_amount || '0') * 100);
+    if (notifyFen !== Number(order.paymentAmount)) {
+      console.error('[alipay notify] amount mismatch', orderNo, notifyFen, order.paymentAmount);
+      return res.status(400).type('text/plain').send('fail');
+    }
+    const r = finalizeOrderPaid(orderNo);
+    if (!r.ok) {
+      console.warn('[alipay notify] finalize', orderNo, r.message);
+    }
+    return res.type('text/plain').send('success');
+  }
+
+  function alipayReturn(req: Request, res: Response) {
+    const orderNo = String(req.query.orderNo || '').trim();
+    const sig = String(req.query.sig || '').trim();
+    if (!verifyBridgeSig(orderNo, 'return', sig)) {
+      return res.status(403).type('html').send('<html><meta charset="utf-8"><body>无效链接</body></html>');
+    }
+    const order = db
+      .prepare(`SELECT orderNo, paymentAmount FROM orders WHERE orderNo = ?`)
+      .get(orderNo) as { orderNo: string; paymentAmount: number } | undefined;
+    const totalPaid = order ? Number(order.paymentAmount || 0) : 0;
+    const safeOrderNo = JSON.stringify(orderNo);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body>
+<p>正在返回小程序…</p>
+<script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+<script>
+(function(){
+  var orderNo = ${safeOrderNo};
+  var totalPaid = ${totalPaid};
+  if (typeof wx !== 'undefined' && wx.miniProgram) {
+    wx.miniProgram.redirectTo({ url: '/pages/order/pay-result/index?orderNo=' + encodeURIComponent(orderNo) + '&totalPaid=' + encodeURIComponent(String(totalPaid)) });
+  }
+})();
+</script>
+</body></html>`;
+    return res.type('text/html; charset=utf-8').send(html);
+  }
+
+  function alipayQuit(req: Request, res: Response) {
+    const orderNo = String(req.query.orderNo || '').trim();
+    const sig = String(req.query.sig || '').trim();
+    if (!verifyBridgeSig(orderNo, 'quit', sig)) {
+      return res.status(403).type('html').send('<html><meta charset="utf-8"><body>无效链接</body></html>');
+    }
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body>
+<p>已取消支付</p>
+<script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+<script>
+if (typeof wx !== 'undefined' && wx.miniProgram) {
+  wx.miniProgram.redirectTo({ url: '/pages/order/order-list/index' });
+}
+</script>
+</body></html>`;
+    return res.type('text/html; charset=utf-8').send(html);
+  }
+
   return {
     commitOrder,
     wechatPayNotify,
+    alipayWapLaunch,
+    alipayNotify,
+    alipayReturn,
+    alipayQuit,
     markOrderPaid,
     cancelOrder,
     confirmOrderReceived,
