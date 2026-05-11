@@ -1,6 +1,6 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { getToken, loginWithWeChat } from '../../services/auth/session';
+import { getToken, loginWithWeChat, bindPhoneByWeChatCode } from '../../services/auth/session';
 import { requestJson } from '../../services/_utils/http';
 const menuData = [
     [
@@ -262,6 +262,44 @@ Page({
             return;
         }
         wx.navigateTo({ url: '/pages/user/person-info/index' });
+    },
+    async onGetPhoneNumberLogin(e) {
+        const errMsg = String(e?.detail?.errMsg || '');
+        const phoneCode = String(e?.detail?.code || '');
+        if (!phoneCode) {
+            const cancelled = errMsg.includes('fail user deny') || errMsg.includes('cancel');
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: cancelled ? '你已取消手机号授权' : '手机号授权失败',
+                icon: '',
+                duration: 1400,
+            });
+            return;
+        }
+        try {
+            if (!getToken()) {
+                await loginWithWeChat();
+            }
+            await bindPhoneByWeChatCode(phoneCode);
+            await this.fetUseriInfoHandle();
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '一键登录成功',
+                icon: 'success',
+                duration: 1200,
+            });
+        }
+        catch (err) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: err?.message || '一键登录失败，请重试',
+                icon: '',
+                duration: 1600,
+            });
+        }
     },
     async handleLoginWithConsent() {
         try {

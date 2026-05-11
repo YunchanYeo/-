@@ -20,6 +20,23 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   }
 }
 
+async function postJsonWithTimeout(url: string, body: Record<string, unknown>, timeoutMs: number) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body || {}),
+      signal: controller.signal,
+    });
+    const data = (await res.json().catch(() => null)) as any;
+    return { res, data };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function withSqliteRetry<T>(fn: () => T, options: { retries?: number; baseDelayMs?: number } = {}) {
   const retries = options.retries ?? 8;
   const baseDelayMs = options.baseDelayMs ?? 80;
@@ -52,6 +69,8 @@ function getAdminToken(req: Request) {
 }
 
 export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<RequestContext, 'db' | 'wechatAppId' | 'wechatAppSecret'>) {
+  let cachedAccessToken = '';
+  let cachedAccessTokenExpireAt = 0;
   function requireAuth(req: Request, res: Response, next: NextFunction) {
     const token = getAuthToken(req);
     if (!token) return res.status(401).json({ ok: false, message: 'Missing Authorization token' });
@@ -164,6 +183,66 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
     }
   }
 
+  async function getWechatAccessToken() {
+    const now = Date.now();
+    if (cachedAccessToken && cachedAccessTokenExpireAt > now + 30_000) {
+      return cachedAccessToken;
+    }
+    if (!wechatAppId || !wechatAppSecret) {
+      throw new Error('Server missing WECHAT_APPID/WECHAT_APPSECRET');
+    }
+    const tokenUrl =
+      `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${encodeURIComponent(wechatAppId)}&secret=${encodeURIComponent(wechatAppSecret)}`;
+    const { data } = await fetchJsonWithTimeout(tokenUrl, 8000);
+    const errcode = Number(data?.errcode || 0);
+    if (errcode) {
+      throw new Error(`wechat get access_token failed: ${errcode} ${String(data?.errmsg || 'unknown')}`);
+    }
+    const accessToken = String(data?.access_token || '');
+    const expiresIn = Math.max(60, Number(data?.expires_in || 7200));
+    if (!accessToken) throw new Error('wechat get access_token failed: missing access_token');
+    cachedAccessToken = accessToken;
+    cachedAccessTokenExpireAt = now + expiresIn * 1000;
+    return accessToken;
+  }
+
+  async function bindWechatPhone(req: Request, res: Response) {
+    try {
+      const user = (req as any).user as AuthedUser | undefined;
+      if (!user?.id) return res.status(401).json({ ok: false, message: 'Unauthorized' });
+      const schema = z.object({ code: z.string().min(1) });
+      const parsed = schema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: 'Invalid phone bind body', issues: parsed.error.issues });
+      }
+      const accessToken = await getWechatAccessToken();
+      const url = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${encodeURIComponent(accessToken)}`;
+      const { data: wxData } = await postJsonWithTimeout(url, { code: parsed.data.code }, 8000);
+      const errcode = Number(wxData?.errcode || 0);
+      if (errcode) {
+        const errmsg = String(wxData?.errmsg || 'unknown');
+        return res.status(401).json({ ok: false, message: `wechat getPhoneNumber failed: ${errcode} ${errmsg}`, data: { errcode, errmsg } });
+      }
+      const phoneNumber = String(wxData?.phone_info?.phoneNumber || '');
+      if (!phoneNumber) {
+        return res.status(401).json({ ok: false, message: 'wechat getPhoneNumber failed: missing phoneNumber' });
+      }
+      await withSqliteRetry(() =>
+        db.prepare(`UPDATE users SET phoneNumber = ?, updatedAt = datetime('now') WHERE id = ?`).run(phoneNumber, user.id),
+      );
+      const me = db
+        .prepare(
+          `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
+           FROM users WHERE id = ?`,
+        )
+        .get(user.id);
+      return res.json({ ok: true, data: { user: me } });
+    } catch (e: any) {
+      console.error('[bindWechatPhone] failed', e);
+      return res.status(500).json({ ok: false, message: `wechat phone bind failed: ${e?.message || 'unknown error'}` });
+    }
+  }
+
   /**
    * 管理员登录：校验 SQLite `admins` 表中的 passwordHash（bcrypt）或明文 password（首次登录后会升级为哈希）。
    */
@@ -203,5 +282,5 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
     return res.json({ ok: true, data: { token, admin: { id: admin.id, username: admin.username } } });
   }
 
-  return { requireAuth, requireAdmin, wechatLogin, adminLogin };
+  return { requireAuth, requireAdmin, wechatLogin, bindWechatPhone, adminLogin };
 }

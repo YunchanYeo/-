@@ -37,6 +37,26 @@ page {
   color: #9b6a2e;
 }
 
+.profile-auth-actions {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+}
+
+.phone-login-btn {
+  border: 0;
+  border-radius: 14rpx;
+  background: #07c160;
+  color: #fff;
+  font-size: 24rpx;
+  line-height: 64rpx;
+  padding: 0 24rpx;
+}
+
+.phone-login-btn::after {
+  border: 0;
+}
+
 .order-group-note {
   font-size: 28rpx;
 }

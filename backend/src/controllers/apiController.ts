@@ -13,6 +13,7 @@ export function createApiController(services: Services) {
     appConfig: services.appConfig.appConfig as RequestHandler,
     categories: services.category.categories as RequestHandler,
     wechatLogin: services.auth.wechatLogin as RequestHandler,
+    bindWechatPhone: services.auth.bindWechatPhone as RequestHandler,
     publicProducts: services.product.publicProducts as RequestHandler,
     publicProductDetail: services.product.publicProductDetail as RequestHandler,
     publicPromotions: services.promotion.publicPromotions as RequestHandler,

@@ -20,6 +20,7 @@ export function createApiRouter(controller: any) {
   router.get('/promotions/:id', controller.publicPromotionDetail);
 
   // auth routes
+  router.post('/auth/wechat-phone', controller.requireAuth, controller.bindWechatPhone);
   router.get('/me', controller.requireAuth, controller.me);
   router.put('/me', controller.requireAuth, controller.updateMe);
 

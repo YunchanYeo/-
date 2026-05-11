@@ -138,6 +138,24 @@ export async function loginWithWeChat(userInfo = null) {
     await prefetchUserBootstrapData(data.token);
     return data;
 }
+export async function bindPhoneByWeChatCode(phoneCode) {
+    const code = String(phoneCode || '').trim();
+    if (!code)
+        throw new Error('missing phone code');
+    const token = getToken();
+    if (!token)
+        throw new Error('AUTH_REQUIRED');
+    const data = await requestAuth('/api/auth/wechat-phone', {
+        method: 'POST',
+        data: { code },
+        token,
+    });
+    if (data?.user) {
+        setUser(data.user);
+    }
+    await prefetchUserBootstrapData(token);
+    return data?.user || null;
+}
 export async function ensureAuthSession(options = {}) {
     const { allowLogin = false } = options;
     const token = getToken();
