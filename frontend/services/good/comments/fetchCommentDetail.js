@@ -1,4 +1,4 @@
-import { config } from '../../../config/index';
+import { config } from '../../../config/runtime';
 import { queryCommentDetail } from '../../../model/comments/queryDetail';
 function mockQueryCommentDetail(params) {
     const { delay } = require('../../_utils/delay');

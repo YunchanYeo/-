@@ -1,6 +1,6 @@
 import Dialog from 'tdesign-miniprogram/dialog/index';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { dispatchCommitPay } from '../../../services/order/orderConfirm';
+import { dispatchCommitPay } from '../services/orderConfirm';
 import { requestJson } from '../../../services/_utils/http';
 import { removePurchasedFromLocalCart } from '../../../services/cart/cart';
 // 真实的提交支付

@@ -1,4 +1,4 @@
-import { config } from '../../../config/index';
+import { config } from '../../../config/runtime';
 import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
 import { fetchAdminProduct, updateAdminProduct, uploadAdminImage, deleteAdminProduct } from '../../../services/admin/adminApi';
 import { resolveAdminImageForDisplay, toStoredProductImagePath } from '../../../services/admin/adminImageUrl';

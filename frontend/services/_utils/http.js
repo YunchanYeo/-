@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { createAppError, ErrorCodes } from './errors';
 import { getToken } from '../auth/session';
 import { wxRequestTransportOpts } from './wxRequestTransport';

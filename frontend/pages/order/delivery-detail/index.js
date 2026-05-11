@@ -1,5 +1,5 @@
 "use strict";
-import { fetchOrderLogisticsTrace } from '../../../services/order/orderActions';
+import { fetchOrderLogisticsTrace } from '../services/orderActions';
 
 Page({
     data: {

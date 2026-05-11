@@ -28,6 +28,22 @@ Page({
     privateData: {
         tabIndex: 0,
     },
+    resolveSelectedTab(changeDetail) {
+        const tabs = this.data.tabList || [];
+        if (!tabs.length)
+            return null;
+        const raw = changeDetail && typeof changeDetail === 'object' && changeDetail.value !== undefined
+            ? changeDetail.value
+            : changeDetail;
+        const keyAsNumber = Number(raw);
+        const byKey = tabs.find((t) => Number(t?.key) === keyAsNumber || String(t?.key) === String(raw));
+        if (byKey)
+            return byKey;
+        const idx = Number(raw);
+        if (Number.isInteger(idx) && idx >= 0 && idx < tabs.length)
+            return tabs[idx];
+        return tabs[0] || null;
+    },
     onShow() {
         const tabBar = this.getTabBar && this.getTabBar();
         if (tabBar && typeof tabBar.init === 'function') {
@@ -94,6 +110,9 @@ Page({
                 hotProducts,
                 searchPlaceholder: hotTitle ? `热销：${hotTitle}` : '搜索',
             });
+            const firstTab = (tabList || [])[0] || null;
+            this.privateData.tabIndex = 0;
+            this.privateData.tabKey = firstTab?.key ?? 0;
         }
         catch (err) {
             // 홈 상단 데이터가 실패해도 상품 목록 로딩은 계속 진행합니다.
@@ -112,7 +131,11 @@ Page({
         }
     },
     tabChangeHandle(e) {
-        this.privateData.tabIndex = e.detail;
+        const selected = this.resolveSelectedTab(e?.detail);
+        const tabs = this.data.tabList || [];
+        const selectedIndex = Math.max(0, tabs.findIndex((t) => t?.key === selected?.key));
+        this.privateData.tabIndex = selectedIndex;
+        this.privateData.tabKey = selected?.key;
         // 탭 변경 시 빈 상태/없음 안내가 남지 않게 리스트와 상태를 즉시 리셋
         this.setData({ goodsList: [], goodsListLoadStatus: 0 });
         this.goodListPagination.index = 0;
@@ -131,7 +154,8 @@ Page({
         const pageSize = this.goodListPagination.num;
         const pageIndex = fresh ? 0 : this.goodListPagination.index + 1;
         try {
-            const tab = (this.data.tabList || [])[this.privateData.tabIndex] || null;
+            const tabs = this.data.tabList || [];
+            const tab = tabs.find((t) => t?.key === this.privateData.tabKey) || tabs[this.privateData.tabIndex] || null;
             const nextList = await fetchGoodsList(pageIndex, pageSize, {
                 categoryId: tab?.categoryId ?? null,
                 categoryName: String(tab?.categoryName || '').trim(),

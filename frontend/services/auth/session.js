@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 const TOKEN_KEY = 'auth.token';
 const USER_KEY = 'auth.user';

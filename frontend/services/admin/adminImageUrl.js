@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 
 /**
  * 관리자 페이지 미리보기·<image src> — 위챗은 반드시 https 절대 URL 필요

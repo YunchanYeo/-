@@ -1,10 +1,10 @@
 import Toast from 'tdesign-miniprogram/toast/index';
-import { fetchGood } from '../../../services/good/fetchGood';
+import { fetchGood } from '../services/fetchGood';
 import { fetchActivityList } from '../../../services/activity/fetchActivityList';
 import { addItemToLocalCart } from '../../../services/cart/cart';
-import { getGoodsDetailsCommentList, getGoodsDetailsCommentsCount, } from '../../../services/good/fetchGoodsDetailsComments';
+import { getGoodsDetailsCommentList, getGoodsDetailsCommentsCount, } from '../services/fetchGoodsDetailsComments';
 import { getProductDataVersion } from '../../../services/good/productVersion';
-import { cdnBase } from '../../../config/index';
+import { cdnBase } from '../../../config/runtime';
 const imgPrefix = `${cdnBase}/`;
 const recLeftImg = `${imgPrefix}common/rec-left.png`;
 const recRightImg = `${imgPrefix}common/rec-right.png`;

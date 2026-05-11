@@ -2,7 +2,24 @@
   "description": "项目配置文件，详见文档：https://developers.weixin.qq.com/miniprogram/dev/devtools/projectconfig.html",
   "miniprogramRoot": "frontend/",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "file",
+        "value": "frontend/miniprogram_npm/tdesign-miniprogram/step-item/step-item.json"
+      },
+      {
+        "type": "file",
+        "value": "frontend/miniprogram_npm/tdesign-miniprogram/steps/steps.json"
+      },
+      {
+        "type": "file",
+        "value": "frontend/miniprogram_npm/tdesign-miniprogram/.wechatide.ib.json"
+      },
+      {
+        "type": "file",
+        "value": "frontend/miniprogram_npm/tslib/index.js.map"
+      }
+    ],
     "include": []
   },
   "setting": {
@@ -22,13 +39,13 @@
     "uglifyFileName": false,
     "checkInvalidKey": true,
     "checkSiteMap": true,
-    "uploadWithSourceMap": true,
+    "uploadWithSourceMap": false,
     "compileHotReLoad": false,
     "lazyloadPlaceholderEnable": false,
     "useMultiFrameRuntime": true,
     "useApiHook": true,
     "useApiHostProcess": true,
-    "ignoreDevUnusedFiles": false,
+    "ignoreDevUnusedFiles": true,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],

@@ -1,5 +1,5 @@
 /* eslint-disable no-param-reassign */
-import { config, cdnBase } from '../../config/index';
+import { config, cdnBase } from '../../config/runtime';
 import { requestJson } from '../_utils/http';
 import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchGoodsList(params) {

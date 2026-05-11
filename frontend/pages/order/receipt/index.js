@@ -1,7 +1,7 @@
 /* eslint-disable no-nested-ternary */
 import Dialog from 'tdesign-miniprogram/dialog/index';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { dispatchSupplementInvoice } from '../../../services/order/orderConfirm';
+import { dispatchSupplementInvoice } from '../services/orderConfirm';
 const invoiceJson = {
     info: [
         '1.根据当地税务局的要求，开具有效的企业发票需填写税务局登记证号。开具个人发票不需要填写纳税人识别码。 ',

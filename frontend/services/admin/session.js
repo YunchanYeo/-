@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 const ADMIN_TOKEN_KEY = 'admin.token';
 const ADMIN_USER_KEY = 'admin.user';

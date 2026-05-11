@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 function mockFetchActivity(ID = 0) {
     const { delay } = require('../_utils/delay');
     const { getActivity } = require('../../model/activity');

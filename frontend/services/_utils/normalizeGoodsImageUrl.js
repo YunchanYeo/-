@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 
 function ensureHttps(s) {
     const out = String(s || '').trim();

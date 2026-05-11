@@ -39,6 +39,9 @@ export default function Shell() {
             <NavLink to="/coupons" className={navCls}>
               优惠券
             </NavLink>
+            <NavLink to="/promotions" className={navCls}>
+              活动管理
+            </NavLink>
             <NavLink to="/settings" className={navCls}>
               账号设置
             </NavLink>

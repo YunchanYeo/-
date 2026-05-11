@@ -1,5 +1,5 @@
 import { OrderStatus } from '../config';
-import { fetchOrders, fetchOrdersCount } from '../../../services/order/orderList';
+import { fetchOrders, fetchOrdersCount } from '../services/orderList';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 Page({
     page: {

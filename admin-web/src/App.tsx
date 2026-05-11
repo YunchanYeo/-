@@ -10,6 +10,7 @@ const OrdersPage = lazy(() => import('./pages/Orders'));
 const CategoriesPage = lazy(() => import('./pages/Categories'));
 const SupportChatPage = lazy(() => import('./pages/SupportChat'));
 const CouponsPage = lazy(() => import('./pages/Coupons'));
+const PromotionsPage = lazy(() => import('./pages/Promotions'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="support" element={<SupportChatPage />} />
           <Route path="coupons" element={<CouponsPage />} />
+          <Route path="promotions" element={<PromotionsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

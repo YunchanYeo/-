@@ -1,5 +1,5 @@
-import { fetchComments } from '../../../services/comments/fetchComments';
-import { fetchCommentsCount } from '../../../services/comments/fetchCommentsCount';
+import { fetchComments } from '../services/comments/fetchComments';
+import { fetchCommentsCount } from '../services/comments/fetchCommentsCount';
 import dayjs from 'dayjs';
 const layoutMap = {
     0: 'vertical',

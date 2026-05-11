@@ -1,4 +1,4 @@
-import { getSearchHistory, getSearchPopular, } from '../../../services/good/fetchSearchHistory';
+import { getSearchHistory, getSearchPopular, } from '../services/fetchSearchHistory';
 const popularImageMap = [
     { keywords: ['面', '粉', '米线'], image: 'https://img.icons8.com/color/160/noodles.png' },
     { keywords: ['饼', '蛋糕', '面包'], image: 'https://img.icons8.com/color/160/cupcake.png' },

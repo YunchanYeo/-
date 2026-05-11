@@ -1,5 +1,5 @@
 import Toast from 'tdesign-miniprogram/toast/index';
-import { fetchPromotion } from '../../../services/promotion/detail';
+import { fetchPromotion } from '../services/detail';
 Page({
     data: {
         list: [],

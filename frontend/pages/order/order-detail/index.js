@@ -1,6 +1,6 @@
-import { formatTime } from '../../../utils/util';
+import { formatTime } from '../utils/util';
 import { OrderStatus, LogisticsIconMap } from '../config';
-import { fetchBusinessTime, fetchOrderDetail } from '../../../services/order/orderDetail';
+import { fetchBusinessTime, fetchOrderDetail } from '../services/orderDetail';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { getAddressPromise } from '../../../services/address/list';

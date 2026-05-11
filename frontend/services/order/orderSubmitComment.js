@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 function mockGetGoods(parameter) {
     const { delay } = require('../_utils/delay');
     const { getGoods } = require('../../model/submitComment');

@@ -1,9 +1,9 @@
-import { fetchPerson } from '../../../services/usercenter/fetchPerson';
-import { phoneEncryption } from '../../../utils/util';
+import { fetchPerson } from '../services/fetchPerson';
+import { phoneEncryption } from '../utils/util';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { logout } from '../../../services/auth/session';
 import { requestJson } from '../../../services/_utils/http';
-import { uploadSupportMedia } from '../../../services/support/chat';
+import { uploadSupportMedia } from '../services/support/chat';
 Page({
     data: {
         personInfo: {

@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { requestJson } from '../_utils/http';
 function mockFetchDeliveryAddress(id) {
     const { delay } = require('../_utils/delay');

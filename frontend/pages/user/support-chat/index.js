@@ -1,5 +1,5 @@
 import Toast from 'tdesign-miniprogram/toast/index';
-import { fetchPerson } from '../../../services/usercenter/fetchPerson';
+import { fetchPerson } from '../services/fetchPerson';
 import { getPrefetchedSupportMessages, setPrefetchedSupportMessages } from '../../../services/auth/session';
 import { requestJson } from '../../../services/_utils/http';
 import {
@@ -10,7 +10,7 @@ import {
   setMySupportTyping,
   enrichSupportMessages,
   normalizeChatMediaUrl,
-} from '../../../services/support/chat';
+} from '../services/support/chat';
 import {
   initRecorderRuntime,
   stopAudioRuntime,
@@ -21,7 +21,7 @@ import {
   endRecordingRuntime,
   playVoiceRuntime,
   shouldAutoScrollByAnchor,
-} from '../../../services/support/chatPageRuntime';
+} from '../services/support/chatPageRuntime';
 
 Page({
   data: {

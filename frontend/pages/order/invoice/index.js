@@ -1,4 +1,4 @@
-import { fetchOrderDetail } from '../../../services/order/orderDetail';
+import { fetchOrderDetail } from '../services/orderDetail';
 Page({
     data: {
         invoice: {},

@@ -16,6 +16,7 @@
     <view class="tab {{activeTab==='products'?'active':''}}" data-tab="products" bind:tap="onTabChange">库存管理</view>
     <view class="tab {{activeTab==='categories'?'active':''}}" data-tab="categories" bind:tap="onTabChange">分类管理</view>
     <view class="tab {{activeTab==='coupons'?'active':''}}" data-tab="coupons" bind:tap="onTabChange">优惠券</view>
+    <view class="tab {{activeTab==='promotions'?'active':''}}" data-tab="promotions" bind:tap="onTabChange">活动管理</view>
   </view>
 
   <view wx:if="{{activeTab==='orders'}}">
@@ -174,6 +175,37 @@
     </view>
     <view wx:if="{{coupons.length===0 && !couponsLoading}}" class="card muted-card">暂无优惠券。</view>
     <view wx:if="{{couponsLoading}}" class="card muted-card">加载中…</view>
+  </view>
+
+  <view wx:if="{{activeTab==='promotions'}}">
+    <view class="card form-card">
+      <view class="form-title">活动管理（首页营销滑块）</view>
+      <t-input label="活动标题" placeholder="必填" value="{{promotionForm.title}}" data-key="title" bind:change="onPromotionInput" />
+      <t-input label="关联商品ID" placeholder="选填，不填只显示活动说明" value="{{promotionForm.relatedProductId}}" data-key="relatedProductId" bind:change="onPromotionInput" />
+      <t-input label="状态" placeholder="ON / OFF" value="{{promotionForm.status}}" data-key="status" bind:change="onPromotionInput" />
+      <t-input label="排序值" type="number" placeholder="越大越靠前" value="{{promotionForm.sortOrder}}" data-key="sortOrder" bind:change="onPromotionInput" />
+      <t-input label="活动说明" placeholder="用户点击后展示" value="{{promotionForm.description}}" data-key="description" bind:change="onPromotionInput" />
+      <t-button variant="outline" block bind:tap="onPickPromotionImage">上传活动图片</t-button>
+      <view class="hint-text">{{promotionForm.imageUrl ? '图片已上传完成' : '请先上传活动图片后再保存'}}</view>
+      <image wx:if="{{promotionForm.imageUrl}}" class="image-preview" src="{{promotionForm.imageUrl}}" mode="aspectFit" />
+      <t-button theme="primary" block loading="{{promotionSubmitting}}" disabled="{{promotionSubmitting}}" bind:tap="onSavePromotion">
+        {{promotionForm.id ? '更新活动' : '新增活动'}}
+      </t-button>
+    </view>
+
+    <view class="card" wx:for="{{promotions}}" wx:key="id" wx:for-item="item">
+      <view class="row"><text>ID:</text><text>{{item.id}}</text></view>
+      <view class="row"><text>标题:</text><text>{{item.title}}</text></view>
+      <view class="row"><text>状态:</text><text>{{item.status}}</text></view>
+      <view class="row"><text>排序:</text><text>{{item.sortOrder}}</text></view>
+      <view class="row"><text>关联商品:</text><text>{{item.relatedProductId || '-'}}</text></view>
+      <view class="btn-row">
+        <t-button size="small" variant="outline" bind:tap="onEditPromotion" data-item="{{item}}">编辑</t-button>
+        <t-button size="small" variant="outline" bind:tap="onDeletePromotion" data-item="{{item}}">删除</t-button>
+      </view>
+    </view>
+    <view wx:if="{{promotions.length===0 && !promotionsLoading}}" class="card muted-card">등록된 활동이 없습니다.</view>
+    <view wx:if="{{promotionsLoading}}" class="card muted-card">加载中…</view>
   </view>
 </view>
 <t-toast id="t-toast" />

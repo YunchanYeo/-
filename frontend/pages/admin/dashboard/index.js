@@ -1,6 +1,6 @@
-import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, } from '../../../services/admin/adminApi';
+import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, fetchAdminPromotions, createAdminPromotion, updateAdminPromotion, deleteAdminPromotion, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
-import { config } from '../../../config/index';
+import { config } from '../../../config/runtime';
 import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
 import { resolveAdminImageForDisplay, toStoredProductImagePath } from '../../../services/admin/adminImageUrl';
@@ -56,6 +56,18 @@ Page({
             totalCount: '100',
             startDate: '',
             endDate: '',
+        },
+        promotions: [],
+        promotionsLoading: false,
+        promotionSubmitting: false,
+        promotionForm: {
+            id: '',
+            title: '',
+            imageUrl: '',
+            description: '',
+            relatedProductId: '',
+            status: 'ON',
+            sortOrder: '0',
         },
     },
     onLoad() {
@@ -142,6 +154,145 @@ Page({
         }
         if (tab === 'coupons') {
             this.loadAdminCoupons();
+        }
+        if (tab === 'promotions') {
+            this.loadAdminPromotions();
+        }
+    },
+    async loadAdminPromotions() {
+        this.setData({ promotionsLoading: true });
+        try {
+            const rows = await fetchAdminPromotions();
+            this.setData({ promotions: Array.isArray(rows) ? rows : [] });
+        }
+        catch (e) {
+            showMessage(e?.message || '活动列表加载失败', 'error');
+        }
+        finally {
+            this.setData({ promotionsLoading: false });
+        }
+    },
+    onPromotionInput(e) {
+        const { key } = e.currentTarget.dataset;
+        this.setData({ [`promotionForm.${key}`]: e.detail.value });
+    },
+    async onPickPromotionImage() {
+        try {
+            const mediaRes = await new Promise((resolve, reject) => {
+                wx.chooseMedia({
+                    count: 1,
+                    mediaType: ['image'],
+                    sourceType: ['album', 'camera'],
+                    sizeType: ['compressed'],
+                    success: resolve,
+                    fail: reject,
+                });
+            });
+            const file = mediaRes?.tempFiles?.[0];
+            if (!file?.tempFilePath)
+                throw new Error('图片选择失败');
+            const base64Data = await new Promise((resolve, reject) => {
+                wx.getFileSystemManager().readFile({
+                    filePath: file.tempFilePath,
+                    encoding: 'base64',
+                    success: (res) => resolve(res.data),
+                    fail: reject,
+                });
+            });
+            const uploadRes = await uploadAdminImage({
+                fileName: file?.fileType ? `promotion.${file.fileType}` : 'promotion.jpg',
+                mimeType: file?.type ? `image/${file.type}` : 'image/jpeg',
+                base64Data,
+            });
+            this.setData({ 'promotionForm.imageUrl': uploadRes.imageUrl || '' });
+            showMessage('活动图片上传成功', 'success');
+        }
+        catch (e) {
+            showMessage(e?.message || '活动图片上传失败', 'error');
+        }
+    },
+    async onSavePromotion() {
+        const f = this.data.promotionForm || {};
+        const title = String(f.title || '').trim();
+        const imageUrl = String(f.imageUrl || '').trim();
+        if (!title || !imageUrl) {
+            showMessage('请填写活动标题并上传图片');
+            return;
+        }
+        const payload = {
+            title,
+            imageUrl,
+            description: String(f.description || '').trim(),
+            relatedProductId: String(f.relatedProductId || '').trim() ? Number(f.relatedProductId) : null,
+            status: String(f.status || 'ON').toUpperCase() === 'OFF' ? 'OFF' : 'ON',
+            sortOrder: Number(f.sortOrder || 0),
+        };
+        try {
+            this.setData({ promotionSubmitting: true });
+            if (String(f.id || '')) {
+                await updateAdminPromotion(Number(f.id), payload);
+            }
+            else {
+                await createAdminPromotion(payload);
+            }
+            showMessage('活动已保存', 'success');
+            this.setData({
+                promotionForm: {
+                    id: '',
+                    title: '',
+                    imageUrl: '',
+                    description: '',
+                    relatedProductId: '',
+                    status: 'ON',
+                    sortOrder: '0',
+                },
+            });
+            this.loadAdminPromotions();
+        }
+        catch (e) {
+            showMessage(e?.message || '活动保存失败', 'error');
+        }
+        finally {
+            this.setData({ promotionSubmitting: false });
+        }
+    },
+    onEditPromotion(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        this.setData({
+            promotionForm: {
+                id: String(item.id || ''),
+                title: String(item.title || ''),
+                imageUrl: String(item.imageUrl || ''),
+                description: String(item.description || ''),
+                relatedProductId: item.relatedProductId == null ? '' : String(item.relatedProductId),
+                status: String(item.status || 'ON'),
+                sortOrder: String(item.sortOrder ?? 0),
+            },
+        });
+    },
+    async onDeletePromotion(e) {
+        const item = e.currentTarget.dataset.item;
+        if (!item?.id)
+            return;
+        const confirm = await new Promise((resolve) => {
+            wx.showModal({
+                title: '删除活动',
+                content: `确定删除「${item.title || ''}」？`,
+                success: resolve,
+                fail: () => resolve({ confirm: false }),
+            });
+        });
+        if (!confirm.confirm)
+            return;
+        try {
+            await deleteAdminPromotion(Number(item.id));
+            showMessage('活动已删除', 'success');
+            this.loadAdminPromotions();
+        }
+        catch (e) {
+            showMessage(e?.message || '活动删除失败', 'error');
         }
     },
 

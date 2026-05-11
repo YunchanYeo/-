@@ -2,6 +2,17 @@ import { adminJson, getApiBase } from './client';
 
 export type AdminMe = { id: number; username: string };
 export type PointPolicy = { pointsEarnRatePercent: number; pointsUseThreshold: number };
+export type PromotionRow = {
+  id: number;
+  title: string;
+  imageUrl: string;
+  description: string;
+  status: 'ON' | 'OFF';
+  sortOrder: number;
+  relatedProductId: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type ProductRow = {
   id: number;
@@ -474,4 +485,41 @@ export function grantAdminCoupon(
     `/api/admin/coupons/${couponId}/grant`,
     { method: 'POST', token, body },
   );
+}
+
+export function fetchAdminPromotions(token: string) {
+  return adminJson<PromotionRow[]>('/api/admin/promotions', { token });
+}
+
+export function createAdminPromotion(
+  token: string,
+  body: {
+    title: string;
+    imageUrl: string;
+    description?: string;
+    status?: 'ON' | 'OFF';
+    sortOrder?: number;
+    relatedProductId?: number | null;
+  },
+) {
+  return adminJson<PromotionRow>('/api/admin/promotions', { method: 'POST', token, body });
+}
+
+export function updateAdminPromotion(
+  token: string,
+  id: number,
+  body: {
+    title: string;
+    imageUrl: string;
+    description?: string;
+    status?: 'ON' | 'OFF';
+    sortOrder?: number;
+    relatedProductId?: number | null;
+  },
+) {
+  return adminJson<PromotionRow>(`/api/admin/promotions/${id}`, { method: 'PUT', token, body });
+}
+
+export function deleteAdminPromotion(token: string, id: number) {
+  return adminJson<{ id: number }>(`/api/admin/promotions/${id}`, { method: 'DELETE', token });
 }

@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { requestJson } from '../_utils/http';
 import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
 import { getToken } from '../auth/session';

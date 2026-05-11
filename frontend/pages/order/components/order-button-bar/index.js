@@ -1,7 +1,7 @@
 import Toast from 'tdesign-miniprogram/toast/index';
 import Dialog from 'tdesign-miniprogram/dialog/index';
 import { OrderButtonTypes } from '../../config';
-import { cancelOrder, confirmOrder, deleteOrder, payOrder } from '../../../../services/order/orderActions';
+import { cancelOrder, confirmOrder, deleteOrder, payOrder } from '../../services/orderActions';
 Component({
     options: {
         addGlobalClass: true,

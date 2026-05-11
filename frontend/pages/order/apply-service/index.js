@@ -1,9 +1,9 @@
 import Dialog from 'tdesign-miniprogram/dialog/index';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { priceFormat } from '../../../utils/util';
+import { priceFormat } from '../utils/util';
 import { OrderStatus, ServiceType, ServiceReceiptStatus } from '../config';
 import reasonSheet from '../components/reason-sheet/reasonSheet';
-import { fetchRightsPreview, dispatchConfirmReceived, fetchApplyReasonList, dispatchApplyService, } from '../../../services/order/applyService';
+import { fetchRightsPreview, dispatchConfirmReceived, fetchApplyReasonList, dispatchApplyService, } from '../services/applyService';
 Page({
     query: {},
     data: {

@@ -1,6 +1,6 @@
 import Toast from 'tdesign-miniprogram/toast/index';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
-import { fetchSettleDetail, deriveGoodsRequestListFromSettleDetail } from '../../../services/order/orderConfirm';
+import { fetchSettleDetail, deriveGoodsRequestListFromSettleDetail } from '../services/orderConfirm';
 import { commitPay, wechatPayOrder, alipayPayOrder } from './pay';
 import { getAddressPromise } from '../../../services/address/list';
 const stripeImg = `https://tdesign.gtimg.com/miniprogram/template/retail/order/stripe.png`;

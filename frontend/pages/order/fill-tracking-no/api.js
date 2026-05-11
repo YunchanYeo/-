@@ -1,4 +1,4 @@
-import { mockIp, mockReqId } from '../../../utils/mock';
+import { mockIp, mockReqId } from '../services/mock';
 export function create() {
     const _resq = {
         data: null,

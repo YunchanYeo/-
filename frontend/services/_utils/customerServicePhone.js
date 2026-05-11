@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { requestJson } from './http';
 
 /** 优先使用后端 CUSTOMER_SERVICE_PHONE（/api/app-config），失败或未配置时用 config.customerServicePhone 兜底 */

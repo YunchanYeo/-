@@ -8,7 +8,7 @@ import {
   setAdminSupportTyping,
   enrichSupportMessages,
   normalizeChatMediaUrl,
-} from '../../../services/support/chat';
+} from '../services/support/chat';
 import {
   initRecorderRuntime,
   stopAudioRuntime,
@@ -19,7 +19,7 @@ import {
   endRecordingRuntime,
   playVoiceRuntime,
   shouldAutoScrollByAnchor,
-} from '../../../services/support/chatPageRuntime';
+} from '../services/support/chatPageRuntime';
 
 Page({
   data: {

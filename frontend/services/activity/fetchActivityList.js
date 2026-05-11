@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 function mockFetchActivityList(pageIndex = 1, pageSize = 20) {
     const { delay } = require('../_utils/delay');
     const { getActivityList } = require('../../model/activities');

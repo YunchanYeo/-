@@ -1,4 +1,4 @@
-import { config } from '../../config/index';
+import { config } from '../../config/runtime';
 import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 import { getAdminToken } from './session';
 function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) {
