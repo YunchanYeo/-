@@ -8,6 +8,13 @@ function genSessionToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function maskMiddle(s: string, keep = 4) {
+  const raw = String(s || '').trim();
+  if (!raw) return '';
+  if (raw.length <= keep * 2) return `${raw.slice(0, 2)}***${raw.slice(-2)}`;
+  return `${raw.slice(0, keep)}***${raw.slice(-keep)}`;
+}
+
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -107,21 +114,36 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
       const schema = z.object({
         code: z.string().min(1),
         userInfo: z.object({ nickName: z.string().optional(), avatarUrl: z.string().optional(), gender: z.number().optional() }).optional(),
+        miniProgramInfo: z.object({ appId: z.string().optional(), envVersion: z.string().optional(), version: z.string().optional() }).optional(),
       });
       const parsed = schema.safeParse(req.body || {});
       if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid login body', issues: parsed.error.issues });
 
-      const { code, userInfo } = parsed.data;
+      const { code, userInfo, miniProgramInfo } = parsed.data;
       let openid = '';
       let unionid = '';
 
       if (wechatAppId && wechatAppSecret) {
+        const clientAppId = String(miniProgramInfo?.appId || '').trim();
+        if (clientAppId && clientAppId !== wechatAppId) {
+          return res.status(400).json({
+            ok: false,
+            message: `小程序AppID不一致：client=${maskMiddle(clientAppId)} server=${maskMiddle(wechatAppId)}。请统一开发者工具AppID与服务器WECHAT_APPID`,
+          });
+        }
         const safeCode = encodeURIComponent(code);
         const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${wechatAppId}&secret=${wechatAppSecret}&js_code=${safeCode}&grant_type=authorization_code`;
         const { data: wxData } = await fetchJsonWithTimeout(url, 8000);
         const errcode = Number(wxData?.errcode || 0);
         if (errcode) {
           const errmsg = String(wxData?.errmsg || 'unknown');
+          console.error('[wechatLogin] jscode2session error', {
+            errcode,
+            errmsg,
+            serverAppId: maskMiddle(wechatAppId),
+            clientAppId: maskMiddle(clientAppId),
+            codePrefix: String(code || '').slice(0, 8),
+          });
           return res.status(401).json({
             ok: false,
             message: `wechat jscode2session failed: ${errcode} ${errmsg}`,
@@ -189,13 +211,21 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
         loginCode: z.string().min(1),
         phoneCode: z.string().min(1),
         userInfo: z.object({ nickName: z.string().optional(), avatarUrl: z.string().optional(), gender: z.number().optional() }).optional(),
+        miniProgramInfo: z.object({ appId: z.string().optional(), envVersion: z.string().optional(), version: z.string().optional() }).optional(),
       });
       const parsed = schema.safeParse(req.body || {});
       if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid oneclick body', issues: parsed.error.issues });
 
-      const { loginCode, phoneCode, userInfo } = parsed.data;
+      const { loginCode, phoneCode, userInfo, miniProgramInfo } = parsed.data;
       if (!wechatAppId || !wechatAppSecret) {
         return res.status(500).json({ ok: false, message: 'Server missing WECHAT_APPID/WECHAT_APPSECRET' });
+      }
+      const clientAppId = String(miniProgramInfo?.appId || '').trim();
+      if (clientAppId && clientAppId !== wechatAppId) {
+        return res.status(400).json({
+          ok: false,
+          message: `小程序AppID不一致：client=${maskMiddle(clientAppId)} server=${maskMiddle(wechatAppId)}。请统一开发者工具AppID与服务器WECHAT_APPID`,
+        });
       }
 
       // 1) code2Session → openid
@@ -205,6 +235,13 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
       const errcode = Number(wxData?.errcode || 0);
       if (errcode) {
         const errmsg = String(wxData?.errmsg || 'unknown');
+        console.error('[wechatOneClickLogin] jscode2session error', {
+          errcode,
+          errmsg,
+          serverAppId: maskMiddle(wechatAppId),
+          clientAppId: maskMiddle(clientAppId),
+          loginCodePrefix: String(loginCode || '').slice(0, 8),
+        });
         return res.status(401).json({ ok: false, message: `wechat jscode2session failed: ${errcode} ${errmsg}`, data: { errcode, errmsg } });
       }
       const openid = String(wxData?.openid || '');
@@ -218,6 +255,13 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
       const pErr = Number(phoneData?.errcode || 0);
       if (pErr) {
         const errmsg = String(phoneData?.errmsg || 'unknown');
+        console.error('[wechatOneClickLogin] getPhoneNumber error', {
+          errcode: pErr,
+          errmsg,
+          serverAppId: maskMiddle(wechatAppId),
+          clientAppId: maskMiddle(clientAppId),
+          phoneCodePrefix: String(phoneCode || '').slice(0, 8),
+        });
         return res.status(401).json({ ok: false, message: `wechat getPhoneNumber failed: ${pErr} ${errmsg}`, data: { errcode: pErr, errmsg } });
       }
       const phoneNumber = String(phoneData?.phone_info?.phoneNumber || '');

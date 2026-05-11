@@ -185,9 +185,22 @@ export async function oneClickLoginByWeChatPhoneCode(phoneCode) {
     });
     if (!loginRes?.code)
         throw new Error('wx.login failed: missing code');
+    let accountInfo = null;
+    try {
+        accountInfo = wx.getAccountInfoSync?.() || null;
+    }
+    catch (e) {
+        accountInfo = null;
+    }
     const data = await requestAuth('/api/auth/wechat-oneclick', {
         method: 'POST',
-        data: { loginCode: loginRes.code, phoneCode: code },
+        data: {
+            loginCode: loginRes.code,
+            phoneCode: code,
+            miniProgramInfo: accountInfo
+                ? { appId: accountInfo?.miniProgram?.appId || '', envVersion: accountInfo?.miniProgram?.envVersion || '', version: accountInfo?.miniProgram?.version || '' }
+                : undefined,
+        },
     });
     setToken(data.token);
     setUser(data.user);
