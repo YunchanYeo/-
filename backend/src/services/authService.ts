@@ -183,6 +183,85 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
     }
   }
 
+  async function wechatOneClickLogin(req: Request, res: Response) {
+    try {
+      const schema = z.object({
+        loginCode: z.string().min(1),
+        phoneCode: z.string().min(1),
+        userInfo: z.object({ nickName: z.string().optional(), avatarUrl: z.string().optional(), gender: z.number().optional() }).optional(),
+      });
+      const parsed = schema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid oneclick body', issues: parsed.error.issues });
+
+      const { loginCode, phoneCode, userInfo } = parsed.data;
+      if (!wechatAppId || !wechatAppSecret) {
+        return res.status(500).json({ ok: false, message: 'Server missing WECHAT_APPID/WECHAT_APPSECRET' });
+      }
+
+      // 1) code2Session → openid
+      const safeCode = encodeURIComponent(loginCode);
+      const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${wechatAppId}&secret=${wechatAppSecret}&js_code=${safeCode}&grant_type=authorization_code`;
+      const { data: wxData } = await fetchJsonWithTimeout(url, 8000);
+      const errcode = Number(wxData?.errcode || 0);
+      if (errcode) {
+        const errmsg = String(wxData?.errmsg || 'unknown');
+        return res.status(401).json({ ok: false, message: `wechat jscode2session failed: ${errcode} ${errmsg}`, data: { errcode, errmsg } });
+      }
+      const openid = String(wxData?.openid || '');
+      const unionid = String(wxData?.unionid || '');
+      if (!openid) return res.status(401).json({ ok: false, message: `wechat jscode2session failed: missing openid` });
+
+      // 2) getPhoneNumber → phone
+      const accessToken = await getWechatAccessToken();
+      const phoneUrl = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${encodeURIComponent(accessToken)}`;
+      const { data: phoneData } = await postJsonWithTimeout(phoneUrl, { code: phoneCode }, 8000);
+      const pErr = Number(phoneData?.errcode || 0);
+      if (pErr) {
+        const errmsg = String(phoneData?.errmsg || 'unknown');
+        return res.status(401).json({ ok: false, message: `wechat getPhoneNumber failed: ${pErr} ${errmsg}`, data: { errcode: pErr, errmsg } });
+      }
+      const phoneNumber = String(phoneData?.phone_info?.phoneNumber || '');
+      if (!phoneNumber) return res.status(401).json({ ok: false, message: 'wechat getPhoneNumber failed: missing phoneNumber' });
+
+      // 3) upsert user + session token
+      const token = genSessionToken();
+      const exists = db.prepare(`SELECT id FROM users WHERE openid = ?`).get(openid) as { id: number } | undefined;
+      if (exists) {
+        await withSqliteRetry(() =>
+          db
+            .prepare(
+              `UPDATE users
+               SET unionid = ?, sessionToken = ?, phoneNumber = ?, nickName = COALESCE(?, nickName), avatarUrl = COALESCE(?, avatarUrl),
+                   gender = COALESCE(?, gender), updatedAt = datetime('now')
+               WHERE id = ?`,
+            )
+            .run(unionid || null, token, phoneNumber, userInfo?.nickName ?? null, userInfo?.avatarUrl ?? null, userInfo?.gender ?? null, exists.id),
+        );
+      } else {
+        await withSqliteRetry(() =>
+          db
+            .prepare(
+              `INSERT INTO users (openid, unionid, sessionToken, nickName, avatarUrl, gender, phoneNumber, createdAt, updatedAt)
+               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+            )
+            .run(openid, unionid || null, token, userInfo?.nickName ?? '', userInfo?.avatarUrl ?? '', userInfo?.gender ?? 0, phoneNumber),
+        );
+      }
+
+      const me = db
+        .prepare(
+          `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
+           FROM users WHERE openid = ?`,
+        )
+        .get(openid);
+
+      return res.json({ ok: true, data: { token, user: me } });
+    } catch (e: any) {
+      console.error('[wechatOneClickLogin] failed', e);
+      return res.status(500).json({ ok: false, message: `wechat oneclick failed: ${e?.message || 'unknown error'}` });
+    }
+  }
+
   async function getWechatAccessToken() {
     const now = Date.now();
     if (cachedAccessToken && cachedAccessTokenExpireAt > now + 30_000) {
@@ -282,5 +361,5 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
     return res.json({ ok: true, data: { token, admin: { id: admin.id, username: admin.username } } });
   }
 
-  return { requireAuth, requireAdmin, wechatLogin, bindWechatPhone, adminLogin };
+  return { requireAuth, requireAdmin, wechatLogin, wechatOneClickLogin, bindWechatPhone, adminLogin };
 }

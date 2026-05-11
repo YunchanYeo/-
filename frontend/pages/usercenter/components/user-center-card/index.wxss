@@ -20,6 +20,17 @@
   color: #333;
   position: relative;
 }
+
+.login-btn-reset {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.login-btn-reset::after {
+  border: 0;
+}
 .user-center-card__header__avatar {
   width: 96rpx;
   height: 96rpx;

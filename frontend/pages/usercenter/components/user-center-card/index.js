@@ -30,5 +30,8 @@ Component({
         gotoUserEditPage() {
             this.triggerEvent('gotoUserEditPage');
         },
+        onGetPhoneNumber(e) {
+            this.triggerEvent('getPhoneNumberLogin', e?.detail || {});
+        },
     },
 });

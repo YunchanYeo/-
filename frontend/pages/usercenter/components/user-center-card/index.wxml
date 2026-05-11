@@ -1,10 +1,10 @@
 <view class="user-center-card">
   <!-- 未登录的情况 -->
   <block wx:if="{{currAuthStep === AuthStepType.ONE}}">
-    <view class="user-center-card__header" bind:tap="gotoUserEditPage">
+    <button class="user-center-card__header login-btn-reset" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
       <t-avatar image="{{userInfo.avatarUrl || defaultAvatarUrl}}" class="user-center-card__header__avatar" />
       <view class="user-center-card__header__name">{{'请登录'}}</view>
-    </view>
+    </button>
   </block>
   <!-- 已登录但未授权用户信息情况 -->
   <block wx:if="{{currAuthStep === AuthStepType.TWO}}">

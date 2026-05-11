@@ -157,6 +157,7 @@ Page({
         if (this._searchDebounceTimer) {
             clearTimeout(this._searchDebounceTimer);
         }
+        // 1글자 입력부터 즉시 매칭되게(검색 UX 개선)
         this._searchDebounceTimer = setTimeout(() => {
             this.pageNum = 1;
             this.setData({
@@ -165,7 +166,7 @@ Page({
             }, () => {
                 this.init(true);
             });
-        }, 220);
+        }, 80);
     },
     onUnload() {
         if (this._searchDebounceTimer) {
@@ -200,7 +201,6 @@ Page({
     },
     handleFilterChange(e) {
         const { overall, sorts } = e.detail;
-        const { total } = this;
         const _filter = {
             sorts,
             overall,
@@ -215,7 +215,7 @@ Page({
             goodsList: [],
             loadMoreStatus: 0,
         }, () => {
-            total && this.init(true);
+            this.init(true);
         });
     },
     showFilterPopup() {
@@ -241,35 +241,19 @@ Page({
     },
     confirm() {
         const { minVal, maxVal } = this.data;
-        let message = '';
-        if (minVal && !maxVal) {
-            message = `价格最小是${minVal}`;
-        }
-        else if (!minVal && maxVal) {
-            message = `价格范围是0-${minVal}`;
-        }
-        else if (minVal && maxVal && minVal <= maxVal) {
-            message = `价格范围${minVal}-${this.data.maxVal}`;
-        }
-        else {
-            message = '请输入正确范围';
-        }
-        if (message) {
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message,
-            });
+        const minN = minVal === '' ? null : Number(minVal);
+        const maxN = maxVal === '' ? null : Number(maxVal);
+        if ((minN != null && !Number.isFinite(minN)) || (maxN != null && !Number.isFinite(maxN)) || (minN != null && maxN != null && minN > maxN)) {
+            Toast({ context: this, selector: '#t-toast', message: '请输入正确价格范围' });
+            return;
         }
         this.pageNum = 1;
         this.setData({
             show: false,
-            minVal: '',
             goodsList: [],
             loadMoreStatus: 0,
-            maxVal: '',
         }, () => {
-            this.init();
+            this.init(true);
         });
     },
 });

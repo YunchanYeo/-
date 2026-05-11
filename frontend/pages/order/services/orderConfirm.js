@@ -154,7 +154,7 @@ export function fetchSettleDetail(params) {
 export function dispatchCommitPay(params) {
     if (config.useMock)
         return mockDispatchCommitPay(params);
-    return requestJson('/api/orders/commit', { method: 'POST', data: params }).then((data) => ({
+    return requestJson('/api/orders/commit', { method: 'POST', data: params, timeoutMs: 30000 }).then((data) => ({
         data,
         code: 'Success',
         msg: null,

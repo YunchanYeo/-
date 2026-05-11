@@ -1,6 +1,6 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { getToken, loginWithWeChat, bindPhoneByWeChatCode } from '../../services/auth/session';
+import { getToken, oneClickLoginByWeChatPhoneCode } from '../../services/auth/session';
 import { requestJson } from '../../services/_utils/http';
 const menuData = [
     [
@@ -257,13 +257,23 @@ Page({
         });
     },
     async gotoUserEditPage() {
-        if (!getToken() || !hasRealProfile(this.data.userInfo)) {
-            await this.handleLoginWithConsent();
+        if (!getToken()) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '请先点击上方“请登录”完成手机号授权登录',
+                icon: '',
+                duration: 1400,
+            });
             return;
         }
         wx.navigateTo({ url: '/pages/user/person-info/index' });
     },
     async onGetPhoneNumberLogin(e) {
+        if (this._phoneLoginBusy) {
+            return;
+        }
+        this._phoneLoginBusy = true;
         const errMsg = String(e?.detail?.errMsg || '');
         const phoneCode = String(e?.detail?.code || '');
         if (!phoneCode) {
@@ -275,13 +285,28 @@ Page({
                 icon: '',
                 duration: 1400,
             });
+            this._phoneLoginBusy = false;
             return;
         }
         try {
-            if (!getToken()) {
-                await loginWithWeChat();
+            // 单次请求完成：wx.login(code2session) + getPhoneNumber(手机号) + token 下发
+            await oneClickLoginByWeChatPhoneCode(phoneCode);
+            // 一键登录 완료 후 곧바로 프로필(닉네임/아바타) 동의까지 같이 진행
+            try {
+                const profileRes = await new Promise((resolve, reject) => {
+                    wx.getUserProfile({ desc: '用于完善会员资料（头像昵称）', success: resolve, fail: reject });
+                });
+                const userInfo = profileRes?.userInfo || {};
+                if (userInfo?.nickName || userInfo?.avatarUrl) {
+                    await requestJson('/api/me', {
+                        method: 'PUT',
+                        data: { nickName: userInfo.nickName || '', avatarUrl: userInfo.avatarUrl || '', gender: Number(userInfo.gender || 0) },
+                    });
+                }
             }
-            await bindPhoneByWeChatCode(phoneCode);
+            catch (_) {
+                // 用户拒绝头像昵称授权也允许继续完成手机号登录
+            }
             await this.fetUseriInfoHandle();
             Toast({
                 context: this,
@@ -292,13 +317,17 @@ Page({
             });
         }
         catch (err) {
+            const msg = String(err?.message || '');
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: err?.message || '一键登录失败，请重试',
+                message: msg.includes('401') ? '一键登录失败(401)，请确认微信后台AppID与服务器配置一致' : (err?.message || '一键登录失败，请重试'),
                 icon: '',
                 duration: 1600,
             });
+        }
+        finally {
+            this._phoneLoginBusy = false;
         }
     },
     async handleLoginWithConsent() {

@@ -68,6 +68,8 @@ export const paySuccess = (payOrderInfo) => {
     wx.redirectTo({ url: `/pages/order/pay-result/index?${paramsStr}` });
 };
 export const payFail = (payOrderInfo, resultMsg) => {
+    const msg = String(resultMsg || '');
+    const isTimeout = /timeout|超时/i.test(msg);
     if (resultMsg === 'requestPayment:fail cancel' || resultMsg === 'requestVirtualPayment:fail cancel') {
         if (payOrderInfo.dialogOnCancel) {
             //结算页，取消付款，dialog提示
@@ -95,13 +97,15 @@ export const payFail = (payOrderInfo, resultMsg) => {
         Toast({
             context: this,
             selector: '#t-toast',
-            message: `支付失败：${resultMsg}`,
+            message: isTimeout ? '支付超时，请检查网络后重试' : `支付失败：${resultMsg}`,
             duration: 2000,
             icon: 'close-circle',
         });
-        setTimeout(() => {
-            wx.redirectTo({ url: '/pages/order/order-list/index' });
-        }, 2000);
+        if (!isTimeout) {
+            setTimeout(() => {
+                wx.redirectTo({ url: '/pages/order/order-list/index' });
+            }, 2000);
+        }
     }
 };
 function requestWechatPay(payOrderInfo) {

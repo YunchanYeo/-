@@ -4,6 +4,7 @@ import { fetchSettleDetail, deriveGoodsRequestListFromSettleDetail } from '../se
 import { commitPay, wechatPayOrder, alipayPayOrder } from './pay';
 import { getAddressPromise } from '../../../services/address/list';
 const stripeImg = `https://tdesign.gtimg.com/miniprogram/template/retail/order/stripe.png`;
+const fallbackGoodsImg = `https://tdesign.gtimg.com/miniprogram/template/retail/order/empty-order-list.png`;
 Page({
     data: {
         placeholder: '备注信息',
@@ -214,13 +215,14 @@ Page({
                     goodsList: [],
                 }; // 订单卡片
                 ele.skuDetailVos.forEach((item, index) => {
+                    const resolvedImage = normalizeGoodsImageUrl(item.image || item.thumb || item.primaryImage || '') || fallbackGoodsImg;
                     orderCard.goodsList.push({
                         id: index,
-                        thumb: normalizeGoodsImageUrl(item.image || item.thumb || item.primaryImage || ''),
-                        image: normalizeGoodsImageUrl(item.image || item.thumb || item.primaryImage || ''),
-                        primaryImage: normalizeGoodsImageUrl(item.primaryImage || item.image || item.thumb || ''),
+                        thumb: resolvedImage,
+                        image: resolvedImage,
+                        primaryImage: resolvedImage,
                         title: item.goodsName,
-                        specs: item.skuSpecLst.map((s) => s.specValue), // 规格列表 string[]
+                        specs: Array.isArray(item.skuSpecLst) ? item.skuSpecLst.map((s) => s.specValue) : [], // 规格列表 string[]
                         price: item.tagPrice || item.settlePrice || '0', // 优先取限时活动价
                         settlePrice: item.settlePrice,
                         titlePrefixTags: item.tagText ? [{ text: item.tagText }] : [],
@@ -425,17 +427,15 @@ Page({
                 });
             }
             else {
+                const errCode = String(err?.code || '');
+                const isTimeout = errCode === 'TIMEOUT' || String(err?.message || '').includes('超时');
                 Toast({
                     context: this,
                     selector: '#t-toast',
-                    message: err.msg || '提交支付超时，请稍后重试',
+                    message: err.msg || (isTimeout ? '支付请求超时，请检查网络后重试' : '提交支付失败，请稍后重试'),
                     duration: 2000,
                     icon: '',
                 });
-                setTimeout(() => {
-                    // 提交支付失败  返回购物车
-                    wx.navigateBack();
-                }, 2000);
             }
         });
     },

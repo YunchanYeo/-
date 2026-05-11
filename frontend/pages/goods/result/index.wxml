@@ -6,7 +6,7 @@
     t-class-input="t-search__input"
     value="{{keywords}}"
     leftIcon=""
-    placeholder="iPhone12pro"
+    placeholder="搜索商品"
     bind:change="handleSearchChange"
     bind:submit="handleSubmit"
   >

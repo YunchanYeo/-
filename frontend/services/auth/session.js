@@ -32,8 +32,10 @@ function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
             timeout: 10000,
             header: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
             success(res) {
-                if (res.statusCode < 200 || res.statusCode >= 300)
-                    return reject(new Error(`HTTP ${res.statusCode}`));
+                if (res.statusCode < 200 || res.statusCode >= 300) {
+                    const msg = res.data?.message || res.data?.errmsg || '';
+                    return reject(new Error(msg ? `${msg}` : `HTTP ${res.statusCode}`));
+                }
                 if (!res.data?.ok)
                     return reject(new Error(res.data?.message || 'Auth API failed'));
                 return resolve(res.data.data);
@@ -110,28 +112,45 @@ export function setPrefetchedSupportMessages(list) {
     wx.setStorageSync(PREFETCH_SUPPORT_MESSAGES_KEY, Array.isArray(list) ? list : []);
 }
 export async function loginWithWeChat(userInfo = null) {
-    const loginRes = await new Promise((resolve, reject) => {
-        wx.login({ timeout: 8000, success: resolve, fail: (err) => reject(new Error(err?.errMsg || 'wx.login failed')) });
-    });
-    if (!loginRes?.code)
-        throw new Error('wx.login failed: missing code');
-    let accountInfo = null;
+    async function doWxLoginOnce() {
+        const loginRes = await new Promise((resolve, reject) => {
+            wx.login({ timeout: 8000, success: resolve, fail: (err) => reject(new Error(err?.errMsg || 'wx.login failed')) });
+        });
+        if (!loginRes?.code)
+            throw new Error('wx.login failed: missing code');
+        let accountInfo = null;
+        try {
+            accountInfo = wx.getAccountInfoSync?.() || null;
+        }
+        catch (e) {
+            accountInfo = null;
+        }
+        return requestAuth('/api/auth/wechat-login', {
+            method: 'POST',
+            data: {
+                code: loginRes.code,
+                ...(userInfo ? { userInfo } : {}),
+                miniProgramInfo: accountInfo
+                    ? { appId: accountInfo?.miniProgram?.appId || '', envVersion: accountInfo?.miniProgram?.envVersion || '', version: accountInfo?.miniProgram?.version || '' }
+                    : undefined,
+            },
+        });
+    }
+    let data;
     try {
-        accountInfo = wx.getAccountInfoSync?.() || null;
+        data = await doWxLoginOnce();
     }
     catch (e) {
-        accountInfo = null;
+        const msg = String(e?.message || '');
+        // wechat jscode2session: 40029 invalid code (간헐/중복 호출/개발자도구) → 새 code로 1회 재시도
+        if (msg.includes('40029') || msg.toLowerCase().includes('invalid code')) {
+            await new Promise((r) => setTimeout(r, 250));
+            data = await doWxLoginOnce();
+        }
+        else {
+            throw e;
+        }
     }
-    const data = await requestAuth('/api/auth/wechat-login', {
-        method: 'POST',
-        data: {
-            code: loginRes.code,
-            ...(userInfo ? { userInfo } : {}),
-            miniProgramInfo: accountInfo
-                ? { appId: accountInfo?.miniProgram?.appId || '', envVersion: accountInfo?.miniProgram?.envVersion || '', version: accountInfo?.miniProgram?.version || '' }
-                : undefined,
-        },
-    });
     setToken(data.token);
     setUser(data.user);
     await trySyncWeChatProfileSilently(data.token);
@@ -155,6 +174,26 @@ export async function bindPhoneByWeChatCode(phoneCode) {
     }
     await prefetchUserBootstrapData(token);
     return data?.user || null;
+}
+
+export async function oneClickLoginByWeChatPhoneCode(phoneCode) {
+    const code = String(phoneCode || '').trim();
+    if (!code)
+        throw new Error('missing phone code');
+    const loginRes = await new Promise((resolve, reject) => {
+        wx.login({ timeout: 8000, success: resolve, fail: (err) => reject(new Error(err?.errMsg || 'wx.login failed')) });
+    });
+    if (!loginRes?.code)
+        throw new Error('wx.login failed: missing code');
+    const data = await requestAuth('/api/auth/wechat-oneclick', {
+        method: 'POST',
+        data: { loginCode: loginRes.code, phoneCode: code },
+    });
+    setToken(data.token);
+    setUser(data.user);
+    await trySyncWeChatProfileSilently(data.token);
+    await prefetchUserBootstrapData(data.token);
+    return data;
 }
 export async function ensureAuthSession(options = {}) {
     const { allowLogin = false } = options;

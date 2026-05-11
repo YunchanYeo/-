@@ -13,6 +13,7 @@ export function createApiRouter(controller: any) {
   router.get('/app-config', controller.appConfig);
   router.get('/categories', controller.categories);
   router.post('/auth/wechat-login', controller.wechatLogin);
+  router.post('/auth/wechat-oneclick', controller.wechatOneClickLogin);
   router.get('/media/product/:id', controller.serveProductImage);
   router.get('/products', controller.publicProducts);
   router.get('/products/:id', controller.publicProductDetail);
