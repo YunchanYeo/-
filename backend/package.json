@@ -13,6 +13,7 @@
     "test": "vitest run",
     "start:dist": "node dist/index.js",
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
+    "probe:wechat-pay": "tsx src/scripts/probeWechatPay.ts",
     "migrate:pg": "tsx src/scripts/migrateSqliteToPostgres.ts",
     "migrate:oss": "tsx src/scripts/migrateUploadsToOss.ts"
   },

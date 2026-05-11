@@ -37,3 +37,18 @@ docker compose up -d --no-deps --force-recreate backend
 从本机同步：可用 `bash deploy/china-test/push-from-mac.sh`（上传 `.env` 并 compose）。
 
 运维说明（含「多个 `china-test` 目录时如何确认」）：`docs/kr/DEPLOY_CN_WECHAT.md` 第 5 节补充小节。
+
+### 自检：商户签名是否被微信支付接受（不下单）
+
+在 `backend` 目录、已配置 `.env`（及/或本目录 `apiclient_key.pem`）时执行：
+
+```bash
+npm run probe:wechat-pay
+```
+
+- **成功**：`WECHAT_MCH_ID`、`WECHAT_PAY_SERIAL_NO`、私钥与商户平台一致（至少能通过 `GET /v3/certificates`）。
+- **失败**：多为序列号与私钥不匹配、私钥 PEM 错误、或商户号错误；响应体会打印微信支付返回的错误摘要（不含密钥原文）。
+
+**不检查**：`WECHAT_PAY_API_V3_KEY` 是否正确（该密钥用于回调体解密；脚本内若长度不是 32 字节会警告）。**不检查**：小程序 `openid` 或 `WECHAT_PAY_NOTIFY_URL` 是否可达。
+
+若 `GET /v3/certificates` 返回 404（无平台证书），脚本会自动发一笔 **无效 openid** 的 JSAPI 试探：若返回 `APPID_MCHID_NOT_MATCH` 等 **业务类错误**（非 401 签名错误），通常表示 **商户证书序列号 + 私钥已被微信支付接受**；此时请核对 **小程序 AppID 与商户号是否已在商户平台绑定**。

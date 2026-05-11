@@ -53,6 +53,7 @@ WECHAT_PAY_MOCK=true
 - `ADMIN_SYNC_ON_START=true`: 매 기동 시 위 username 행 비밀번호 해시를 `.env` 값과 동기화(운영에서는 보통 `false`).
 - `WECHAT_APPID` / `WECHAT_APPSECRET`: WeChat 로그인 코드 교환
 - `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock. 실결제·商户证书·`WECHAT_PAY_PRIVATE_KEY` PEM 형식·Docker 반영은 **`backend/.env.example`** 및 **`backend/certs/wechat-pay/README.md`** 참고.
+- 위챗페이 **서명용 설정**(商户号·证书序列号·私钥)만 빠르게 검증: `cd backend && npm run probe:wechat-pay` — 위챗 `GET /v3/certificates` 호출, 성공 시 키·직렬번호·私钥 조합이 플랫폼과 맞음. `WECHAT_PAY_API_V3_KEY` 정합성은 이 스크립트로는 검증하지 않음(32바이트 길이만 경고).
 - `KUAIDI100_KEY` / `KUAIDI100_CUSTOMER`(선택): 관리자 주문 **물류轨迹** 연동(快递100 등, `.env.example` 참고)
 
 ## 4. 관리자 계정 시드

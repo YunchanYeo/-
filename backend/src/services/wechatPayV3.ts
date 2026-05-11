@@ -83,6 +83,45 @@ function buildAuthorization(opts: {
   return `WECHATPAY2-SHA256-RSA2048 mchid="${opts.mchId}",nonce_str="${nonceStr}",signature="${signature}",timestamp="${timestamp}",serial_no="${opts.serialNo}"`;
 }
 
+/**
+ * 调用 GET /v3/certificates：校验商户号 + 证书序列号 + 私钥 是否与微信支付侧一致（不下单、不扣款）。
+ * 不验证 WECHAT_PAY_API_V3_KEY（该密钥用于回调解密等，需另在沙箱单测或真实 notify 中验证）。
+ */
+export async function verifyWechatPayMerchantAuth(config: WechatPayV3Config): Promise<
+  { ok: true; certificateCount: number } | { ok: false; httpStatus: number; detail: string }
+> {
+  const urlPath = '/v3/certificates';
+  const body = '';
+  const authorization = buildAuthorization({
+    mchId: config.mchId,
+    serialNo: config.serialNo,
+    privateKeyPem: config.privateKeyPem,
+    method: 'GET',
+    urlPath,
+    body,
+  });
+  const res = await fetch(`https://api.mch.weixin.qq.com${urlPath}`, {
+    method: 'GET',
+    headers: {
+      Authorization: authorization,
+      Accept: 'application/json',
+      'Accept-Language': 'zh-CN',
+      'User-Agent': 'WechatMiniBackend/1.0',
+    },
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    return { ok: false, httpStatus: res.status, detail: text.slice(0, 800) };
+  }
+  try {
+    const json = JSON.parse(text) as { data?: unknown[] };
+    const certificateCount = Array.isArray(json.data) ? json.data.length : 0;
+    return { ok: true, certificateCount };
+  } catch {
+    return { ok: false, httpStatus: res.status, detail: 'response not json' };
+  }
+}
+
 export async function jsapiTransactions(opts: {
   config: WechatPayV3Config;
   description: string;
@@ -115,6 +154,7 @@ export async function jsapiTransactions(opts: {
     headers: {
       Authorization: authorization,
       Accept: 'application/json',
+      'Accept-Language': 'zh-CN',
       'Content-Type': 'application/json',
       'User-Agent': 'WechatMiniBackend/1.0',
     },
