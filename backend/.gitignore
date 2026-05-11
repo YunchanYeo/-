@@ -1,4 +1,7 @@
 .env
+# 商户证书勿提交
+certs/wechat-pay/*.pem
+certs/wechat-pay/*.p12
 node_modules
 dist
 *.log

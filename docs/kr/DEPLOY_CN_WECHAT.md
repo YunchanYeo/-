@@ -58,11 +58,25 @@ Docker 를 돌리는 디렉터리는 항상 **`deploy/china-test`** 입니다.
 cd /root/wechat-app-live/deploy/china-test
 ```
 
-위치를 모를 때:
+위치를 모를 때 (`deploy/china-test`만 좁혀 찾기):
 
 ```bash
-find /root -name "docker-compose.yml" 2>/dev/null
+find /root /home -maxdepth 6 -path "*/deploy/china-test" -type d 2>/dev/null
 ```
+
+또는:
+
+```bash
+find /root -name "docker-compose.yml" 2>/dev/null | grep china-test
+```
+
+**여러 개** 나오면(예: `wechat-app-live`, `wechat-app`, `*.backup-*`) **지금 떠 있는 백엔드가 어느 compose 로 올라갔는지** 확인:
+
+```bash
+docker inspect wechat-backend --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
+```
+
+출력 경로의 `docker-compose.yml` 이 있는 디렉터리가 **`cd` 해야 할 `deploy/china-test`** 입니다. 잘못된 트리의 `.env` 를 고치면 반영되지 않습니다.
 
 **셸 한 줄에 명령 하나만** 입력합니다. `docker compose up -d 또는 restart` 처럼 한글까지 붙이면 실패합니다.
 
@@ -86,7 +100,23 @@ docker compose logs --tail=50 caddy
      sslip 형식: IP `39.106.213.185` → 호스트 `39-106-213-185.sslip.io`
    - ECS 안에서 관리 UI 점검: `curl -sS http://127.0.0.1:8080/`
 
-4. 서버에서만 SSL 빠르게 볼 때 (맥 LibreSSL 은 `-brief` 없음):
+### 5.1 `backend/.env` 만 수정한 뒤 반영
+
+Compose 의 `env_file` 은 컨테이너 **재생성** 시 안전하게 다시 읽힙니다. 서버에서 `backend/.env` 저장 후, **실제 운영 중인** `deploy/china-test` 로 이동해:
+
+```bash
+docker compose up -d --no-deps --force-recreate backend
+```
+
+`docker compose restart backend` 만으로는 환경 변수가 남는 경우가 있어, **위 한 줄**을 권장합니다. 맥에서 `.env` 까지 올리고 기동까지 한 번에: 레포 루트에서 `bash deploy/china-test/push-from-mac.sh`.
+
+로컬에서 `node` 직접 실행 시에는 프로세스를 **다시 시작**하면 됩니다.
+
+### 5.2 微信支付 등 인증서·私钥
+
+- **권장**: `backend/certs/wechat-pay/apiclient_key.pem` 등 파일 배치,`.env` 의 `WECHAT_PAY_PRIVATE_KEY` 는 비움. PEM 전문·`BEGIN`/`END` 줄 포함 여부·Docker 반영 절차는 **`backend/certs/wechat-pay/README.md`** 참고.
+
+### 5.3 서버에서 SSL 빠르게 확인 (선택, 맥 LibreSSL 은 `-brief` 없음)
 
 ```bash
 echo | openssl s_client -connect 39-106-213-185.sslip.io:443 -servername 39-106-213-185.sslip.io 2>&1 | head -50

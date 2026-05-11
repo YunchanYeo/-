@@ -52,7 +52,7 @@ WECHAT_PAY_MOCK=true
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD`: **`npm run seed:admin` 또는 `ADMIN_SYNC_ON_START=true` 시 SQLite `admins`에 bcrypt 해시로 반영**됩니다. 로그인(`POST /api/admin/login`)은 **실제로는 DB 행**(passwordHash 또는 레거시 평문 password)만 검증합니다.
 - `ADMIN_SYNC_ON_START=true`: 매 기동 시 위 username 행 비밀번호 해시를 `.env` 값과 동기화(운영에서는 보통 `false`).
 - `WECHAT_APPID` / `WECHAT_APPSECRET`: WeChat 로그인 코드 교환
-- `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock
+- `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock. 실결제·商户证书·`WECHAT_PAY_PRIVATE_KEY` PEM 형식·Docker 반영은 **`backend/.env.example`** 및 **`backend/certs/wechat-pay/README.md`** 참고.
 - `KUAIDI100_KEY` / `KUAIDI100_CUSTOMER`(선택): 관리자 주문 **물류轨迹** 연동(快递100 등, `.env.example` 참고)
 
 ## 4. 관리자 계정 시드

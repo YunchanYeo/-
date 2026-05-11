@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type WechatPayV3Config = {
   appId: string;
@@ -11,16 +14,46 @@ export type WechatPayV3Config = {
   platformCertPem?: string;
 };
 
+function readTextFileIfExists(filePath: string): string {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return '';
+    return fs.readFileSync(filePath, 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
+/** 商户私钥：优先 WECHAT_PAY_PRIVATE_KEY，其次 WECHAT_PAY_PRIVATE_KEY_FILE，再次默认 certs 目录 */
+function resolveMerchantPrivateKeyPem(): string {
+  const inline = String(process.env.WECHAT_PAY_PRIVATE_KEY || '').trim().replace(/\\n/g, '\n');
+  if (inline) return inline;
+  const explicitFile = String(process.env.WECHAT_PAY_PRIVATE_KEY_FILE || '').trim();
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const defaultKey = path.join(here, '..', '..', 'certs', 'wechat-pay', 'apiclient_key.pem');
+  return readTextFileIfExists(explicitFile) || readTextFileIfExists(defaultKey);
+}
+
+/** 微信平台证书 PEM：优先文件，其次环境变量（须为 PEM 文本） */
+function resolvePlatformCertPem(): string | undefined {
+  const explicitFile = String(process.env.WECHAT_PAY_PLATFORM_CERT_FILE || '').trim();
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const defaultPem = path.join(here, '..', '..', 'certs', 'wechat-pay', 'wechatpay_cert.pem');
+  const fromFile = readTextFileIfExists(explicitFile) || readTextFileIfExists(defaultPem);
+  if (fromFile) return fromFile;
+  const pem = String(process.env.WECHAT_PAY_PLATFORM_CERT_PEM || '').trim().replace(/\\n/g, '\n');
+  if (pem.includes('BEGIN CERTIFICATE')) return pem;
+  return undefined;
+}
+
 /** 从环境变量组装配置；缺任意必填项则返回 null */
 export function loadWechatPayConfigFromEnv(): WechatPayV3Config | null {
   const appId = String(process.env.WECHAT_APPID || '').trim();
   const mchId = String(process.env.WECHAT_MCH_ID || '').trim();
   const serialNo = String(process.env.WECHAT_PAY_SERIAL_NO || '').trim();
-  let privateKeyPem = String(process.env.WECHAT_PAY_PRIVATE_KEY || '').trim().replace(/\\n/g, '\n');
+  const privateKeyPem = resolveMerchantPrivateKeyPem();
   const notifyUrl = String(process.env.WECHAT_PAY_NOTIFY_URL || '').trim();
   const apiV3Key = String(process.env.WECHAT_PAY_API_V3_KEY || '').trim();
-  let platformCertPem = process.env.WECHAT_PAY_PLATFORM_CERT_PEM?.trim();
-  if (platformCertPem) platformCertPem = platformCertPem.replace(/\\n/g, '\n');
+  const platformCertPem = resolvePlatformCertPem();
 
   if (!appId || !mchId || !serialNo || !privateKeyPem || !notifyUrl || !apiV3Key) return null;
   const cfg: WechatPayV3Config = { appId, mchId, serialNo, privateKeyPem, notifyUrl, apiV3Key };

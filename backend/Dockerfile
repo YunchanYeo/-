@@ -14,6 +14,8 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
+# 微信支付商户证书（apiclient_key.pem 等），见 certs/wechat-pay/README.md
+COPY certs ./certs
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
 
