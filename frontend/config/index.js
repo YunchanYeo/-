@@ -22,7 +22,7 @@ const LOCAL_API_BASE = 'http://127.0.0.1:3000';
 const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
 
 /** IP 각 옥텟을 하이픈으로: 39.106.213.185 → 39-106-213-185.sslip.io (Caddyfile·微信公众平台 과 동일) */
-const CLOUD_HTTPS_API_BASE = 'https://39-106-213-185.sslip.io';
+const CLOUD_HTTPS_API_BASE = 'https://hebibingtest.shop';
 /**
  * 비우면 위 sslip 주소 사용. 정식 도메인 전환 시 예: 'https://api.example.com' (끝 슬래시 없음).
  * 설정 후: Caddyfile에 해당 호스트 블록 추가·LE 인증서 발급,微信公众平台 request合法域名 동일 호스트, 재编译.
