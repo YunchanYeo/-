@@ -7,16 +7,18 @@ Page({
         time: 0,
         showBannerDesc: false,
         statusTag: '',
+        description: '',
+        title: '营销详情',
     },
     onLoad(query) {
         const promotionID = parseInt(query.promotion_id);
         this.getGoodsList(promotionID);
     },
     getGoodsList(promotionID) {
-        fetchPromotion(promotionID).then(({ list, banner, time, showBannerDesc, statusTag }) => {
+        fetchPromotion(promotionID).then(({ list, banner, time, showBannerDesc, statusTag, description = '', title = '营销详情' }) => {
             const goods = list.map((item) => ({
                 ...item,
-                tags: item.tags.map((v) => v.title),
+                tags: (item.tags || []).map((v) => v.title),
             }));
             this.setData({
                 list: goods,
@@ -24,7 +26,10 @@ Page({
                 time,
                 showBannerDesc,
                 statusTag,
+                description,
+                title,
             });
+            wx.setNavigationBarTitle({ title });
         });
     },
     goodClickHandle(e) {
@@ -40,10 +45,11 @@ Page({
         });
     },
     bannerClickHandle() {
-        Toast({
-            context: this,
-            selector: '#t-toast',
-            message: '点击规则详情',
+        wx.showModal({
+            title: this.data.title || '营销详情',
+            content: this.data.description || '暂无活动说明',
+            showCancel: false,
+            confirmText: '知道了',
         });
     },
 });

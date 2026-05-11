@@ -329,6 +329,21 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 `);
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS promotions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  imageUrl TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'ON',
+  sortOrder INTEGER NOT NULL DEFAULT 0,
+  relatedProductId INTEGER,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (relatedProductId) REFERENCES products(id) ON DELETE SET NULL
+);
+`);
+
 const pointsRateSetting = db.prepare(`SELECT key FROM app_settings WHERE key = 'pointsEarnRatePercent'`).get() as { key: string } | undefined;
 if (!pointsRateSetting) {
   db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run('pointsEarnRatePercent', '1');

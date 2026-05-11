@@ -1,12 +1,19 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
 import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
-import { ensureAuthSession, getToken } from '../auth/session';
+import { getToken } from '../auth/session';
 import { fetchCouponList } from '../coupon/index';
 function mockFetchUserCenter() {
     const { delay } = require('../_utils/delay');
     const { genUsercenter } = require('../../model/usercenter');
     return delay(200).then(() => genUsercenter());
+}
+function hasRealWechatProfile(me) {
+    const nick = String(me?.nickName || '').trim();
+    const avatar = String(me?.avatarUrl || '').trim();
+    const hasRealNick = !!nick && nick !== '微信用户';
+    const hasAvatar = !!avatar && !/icon-user-center-avatar/i.test(avatar);
+    return hasRealNick || hasAvatar;
 }
 export function fetchUserCenter() {
     if (config.useMock)
@@ -31,6 +38,7 @@ export function fetchUserCenter() {
                 nickName: me.nickName || '微信用户',
                 phoneNumber: me.phoneNumber || '',
             },
+            hasWechatProfile: hasRealWechatProfile(me),
             countsData: [
                 { type: 'address', num: String(Array.isArray(addressList) ? addressList.length : 0) },
                 { type: 'coupon', num: String(Array.isArray(couponList) ? couponList.length : 0) },
@@ -47,26 +55,22 @@ export function fetchUserCenter() {
         };
     });
 
-    // 마이페이지 진입 시 토큰이 없으면 위챗 로그인 재시도(앱 onLaunch 자동로그인 실패 대비)
     if (!getToken()) {
-        return ensureAuthSession({ allowLogin: true })
-            .then(() => loadAuthed())
-            .catch(() =>
-                fetchCustomerServicePhone().then((servicePhone) => ({
-                    userInfo: {
-                        avatarUrl: '',
-                        nickName: '',
-                        phoneNumber: '',
-                    },
-                    countsData: [
-                        { type: 'address', num: '0' },
-                        { type: 'coupon', num: '0' },
-                        { type: 'point', num: '0' },
-                    ],
-                    orderTagInfos: [{ orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }],
-                    customerServiceInfo: { servicePhone },
-                })),
-            );
+        return fetchCustomerServicePhone().then((servicePhone) => ({
+            userInfo: {
+                avatarUrl: '',
+                nickName: '',
+                phoneNumber: '',
+            },
+            hasWechatProfile: false,
+            countsData: [
+                { type: 'address', num: '0' },
+                { type: 'coupon', num: '0' },
+                { type: 'point', num: '0' },
+            ],
+            orderTagInfos: [{ orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }],
+            customerServiceInfo: { servicePhone },
+        }));
     }
 
     return loadAuthed();

@@ -15,6 +15,8 @@ export function createApiController(services: Services) {
     wechatLogin: services.auth.wechatLogin as RequestHandler,
     publicProducts: services.product.publicProducts as RequestHandler,
     publicProductDetail: services.product.publicProductDetail as RequestHandler,
+    publicPromotions: services.promotion.publicPromotions as RequestHandler,
+    publicPromotionDetail: services.promotion.publicPromotionDetail as RequestHandler,
     /** 관리자 업로드 상품 이미지(DB BLOB) 조회 */
     serveProductImage: services.productMedia.serveProductImage as RequestHandler,
 
@@ -63,6 +65,10 @@ export function createApiController(services: Services) {
     adminGrantCoupon: services.coupon.adminGrantCoupon as RequestHandler,
     adminUpdateCoupon: services.coupon.adminUpdateCoupon as RequestHandler,
     adminDeleteCoupon: services.coupon.adminDeleteCoupon as RequestHandler,
+    adminPromotions: services.promotion.adminPromotions as RequestHandler,
+    adminCreatePromotion: services.promotion.adminCreatePromotion as RequestHandler,
+    adminUpdatePromotion: services.promotion.adminUpdatePromotion as RequestHandler,
+    adminDeletePromotion: services.promotion.adminDeletePromotion as RequestHandler,
 
     // admin
     adminLogin: services.auth.adminLogin as RequestHandler,

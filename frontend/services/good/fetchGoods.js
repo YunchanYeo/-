@@ -16,7 +16,13 @@ function mockFetchGoodsList(pageIndex = 1, pageSize = 20) {
 export function fetchGoodsList(pageIndex = 1, pageSize = 20) {
     if (config.useMock)
         return mockFetchGoodsList(pageIndex, pageSize);
-    return requestJson('/api/products', { method: 'GET' }).then((rows) => {
+    const opts = arguments.length >= 3 ? arguments[2] : null;
+    const categoryId = opts && typeof opts === 'object' && opts.categoryId != null ? Number(opts.categoryId) : null;
+    const categoryName = opts && typeof opts === 'object' && opts.categoryName != null ? String(opts.categoryName).trim() : '';
+    const qs = Number.isFinite(categoryId)
+        ? `?categoryId=${encodeURIComponent(String(categoryId))}`
+        : (categoryName ? `?category=${encodeURIComponent(categoryName)}` : '');
+    return requestJson(`/api/products${qs}`, { method: 'GET' }).then((rows) => {
         const fallbackThumb = `${cdnBase}/activity/banner.png`;
         const safeRows = Array.isArray(rows) ? rows : [];
         // pageIndex 视为从 0 开始的页码

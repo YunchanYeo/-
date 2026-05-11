@@ -1,6 +1,7 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { syncUserProfileByWeChat } from '../../services/auth/session';
+import { getToken, loginWithWeChat } from '../../services/auth/session';
+import { requestJson } from '../../services/_utils/http';
 const menuData = [
     [
         {
@@ -89,6 +90,13 @@ const getDefaultData = () => ({
     showKefu: true,
     versionNo: '',
 });
+function hasRealProfile(userInfo) {
+    const nick = String(userInfo?.nickName || '').trim();
+    const avatar = String(userInfo?.avatarUrl || '').trim();
+    const hasRealNick = !!nick && nick !== '微信用户';
+    const hasAvatar = !!avatar && !/icon-user-center-avatar/i.test(avatar);
+    return hasRealNick || hasAvatar;
+}
 Page({
     data: getDefaultData(),
     onLoad() {
@@ -109,7 +117,7 @@ Page({
     },
     fetUseriInfoHandle() {
         fetchUserCenter()
-            .then(({ userInfo, countsData, orderTagInfos: orderInfo, customerServiceInfo }) => {
+            .then(({ userInfo, countsData, orderTagInfos: orderInfo, customerServiceInfo, hasWechatProfile = false }) => {
                 // eslint-disable-next-line no-unused-expressions
                 menuData?.[0].forEach((v) => {
                     countsData.forEach((counts) => {
@@ -129,7 +137,6 @@ Page({
                     ...v,
                     ...orderInfo[index],
                 }));
-                const hasWechatProfile = !!(userInfo?.nickName || userInfo?.avatarUrl);
                 this.setData({
                     userInfo,
                     menuData: nextMenu,
@@ -250,8 +257,45 @@ Page({
         });
     },
     async gotoUserEditPage() {
+        if (!getToken() || !hasRealProfile(this.data.userInfo)) {
+            await this.handleLoginWithConsent();
+            return;
+        }
+        wx.navigateTo({ url: '/pages/user/person-info/index' });
+    },
+    async handleLoginWithConsent() {
         try {
-            await syncUserProfileByWeChat();
+            const profileRes = await new Promise((resolve, reject) => {
+                wx.getUserProfile({ desc: '用于展示头像昵称并完善会员资料', success: resolve, fail: reject });
+            });
+            const userInfo = profileRes?.userInfo || {};
+            const loginData = await loginWithWeChat({
+                nickName: userInfo.nickName || '',
+                avatarUrl: userInfo.avatarUrl || '',
+                gender: Number(userInfo.gender || 0),
+            });
+            if (!hasRealProfile(userInfo) && !hasRealProfile(loginData?.user || {})) {
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '微信未返回头像昵称，请在个人资料页补充',
+                    icon: '',
+                    duration: 1600,
+                });
+            }
+            const wechatAddress = await this.pickWechatAddress().catch(() => null);
+            const addressPhone = String(wechatAddress?.telNumber || '').trim();
+            let finalPhone = String(loginData?.user?.phoneNumber || '').trim() || addressPhone;
+            if (!finalPhone) {
+                finalPhone = await this.promptPhoneNumber();
+            }
+            if (finalPhone) {
+                await requestJson('/api/me', { method: 'PUT', data: { phoneNumber: finalPhone } });
+            }
+            await this.syncAddressFromWechat(wechatAddress, {
+                fallbackName: userInfo.nickName || '微信用户',
+                fallbackPhone: finalPhone,
+            });
             this.fetUseriInfoHandle();
             wx.navigateTo({ url: '/pages/user/person-info/index' });
         }
@@ -275,6 +319,65 @@ Page({
                 duration: 1200,
             });
         }
+    },
+    pickWechatAddress() {
+        return new Promise((resolve, reject) => {
+            wx.chooseAddress({
+                success: resolve,
+                fail: reject,
+            });
+        });
+    },
+    async syncAddressFromWechat(address, { fallbackName = '', fallbackPhone = '' } = {}) {
+        if (!address)
+            return;
+        const name = String(address.userName || fallbackName || '').trim();
+        const phone = String(address.telNumber || fallbackPhone || '').trim();
+        if (!name || !phone)
+            return;
+        const existing = await requestJson('/api/addresses', { method: 'GET' }).catch(() => []);
+        if (Array.isArray(existing) && existing.length > 0)
+            return;
+        await requestJson('/api/addresses', {
+            method: 'POST',
+            data: {
+                name,
+                phone,
+                countryName: '中国',
+                countryCode: String(address.nationalCode || ''),
+                provinceName: String(address.provinceName || ''),
+                provinceCode: '',
+                cityName: String(address.cityName || ''),
+                cityCode: '',
+                districtName: String(address.countyName || ''),
+                districtCode: '',
+                detailAddress: String(address.detailInfo || ''),
+                addressTag: '微信导入',
+                isDefault: 1,
+            },
+        }).catch(() => { });
+    },
+    promptPhoneNumber() {
+        return new Promise((resolve, reject) => {
+            wx.showModal({
+                title: '绑定手机号',
+                content: '',
+                editable: true,
+                placeholderText: '11位手机号',
+                confirmText: '保存',
+                cancelText: '跳过',
+                success: (res) => {
+                    if (!res.confirm)
+                        return resolve('');
+                    const phone = String(res.content || '').trim();
+                    if (!/^1\d{10}$/.test(phone)) {
+                        return reject(new Error('手机号格式不正确'));
+                    }
+                    return resolve(phone);
+                },
+                fail: () => resolve(''),
+            });
+        });
     },
     getVersionInfo() {
         const versionInfo = wx.getAccountInfoSync();

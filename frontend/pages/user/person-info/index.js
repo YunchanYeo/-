@@ -1,7 +1,9 @@
 import { fetchPerson } from '../../../services/usercenter/fetchPerson';
 import { phoneEncryption } from '../../../utils/util';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { logout, syncUserProfileByWeChat } from '../../../services/auth/session';
+import { logout } from '../../../services/auth/session';
+import { requestJson } from '../../../services/_utils/http';
+import { uploadSupportMedia } from '../../../services/support/chat';
 Page({
     data: {
         personInfo: {
@@ -40,24 +42,106 @@ Page({
     },
     onClickCell({ currentTarget }) {
         const { dataset } = currentTarget;
-        const { nickName } = this.data.personInfo;
         switch (dataset.type) {
             case 'gender':
                 this.setData({
                     typeVisible: true,
                 });
                 break;
-            case 'name':
-                wx.navigateTo({
-                    url: `/pages/user/name-edit/index?name=${nickName}`,
-                });
-                break;
-            case 'avatarUrl':
-                this.toModifyAvatar();
+            case 'phoneNumber':
+                this.openPhoneNumberEditor();
                 break;
             default: {
                 break;
             }
+        }
+    },
+    openPhoneNumberEditor() {
+        wx.showModal({
+            title: '绑定手机号',
+            content: '',
+            editable: true,
+            placeholderText: '11位手机号',
+            confirmText: '保存',
+            cancelText: '取消',
+            success: async (res) => {
+                if (!res.confirm)
+                    return;
+                const phone = String(res.content || '').trim();
+                if (!/^1\d{10}$/.test(phone)) {
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: '手机号格式不正确',
+                        theme: 'error',
+                    });
+                    return;
+                }
+                try {
+                    await requestJson('/api/me', { method: 'PUT', data: { phoneNumber: phone } });
+                    this.fetchData();
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: '手机号已更新',
+                        theme: 'success',
+                    });
+                }
+                catch (e) {
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: '手机号保存失败，请稍后重试',
+                        theme: 'error',
+                    });
+                }
+            },
+        });
+    },
+    async onChooseAvatar(e) {
+        const localAvatarPath = String(e?.detail?.avatarUrl || '').trim();
+        if (!localAvatarPath)
+            return;
+        try {
+            const uploadedUrl = await uploadSupportMedia({
+                kind: 'image',
+                filePath: localAvatarPath,
+                mimeType: 'image/jpeg',
+                fileName: `avatar-${Date.now()}.jpg`,
+            });
+            await requestJson('/api/me', { method: 'PUT', data: { avatarUrl: uploadedUrl } });
+            this.fetchData();
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '头像已更新',
+                theme: 'success',
+            });
+        }
+        catch (error) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '头像上传失败，请重试',
+                theme: 'error',
+            });
+        }
+    },
+    async onNicknameBlur(e) {
+        const nickName = String(e?.detail?.value || '').trim();
+        if (!nickName || nickName === this.data.personInfo.nickName)
+            return;
+        try {
+            await requestJson('/api/me', { method: 'PUT', data: { nickName } });
+            this.fetchData();
+        }
+        catch (error) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '昵称保存失败，请重试',
+                theme: 'error',
+            });
         }
     },
     onClose() {
@@ -78,81 +162,6 @@ Page({
                 theme: 'success',
             });
         });
-    },
-    async toModifyAvatar() {
-        try {
-            const tempFilePath = await new Promise((resolve, reject) => {
-                wx.chooseImage({
-                    count: 1,
-                    sizeType: ['compressed'],
-                    sourceType: ['album', 'camera'],
-                    success: (res) => {
-                        const { path, size } = res.tempFiles[0];
-                        if (size <= 10485760) {
-                            resolve(path);
-                        }
-                        else {
-                            reject({ errMsg: '图片大小超出限制，请重新上传' });
-                        }
-                    },
-                    fail: (err) => reject(err),
-                });
-            });
-            const tempUrlArr = tempFilePath.split('/');
-            const tempFileName = tempUrlArr[tempUrlArr.length - 1];
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: `已选择图片-${tempFileName}`,
-                theme: 'success',
-            });
-        }
-        catch (error) {
-            if (error.errMsg === 'chooseImage:fail cancel')
-                return;
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: error.errMsg || error.msg || '修改头像出错了',
-                theme: 'error',
-            });
-        }
-    },
-    async openUnbindConfirm() {
-        try {
-            const { confirm } = await new Promise((resolve) => {
-                wx.showModal({
-                    title: '切换账号登录',
-                    content: '将清除本地登录信息，并重新进行微信登录/授权。',
-                    confirmText: '继续',
-                    cancelText: '取消',
-                    success: resolve,
-                    fail: () => resolve({ confirm: false }),
-                });
-            });
-            if (!confirm)
-                return;
-            logout();
-            await syncUserProfileByWeChat();
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: '已重新登录并同步微信资料',
-                theme: 'success',
-            });
-            this.fetchData();
-        }
-        catch (e) {
-            const msg = e?.errMsg || e?.message || '';
-            if (String(msg).includes('cancel'))
-                return;
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: '重新登录失败，请稍后再试',
-                theme: 'error',
-            });
-        }
     },
     async onLogout() {
         const { confirm } = await new Promise((resolve) => {

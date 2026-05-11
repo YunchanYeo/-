@@ -16,6 +16,8 @@ export function createApiRouter(controller: any) {
   router.get('/media/product/:id', controller.serveProductImage);
   router.get('/products', controller.publicProducts);
   router.get('/products/:id', controller.publicProductDetail);
+  router.get('/promotions', controller.publicPromotions);
+  router.get('/promotions/:id', controller.publicPromotionDetail);
 
   // auth routes
   router.get('/me', controller.requireAuth, controller.me);
@@ -84,6 +86,10 @@ export function createApiRouter(controller: any) {
   router.post('/admin/coupons/:id/grant', controller.requireAdmin, controller.adminGrantCoupon);
   router.put('/admin/coupons/:id', controller.requireAdmin, controller.adminUpdateCoupon);
   router.delete('/admin/coupons/:id', controller.requireAdmin, controller.adminDeleteCoupon);
+  router.get('/admin/promotions', controller.requireAdmin, controller.adminPromotions);
+  router.post('/admin/promotions', controller.requireAdmin, controller.adminCreatePromotion);
+  router.put('/admin/promotions/:id', controller.requireAdmin, controller.adminUpdatePromotion);
+  router.delete('/admin/promotions/:id', controller.requireAdmin, controller.adminDeletePromotion);
 
   router.get('/admin/support/conversations', controller.requireAdmin, controller.adminSupportConversations);
   router.get('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportMessagesByUser);

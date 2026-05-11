@@ -57,4 +57,33 @@
       创建管理员账号
     </t-button>
   </view>
+
+  <view class="card event-card">
+    <view class="title">活动管理</view>
+    <view class="sub">新增活动后将展示在首页营销滑块，用户点击后可查看活动说明。</view>
+    <t-input label="活动标题" placeholder="请输入活动标题" value="{{promotionForm.title}}" data-key="title" bind:change="onPromotionFieldInput" />
+    <t-input label="关联商品ID" placeholder="可选，不填则只展示活动说明" value="{{promotionForm.relatedProductId}}" data-key="relatedProductId" bind:change="onPromotionFieldInput" />
+    <t-input label="排序值" placeholder="数值越大越靠前" value="{{promotionForm.sortOrder}}" data-key="sortOrder" bind:change="onPromotionFieldInput" />
+    <t-input label="状态" placeholder="ON 或 OFF" value="{{promotionForm.status}}" data-key="status" bind:change="onPromotionFieldInput" />
+    <t-textarea placeholder="活动说明（用户点击活动后展示）" value="{{promotionForm.description}}" data-key="description" bind:change="onPromotionFieldInput" />
+    <view class="promotion-image-row">
+      <image wx:if="{{promotionForm.imageUrl}}" class="promotion-preview" src="{{promotionForm.imageUrl}}" mode="aspectFit" />
+      <t-button variant="outline" size="small" bind:tap="onPickPromotionImage">上传活动图片</t-button>
+    </view>
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onSavePromotion">
+      {{promotionForm.id ? '更新活动' : '新增活动'}}
+    </t-button>
+    <view class="promotion-list">
+      <view class="promotion-row" wx:for="{{promotions}}" wx:key="id">
+        <view class="promotion-row-main">
+          <text class="promotion-row-title">{{item.title}}</text>
+          <text class="promotion-row-meta">ID: {{item.id}} / 状态: {{item.status}} / 排序: {{item.sortOrder}}</text>
+        </view>
+        <view class="promotion-row-actions">
+          <text class="link-btn" data-index="{{index}}" bind:tap="onEditPromotion">编辑</text>
+          <text class="link-btn danger" data-index="{{index}}" bind:tap="onDeletePromotion">删除</text>
+        </view>
+      </view>
+    </view>
+  </view>
 </view>

@@ -4,21 +4,27 @@
       title="头像"
       center="{{true}}"
       data-type="avatarUrl"
-      bind:click="onClickCell"
-      arrow
       t-class-left="order-group__left"
     >
-      <t-image slot="note" src="{{personInfo.avatarUrl}}" t-class="avatarUrl" mode="aspectFill" />
+      <button slot="note" class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <t-image src="{{personInfo.avatarUrl}}" t-class="avatarUrl" mode="aspectFill" />
+      </button>
     </t-cell>
     <t-cell
       title="昵称"
-      arrow
-      note="{{personInfo.nickName}}"
-      data-type="name"
-      bind:click="onClickCell"
       t-class="t-cell-class"
       t-class-left="order-group__left"
-    />
+    >
+      <input
+        slot="note"
+        class="nickname-input"
+        type="nickname"
+        maxlength="20"
+        value="{{personInfo.nickName}}"
+        placeholder="请输入昵称"
+        bind:blur="onNicknameBlur"
+      />
+    </t-cell>
     <t-cell
       title="性别"
       arrow
@@ -41,7 +47,6 @@
   </t-cell-group>
 </view>
 <view class="person-info__wrapper">
-  <view class="person-info__btn" bind:tap="openUnbindConfirm"> 切换账号登录 </view>
   <view class="person-info__btn" bind:tap="onLogout"> 退出登录 </view>
 </view>
 <t-select-picker

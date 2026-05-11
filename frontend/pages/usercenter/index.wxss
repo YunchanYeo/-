@@ -16,6 +16,27 @@ page {
   margin-bottom: 16rpx;
 }
 
+.profile-auth-card {
+  margin-bottom: 16rpx;
+  background: #fff8ef;
+  border: 1rpx solid #ffe3bf;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.profile-auth-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #8c4b00;
+}
+
+.profile-auth-desc {
+  margin: 10rpx 0 18rpx;
+  font-size: 24rpx;
+  line-height: 34rpx;
+  color: #9b6a2e;
+}
+
 .order-group-note {
   font-size: 28rpx;
 }

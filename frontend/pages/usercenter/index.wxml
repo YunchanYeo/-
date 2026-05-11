@@ -8,6 +8,11 @@
   bind:gotoUserEditPage="gotoUserEditPage"
 />
 <view class="content-wrapper">
+  <view class="profile-auth-card" wx:if="{{currAuthStep !== 3}}">
+    <view class="profile-auth-title">完善微信资料</view>
+    <view class="profile-auth-desc">点击下方按钮授权头像和昵称，便于识别账号与售后服务。</view>
+    <t-button theme="primary" size="small" bind:tap="gotoUserEditPage">授权头像昵称</t-button>
+  </view>
   <view class="order-group-wrapper">
     <t-order-group orderTagInfos="{{orderTagInfos}}" bind:onClickTop="jumpAllOrder" bind:onClickItem="jumpNav" />
   </view>

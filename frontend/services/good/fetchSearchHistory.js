@@ -1,4 +1,5 @@
 import { config } from '../../config/index';
+import { requestJson } from '../_utils/http';
 function mockSearchHistory() {
     const { delay } = require('../_utils/delay');
     const { getSearchHistory } = require('../../model/search');
@@ -7,7 +8,7 @@ function mockSearchHistory() {
 export function getSearchHistory() {
     if (config.useMock)
         return mockSearchHistory();
-    return new Promise((resolve) => resolve('real api'));
+    return Promise.resolve({ historyWords: [] });
 }
 function mockSearchPopular() {
     const { delay } = require('../_utils/delay');
@@ -17,5 +18,18 @@ function mockSearchPopular() {
 export function getSearchPopular() {
     if (config.useMock)
         return mockSearchPopular();
-    return new Promise((resolve) => resolve('real api'));
+    return requestJson('/api/products', { method: 'GET' }).then((rows) => {
+        const safeRows = Array.isArray(rows) ? rows : [];
+        const popularWords = safeRows
+            .sort((a, b) => {
+                const soldDiff = Number(b?.soldNum || 0) - Number(a?.soldNum || 0);
+                if (soldDiff !== 0)
+                    return soldDiff;
+                return Number(b?.id || 0) - Number(a?.id || 0);
+            })
+            .slice(0, 10)
+            .map((p) => String(p?.title || '').trim())
+            .filter((x) => !!x);
+        return { popularWords };
+    }).catch(() => ({ popularWords: [] }));
 }

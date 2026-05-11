@@ -2,6 +2,7 @@
   "navigationBarTitleText": "账号设置",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",
-    "t-button": "tdesign-miniprogram/button/button"
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-textarea": "tdesign-miniprogram/textarea/textarea"
   }
 }

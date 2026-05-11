@@ -15,7 +15,20 @@ export function createProductService({ db }: { db: Db }) {
     `id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, categoryId, status, createdAt, updatedAt`;
 
   function publicProducts(req: Request, res: Response) {
-    const { category: categoryRaw } = (req.query || {}) as any;
+    const { category: categoryRaw, categoryId: categoryIdRaw } = (req.query || {}) as any;
+    const categoryId = categoryIdRaw != null && categoryIdRaw !== '' ? Number(categoryIdRaw) : null;
+    if (Number.isFinite(categoryId)) {
+      const rows = db
+        .prepare(
+          `SELECT ${productColumns}
+           FROM products
+           WHERE status = ? AND categoryId IS NOT NULL AND categoryId = ?
+           ORDER BY id DESC`,
+        )
+        .all('ON', Number(categoryId));
+      res.json({ ok: true, data: rows });
+      return;
+    }
     const category = categoryRaw != null && categoryRaw !== '' ? String(categoryRaw).trim() : '';
     if (category) {
       const cid = resolveCategoryId(db, category);

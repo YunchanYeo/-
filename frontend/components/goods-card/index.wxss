@@ -67,7 +67,9 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  word-break: break-word;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
   line-height: 36rpx;
 }
 
@@ -187,6 +189,9 @@
   max-height: 72rpx;
   font-size: 24rpx;
   line-height: 32rpx;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .goods-card--grid .goods-card__desc {

@@ -69,3 +69,7 @@ export const createAdminCoupon = (payload) => requestAdminJson('/api/admin/coupo
 export const grantAdminCoupon = (id, payload = { grantAllUsers: true }) => requestAdminJson(`/api/admin/coupons/${id}/grant`, { method: 'POST', data: payload });
 export const updateAdminCoupon = (id, payload) => requestAdminJson(`/api/admin/coupons/${id}`, { method: 'PUT', data: payload });
 export const deleteAdminCoupon = (id) => requestAdminJson(`/api/admin/coupons/${id}`, { method: 'DELETE' });
+export const fetchAdminPromotions = () => requestAdminJson('/api/admin/promotions', { method: 'GET' });
+export const createAdminPromotion = (payload) => requestAdminJson('/api/admin/promotions', { method: 'POST', data: payload });
+export const updateAdminPromotion = (id, payload) => requestAdminJson(`/api/admin/promotions/${id}`, { method: 'PUT', data: payload });
+export const deleteAdminPromotion = (id) => requestAdminJson(`/api/admin/promotions/${id}`, { method: 'DELETE' });

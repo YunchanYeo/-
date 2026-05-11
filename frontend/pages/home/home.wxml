@@ -3,15 +3,30 @@
 </view>
 <view class="home-page-header">
   <view class="search" bind:tap="navToSearchPage">
-    <t-search t-class-input="t-search__input" t-class-input-container="t-search__input-container" placeholder="搜索" leftIcon="" disabled>
+    <t-search t-class-input="t-search__input" t-class-input-container="t-search__input-container" placeholder="{{searchPlaceholder}}" leftIcon="" disabled>
       <t-icon slot="left-icon" prefix="wr" name="search" size="40rpx" color="#bbb" />
     </t-search>
   </view>
-  <view class="swiper-wrap">
-    <t-swiper wx:if="{{imgSrcs.length > 0}}" current="{{current}}" autoplay="{{autoplay}}" duration="{{duration}}" interval="{{interval}}" navigation="{{navigation}}" imageProps="{{swiperImageProps}}" list="{{imgSrcs}}" bind:click="navToActivityDetail" />
-  </view>
 </view>
-<view class="home-page-container">
+<view class="home-page-container {{viewportClass}}">
+  <view class="marketing-section" wx:if="{{hotProducts.length > 0}}">
+    <swiper class="marketing-swiper" circular autoplay interval="3500" duration="500" current="{{marketingCurrent}}" bindchange="onMarketingChange">
+      <swiper-item wx:for="{{hotProducts}}" wx:key="spuId">
+        <view class="marketing-card" bindtap="navToMarketingDetail" data-spuid="{{item.spuId}}" data-promotionid="{{item.promotionId || ''}}">
+          <view class="marketing-image-wrap">
+            <image class="marketing-image" src="{{item.image}}" mode="aspectFit" />
+          </view>
+          <view class="marketing-info">
+            <view class="marketing-name">{{item.title}}</view>
+            <view class="marketing-meta" wx:if="{{item.price > 0}}">
+              <text class="marketing-price">¥{{item.price}}</text>
+              <text class="marketing-sold">已售 {{item.soldNum}}</text>
+            </view>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+  </view>
   <view class="home-page-tabs">
     <t-tabs t-class="t-tabs" t-class-active="tabs-external__active" t-class-item="tabs-external__item" defaultValue="{{0}}" space-evenly="{{false}}" bind:change="tabChangeHandle">
       <t-tab-panel wx:for="{{tabList}}" wx:for-index="index" wx:key="index" label="{{item.text}}" value="{{item.key}}" />

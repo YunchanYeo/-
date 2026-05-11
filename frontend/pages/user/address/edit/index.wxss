@@ -10,6 +10,15 @@ page .divider-line {
   display: flex;
   flex-wrap: wrap;
 }
+.address-tag-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+.address-tag-row {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
 .address-detail {
   font-size: 30rpx;
 }
@@ -56,6 +65,10 @@ page .divider-line {
   font-size: 26rpx;
   border: 2rpx solid transparent;
   width: auto;
+  flex-shrink: 0;
+}
+.form-address .label-add-btn {
+  margin-right: 0;
 }
 .form-address .label-list::after {
   content: none;

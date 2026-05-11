@@ -21,6 +21,10 @@
   margin: 0 10rpx;
   color: #bbbbbb;
 }
+.load-more .t-class-divider {
+  margin-top: 16rpx;
+  margin-bottom: calc(env(safe-area-inset-bottom) + 2rpx);
+}
 .load-more .t-class-indicator {
   color: #b9b9b9 !important;
 }

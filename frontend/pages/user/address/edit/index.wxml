@@ -76,22 +76,24 @@
           title="标签"
           bordered="{{false}}"
         >
-          <view class="t-input address-flex-box" slot="note">
-            <t-button
-              wx:for="{{labels}}"
-              wx:for-item="label"
-              wx:key="index"
-              size="extra-small"
-              t-class="label-list {{locationState.labelIndex === index ? 'active-btn':''}}"
-              bindtap="onPickLabels"
-              data-item="{{index}}"
-            >
-              {{label.name}}
-            </t-button>
-            <t-button size="extra-small" t-class="label-list" bindtap="addLabels">
-              <t-icon name="add" size="40rpx" color="#bbb" />
-            </t-button>
-          </view>
+          <scroll-view class="t-input address-tag-scroll" slot="note" scroll-x enable-flex show-scrollbar="{{false}}">
+            <view class="address-tag-row">
+              <t-button
+                wx:for="{{labels}}"
+                wx:for-item="label"
+                wx:key="index"
+                size="extra-small"
+                t-class="label-list {{locationState.labelIndex === index ? 'active-btn':''}}"
+                bindtap="onPickLabels"
+                data-item="{{index}}"
+              >
+                {{label.name}}
+              </t-button>
+              <t-button size="extra-small" t-class="label-list label-add-btn" bindtap="addLabels">
+                <t-icon name="add" size="40rpx" color="#bbb" />
+              </t-button>
+            </view>
+          </scroll-view>
         </t-cell>
         <view class="divider-line" />
         <t-cell title="设置为默认收货地址" bordered="{{false}}">

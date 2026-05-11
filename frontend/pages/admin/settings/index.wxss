@@ -39,3 +39,66 @@
   margin: 18rpx 0;
 }
 
+.event-card {
+  margin-top: 20rpx;
+}
+
+.promotion-image-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 14rpx 0 20rpx;
+}
+
+.promotion-preview {
+  width: 200rpx;
+  height: 120rpx;
+  border-radius: 10rpx;
+  background: #f6f7f9;
+}
+
+.promotion-list {
+  margin-top: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.promotion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f7f7f7;
+}
+
+.promotion-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.promotion-row-title {
+  font-size: 28rpx;
+  color: #222;
+}
+
+.promotion-row-meta {
+  display: block;
+  margin-top: 6rpx;
+  color: #888;
+  font-size: 22rpx;
+}
+
+.promotion-row-actions {
+  display: flex;
+  gap: 18rpx;
+  margin-left: 12rpx;
+}
+
+.link-btn {
+  color: #0052d9;
+  font-size: 24rpx;
+}
+
+.link-btn.danger {
+  color: #e34d59;
+}
+
