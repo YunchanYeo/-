@@ -30,3 +30,9 @@
 # 서버에서: CUSTOM_DOMAIN=api.你的域名.com bash deploy/china-test/enable-public-domain.sh
 # 수동 조각: deploy/china-test/caddy-snippet-custom-domain.txt
 # 전체 절차: docs/kr/DEPLOY_CN_WECHAT.md 섹션 8
+hebibingtest.shop {
+	tls {
+		protocols tls1.2 tls1.3
+	}
+	reverse_proxy admin-web:80
+}
