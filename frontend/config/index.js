@@ -78,6 +78,10 @@ export const config = {
     },
     /** 로컬 모드가 아니면 공인 HTTP 원점(항상 CLOUD_HTTP_API_BASE). 이미지·채팅 미디어 URL 리라이트용 */
     cloudServerHttpOrigin: USE_LOCAL_API ? '' : CLOUD_HTTP_API_BASE.replace(/\/+$/, ''),
+    /**
+     * 小程序「我的」客服热线等兜底：后端 `CUSTOMER_SERVICE_PHONE`（/api/app-config）未配置或请求失败时使用
+     */
+    customerServicePhone: '13331637172',
 };
 export const cdnBase = 'https://we-retail-static-1300977798.cos.ap-guangzhou.myqcloud.com/retail-mp';
 export const areaData = [

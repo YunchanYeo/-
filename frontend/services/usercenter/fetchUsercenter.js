@@ -1,5 +1,6 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
+import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
 import { getToken } from '../auth/session';
 import { fetchCouponList } from '../coupon/index';
 function mockFetchUserCenter() {
@@ -11,7 +12,7 @@ export function fetchUserCenter() {
     if (config.useMock)
         return mockFetchUserCenter();
     if (!getToken()) {
-        return Promise.resolve({
+        return fetchCustomerServicePhone().then((servicePhone) => ({
             userInfo: {
                 avatarUrl: '',
                 nickName: '',
@@ -23,16 +24,17 @@ export function fetchUserCenter() {
                 { type: 'point', num: '0' },
             ],
             orderTagInfos: [{ orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }],
-            customerServiceInfo: { servicePhone: '400-000-0000' },
-        });
+            customerServiceInfo: { servicePhone },
+        }));
     }
     /** 로그인 후 마이페이지는 매번 DB(백엔드 API)에서 최신 값 조회 — 로컬 prefetch 만으로 오래된 표시 방지 */
     return Promise.all([
+        fetchCustomerServicePhone(),
         requestJson('/api/me', { method: 'GET' }),
         requestJson('/api/addresses', { method: 'GET' }),
         requestJson('/api/orders/count', { method: 'GET' }),
         fetchCouponList('default').catch(() => []),
-    ]).then(([me, addressList, tabsCount, couponList]) => {
+    ]).then(([servicePhone, me, addressList, tabsCount, couponList]) => {
         const rows = Array.isArray(tabsCount) ? tabsCount : [];
         const numOf = (tabType) => {
             const hit = rows.find((x) => x.tabType === tabType);
@@ -56,7 +58,7 @@ export function fetchUserCenter() {
                 { orderNum: numOf(50) },
                 { orderNum: numOf(0) },
             ],
-            customerServiceInfo: { servicePhone: '400-000-0000' },
+            customerServiceInfo: { servicePhone },
         };
     });
 }

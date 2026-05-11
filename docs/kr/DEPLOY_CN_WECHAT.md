@@ -58,6 +58,8 @@ Docker 를 돌리는 디렉터리는 항상 **`deploy/china-test`** 입니다.
 cd /root/wechat-app-live/deploy/china-test
 ```
 
+**Git 없이 복사본만 두는 운영 트리**와 **별도 `git clone` 트리**를 같이 쓰는 경우의 경로·`rsync`·`docker compose` 순서는 **`docs/kr/SERVER_SYNC_AND_PATHS.md`** 에 정리해 두었다 (에이전트·운영 공용).
+
 위치를 모를 때 (`deploy/china-test`만 좁혀 찾기):
 
 ```bash

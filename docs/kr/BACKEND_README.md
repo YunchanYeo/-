@@ -51,6 +51,7 @@ WECHAT_PAY_MOCK=true
 
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD`: **`npm run seed:admin` 또는 `ADMIN_SYNC_ON_START=true` 시 SQLite `admins`에 bcrypt 해시로 반영**됩니다. 로그인(`POST /api/admin/login`)은 **실제로는 DB 행**(passwordHash 또는 레거시 평문 password)만 검증합니다.
 - `ADMIN_SYNC_ON_START=true`: 매 기동 시 위 username 행 비밀번호 해시를 `.env` 값과 동기화(운영에서는 보통 `false`).
+- `CUSTOMER_SERVICE_PHONE`(선택): 小程序客服热线 — `GET /api/app-config` 의 `customerServicePhone`. 미설정 시 프론트 `config.customerServicePhone` 으로 표시.
 - `WECHAT_APPID` / `WECHAT_APPSECRET`: WeChat 로그인 코드 교환
 - `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock. 실결제·商户证书·`WECHAT_PAY_PRIVATE_KEY` PEM 형식·Docker 반영은 **`backend/.env.example`** 및 **`backend/certs/wechat-pay/README.md`** 참고.
 - 위챗페이 **서명용 설정**(商户号·证书序列号·私钥)만 빠르게 검증: `cd backend && npm run probe:wechat-pay` — 위챗 `GET /v3/certificates` 호출, 성공 시 키·직렬번호·私钥 조합이 플랫폼과 맞음. `WECHAT_PAY_API_V3_KEY` 정합성은 이 스크립트로는 검증하지 않음(32바이트 길이만 경고).

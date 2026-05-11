@@ -1,0 +1,10 @@
+---
+description: 서버(ECs) 코드 반영·배포 요청 시 docs/kr/SERVER_SYNC_AND_PATHS.md의 경로·절차를 따른다
+alwaysApply: true
+---
+
+# 서버 반영 시 참고 문서
+
+사용자가 **서버에 반영**, **ECS 배포**, **운영 서버 git pull**, **docker compose 재빌드** 등을 요청하면, 추측하지 말고 **`docs/kr/SERVER_SYNC_AND_PATHS.md`** 를 읽고 그 안의 **`ECS_REPO_ROOT`**, **`ECS_LIVE_ROOT`**, **`ECS_COMPOSE_DIR`**, **`ECS_SSH`** 및 rsync·compose 절차를 기본으로 안내·실행한다.
+
+서버 주소·루트 경로가 바뀌었으면 해당 문서를 사용자와 함께 갱신한다.

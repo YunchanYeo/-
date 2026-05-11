@@ -1,5 +1,6 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
+import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
 import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 import { OrderButtonTypes, OrderStatus } from '../../pages/order/config';
 function mockFetchOrderDetail(params) {
@@ -81,12 +82,12 @@ function mockFetchBusinessTime(params) {
 export function fetchBusinessTime(params) {
     if (config.useMock)
         return mockFetchBusinessTime(params);
-    return Promise.resolve({
+    return fetchCustomerServicePhone().then((telphone) => ({
         data: {
-            telphone: '400-000-0000',
+            telphone,
             businessTime: ['09:00-18:00'],
         },
-    });
+    }));
 }
 
 function buildButtonsByOrder(row) {

@@ -10,6 +10,7 @@ export function createApiController(services: Services) {
 
     // public
     health: services.health.health as RequestHandler,
+    appConfig: services.appConfig.appConfig as RequestHandler,
     categories: services.category.categories as RequestHandler,
     wechatLogin: services.auth.wechatLogin as RequestHandler,
     publicProducts: services.product.publicProducts as RequestHandler,

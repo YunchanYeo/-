@@ -1,6 +1,7 @@
 import type { RequestContext } from '../types';
 import { createAuthService } from './authService';
 import { createHealthService } from './healthService';
+import { createAppConfigService } from './appConfigService';
 import { createCategoryService } from './categoryService';
 import { createProductService } from './productService';
 import { createAdminService } from './adminService';
@@ -13,6 +14,7 @@ import { createProductMediaService } from './productMediaService';
 
 export function createServices(ctx: RequestContext) {
   const health = createHealthService();
+  const appConfig = createAppConfigService();
   const category = createCategoryService({ db: ctx.db });
   const auth = createAuthService({ db: ctx.db, wechatAppId: ctx.wechatAppId, wechatAppSecret: ctx.wechatAppSecret });
   const product = createProductService({ db: ctx.db });
@@ -30,5 +32,5 @@ export function createServices(ctx: RequestContext) {
   const support = createSupportService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
   const coupon = createCouponService({ db: ctx.db });
 
-  return { health, category, auth, product, admin, productMedia, address, order, user, support, coupon };
+  return { health, appConfig, category, auth, product, admin, productMedia, address, order, user, support, coupon };
 }
