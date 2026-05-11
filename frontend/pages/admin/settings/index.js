@@ -82,7 +82,7 @@ Page({
     async onCreateAdminAccount() {
         const { createCurrentPassword, createUsername, createPassword } = this.data;
         if (!createCurrentPassword || !createUsername || !createPassword)
-            return showMessage('当前密码/新ID/初始密码 모두 입력해주세요');
+            return showMessage('请填写当前密码、新管理员用户名和初始密码');
         try {
             this.setData({ submitting: true });
             const created = await createAdminAccount({

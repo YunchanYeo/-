@@ -35,17 +35,18 @@
 
     <view class="divider" />
 
+    <view class="create-hint">使用当前登录管理员的密码验证是否具备创建权限。</view>
     <t-input
-      label="权限确认密码"
+      label="当前密码（权限验证）"
       type="password"
-      placeholder="当前管理员密码"
+      placeholder="请输入当前管理员密码"
       value="{{createCurrentPassword}}"
       data-key="createCurrentPassword"
       bind:change="onInput"
     />
-    <t-input label="新管理员ID" placeholder="至少4位" value="{{createUsername}}" data-key="createUsername" bind:change="onInput" />
+    <t-input label="新管理员用户名" placeholder="至少4位" value="{{createUsername}}" data-key="createUsername" bind:change="onInput" />
     <t-input
-      label="新管理员初始密码"
+      label="初始密码"
       type="password"
       placeholder="至少6位"
       value="{{createPassword}}"

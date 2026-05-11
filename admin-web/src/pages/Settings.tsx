@@ -100,7 +100,7 @@ export default function SettingsPage() {
     if (!token) return;
     const nextUsername = createUsername.trim();
     if (!createCurrentPassword || !nextUsername || !createPassword) {
-      setErr('请填写当前密码、新管理员账号与初始密码');
+      setErr('请填写当前密码、新管理员用户名与初始密码');
       setOk('');
       return;
     }
@@ -181,10 +181,10 @@ export default function SettingsPage() {
       <form className="card" onSubmit={onSubmitCreateAdmin} style={{ display: 'grid', gap: '0.75rem', maxWidth: 520 }}>
         <h3 style={{ margin: 0, fontSize: '1rem' }}>创建管理员账号</h3>
         <div style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-          将使用当前登录管理员的密码校验创建权限。
+          使用当前登录管理员的密码验证是否具备创建权限。
         </div>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>当前密码（权限校验）</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>当前密码（权限验证）</span>
           <input
             type="password"
             value={createCurrentPassword}
@@ -193,7 +193,7 @@ export default function SettingsPage() {
           />
         </label>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>新管理员账号</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>新管理员用户名</span>
           <input
             type="text"
             value={createUsername}

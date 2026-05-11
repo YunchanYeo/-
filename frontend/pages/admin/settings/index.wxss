@@ -26,6 +26,13 @@
   margin-bottom: 18rpx;
 }
 
+.create-hint {
+  color: #888;
+  font-size: 22rpx;
+  line-height: 1.45;
+  margin: 8rpx 0 16rpx;
+}
+
 .divider {
   height: 1rpx;
   background: #f0f0f0;
