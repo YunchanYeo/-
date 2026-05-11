@@ -8,6 +8,18 @@ function genSessionToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    const data = (await res.json().catch(() => null)) as any;
+    return { res, data };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function withSqliteRetry<T>(fn: () => T, options: { retries?: number; baseDelayMs?: number } = {}) {
   const retries = options.retries ?? 8;
   const baseDelayMs = options.baseDelayMs ?? 80;
@@ -85,25 +97,31 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
       let unionid = '';
 
       if (wechatAppId && wechatAppSecret) {
-        const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${wechatAppId}&secret=${wechatAppSecret}&js_code=${code}&grant_type=authorization_code`;
-        try {
-          const wxRes = await fetch(url);
-          const wxData: any = await wxRes.json();
-          // 在开发/网络受限环境下，微信接口可能不可达。此时不直接让登录失败，而是回退到 dev openid，保证小程序可用。
-          // 生产环境建议配置正确的 WECHAT_APPID/WECHAT_APPSECRET，并观察 isDevLogin=false。
-          if (wxData.errcode) {
-            openid = `dev_${crypto.createHash('sha256').update(code).digest('hex').slice(0, 24)}`;
-            unionid = '';
-          } else {
-            openid = wxData.openid;
-            unionid = wxData.unionid || '';
-          }
-        } catch (e) {
-          openid = `dev_${crypto.createHash('sha256').update(code).digest('hex').slice(0, 24)}`;
-          unionid = '';
+        const safeCode = encodeURIComponent(code);
+        const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${wechatAppId}&secret=${wechatAppSecret}&js_code=${safeCode}&grant_type=authorization_code`;
+        const { data: wxData } = await fetchJsonWithTimeout(url, 8000);
+        const errcode = Number(wxData?.errcode || 0);
+        if (errcode) {
+          const errmsg = String(wxData?.errmsg || 'unknown');
+          return res.status(401).json({
+            ok: false,
+            message: `wechat jscode2session failed: ${errcode} ${errmsg}`,
+            data: { errcode, errmsg },
+          });
+        }
+        openid = String(wxData?.openid || '');
+        unionid = String(wxData?.unionid || '');
+        if (!openid) {
+          return res.status(401).json({
+            ok: false,
+            message: `wechat jscode2session failed: missing openid`,
+          });
         }
       } else {
-        openid = `dev_${crypto.createHash('sha256').update(code).digest('hex').slice(0, 24)}`;
+        return res.status(500).json({
+          ok: false,
+          message: 'Server missing WECHAT_APPID/WECHAT_APPSECRET',
+        });
       }
 
       const exists = db.prepare(`SELECT id FROM users WHERE openid = ?`).get(openid) as { id: number } | undefined;
@@ -138,7 +156,7 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
         .get(openid);
       return res.json({
         ok: true,
-        data: { token, user: me, isDevLogin: openid.startsWith('dev_') || !(wechatAppId && wechatAppSecret) },
+        data: { token, user: me, isDevLogin: false },
       });
     } catch (e: any) {
       console.error('[wechatLogin] failed', e);

@@ -1,7 +1,7 @@
 import { config } from '../../config/index';
 import { requestJson } from '../_utils/http';
 import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
-import { getToken } from '../auth/session';
+import { ensureAuthSession, getToken } from '../auth/session';
 import { fetchCouponList } from '../coupon/index';
 function mockFetchUserCenter() {
     const { delay } = require('../_utils/delay');
@@ -11,30 +11,15 @@ function mockFetchUserCenter() {
 export function fetchUserCenter() {
     if (config.useMock)
         return mockFetchUserCenter();
-    if (!getToken()) {
-        return fetchCustomerServicePhone().then((servicePhone) => ({
-            userInfo: {
-                avatarUrl: '',
-                nickName: '',
-                phoneNumber: '',
-            },
-            countsData: [
-                { type: 'address', num: '0' },
-                { type: 'coupon', num: '0' },
-                { type: 'point', num: '0' },
-            ],
-            orderTagInfos: [{ orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }],
-            customerServiceInfo: { servicePhone },
-        }));
-    }
-    /** 로그인 후 마이페이지는 매번 DB(백엔드 API)에서 최신 값 조회 — 로컬 prefetch 만으로 오래된 표시 방지 */
-    return Promise.all([
-        fetchCustomerServicePhone(),
-        requestJson('/api/me', { method: 'GET' }),
-        requestJson('/api/addresses', { method: 'GET' }),
-        requestJson('/api/orders/count', { method: 'GET' }),
-        fetchCouponList('default').catch(() => []),
-    ]).then(([servicePhone, me, addressList, tabsCount, couponList]) => {
+    const loadAuthed = () =>
+        /** 로그인 후 마이페이지는 매번 DB(백엔드 API)에서 최신 값 조회 — 로컬 prefetch 만으로 오래된 표시 방지 */
+        Promise.all([
+            fetchCustomerServicePhone(),
+            requestJson('/api/me', { method: 'GET' }),
+            requestJson('/api/addresses', { method: 'GET' }),
+            requestJson('/api/orders/count', { method: 'GET' }),
+            fetchCouponList('default').catch(() => []),
+        ]).then(([servicePhone, me, addressList, tabsCount, couponList]) => {
         const rows = Array.isArray(tabsCount) ? tabsCount : [];
         const numOf = (tabType) => {
             const hit = rows.find((x) => x.tabType === tabType);
@@ -61,4 +46,28 @@ export function fetchUserCenter() {
             customerServiceInfo: { servicePhone },
         };
     });
+
+    // 마이페이지 진입 시 토큰이 없으면 위챗 로그인 재시도(앱 onLaunch 자동로그인 실패 대비)
+    if (!getToken()) {
+        return ensureAuthSession({ allowLogin: true })
+            .then(() => loadAuthed())
+            .catch(() =>
+                fetchCustomerServicePhone().then((servicePhone) => ({
+                    userInfo: {
+                        avatarUrl: '',
+                        nickName: '',
+                        phoneNumber: '',
+                    },
+                    countsData: [
+                        { type: 'address', num: '0' },
+                        { type: 'coupon', num: '0' },
+                        { type: 'point', num: '0' },
+                    ],
+                    orderTagInfos: [{ orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }, { orderNum: 0 }],
+                    customerServiceInfo: { servicePhone },
+                })),
+            );
+    }
+
+    return loadAuthed();
 }
