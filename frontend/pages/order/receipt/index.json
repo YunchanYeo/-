@@ -1,11 +1,11 @@
 {
   "navigationBarTitleText": "发票",
   "usingComponents": {
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-input": "tdesign-miniprogram/input/input",
-    "t-button": "tdesign-miniprogram/button/button"
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-input": "/miniprogram_npm/tdesign-miniprogram/input/input",
+    "t-button": "/miniprogram_npm/tdesign-miniprogram/button/button"
   }
 }

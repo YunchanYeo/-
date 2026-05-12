@@ -101,16 +101,16 @@ Page({
         });
     },
     checkParams() {
-        const res = { errMsg: '', require: false };
+        const res = { errMsg: '', invalid: false };
         if (!this.data.trackingNo) {
             res.errMsg = '请填写运单号';
-            res.require = true;
+            res.invalid = true;
         }
         else if (!this.data.deliveryCompany) {
             res.errMsg = '请选择物流公司';
-            res.require = true;
+            res.invalid = true;
         }
-        this.setData({ submitActived: !res.require });
+        this.setData({ submitActived: !res.invalid });
         return res;
     },
     onSubmit() {

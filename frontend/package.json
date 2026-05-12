@@ -1,0 +1,12 @@
+{
+  "name": "wechat-miniprogram-frontend",
+  "private": true,
+  "description": "miniprogramRoot; npm 依赖在此安装后执行「构建 npm」或 npm run build-npm",
+  "scripts": {
+    "build-npm": "node ../scripts/build-miniprogram-npm.js"
+  },
+  "dependencies": {
+    "tdesign-miniprogram": "1.9.5",
+    "tslib": "^1.11.1"
+  }
+}

@@ -1,9 +1,9 @@
 {
   "navigationBarTitleText": "活动商品",
   "usingComponents": {
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-popup": "tdesign-miniprogram/popup/popup",
-    "t-toast": "tdesign-miniprogram/toast/toast",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-popup": "/miniprogram_npm/tdesign-miniprogram/popup/popup",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
     "goods-list": "/components/goods-list/index",
     "floating-button": "../components/floating-button/index"
   }

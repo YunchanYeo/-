@@ -2,8 +2,8 @@
   "component": true,
   "usingComponents": {
     "price": "/components/price/index",
-    "t-tag": "tdesign-miniprogram/tag/tag",
+    "t-tag": "/miniprogram_npm/tdesign-miniprogram/tag/tag",
     "t-image": "/components/webp-image/index",
-    "t-icon": "tdesign-miniprogram/icon/icon"
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon"
   }
 }

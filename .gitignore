@@ -1,4 +1,10 @@
 node_modules/
+# miniprogramRoot 가 frontend 일 때 일부 도구가 / 경로를 레포 루트로 찾음 → 링크는 로컬 생성 (npm run miniprogram:link)
+/miniprogram_npm
+/components
+/pages
+/custom-tab-bar
+/assets
 frontend/miniprogram_npm/
 frontend/node_modules/
 backend/node_modules/

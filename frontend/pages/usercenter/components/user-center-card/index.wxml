@@ -2,14 +2,18 @@
   <!-- 未登录的情况 -->
   <block wx:if="{{currAuthStep === AuthStepType.ONE}}">
     <button class="user-center-card__header login-btn-reset" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
-      <t-avatar image="{{userInfo.avatarUrl || defaultAvatarUrl}}" class="user-center-card__header__avatar" />
+      <t-avatar image="{{userInfo.avatarUrl}}" class="user-center-card__header__avatar">
+        <view class="user-center-card__avatar-fallback">用</view>
+      </t-avatar>
       <view class="user-center-card__header__name">{{'请登录'}}</view>
     </button>
   </block>
   <!-- 已登录但未授权用户信息情况 -->
   <block wx:if="{{currAuthStep === AuthStepType.TWO}}">
     <view class="user-center-card__header">
-      <t-avatar image="{{userInfo.avatarUrl || defaultAvatarUrl}}" class="user-center-card__header__avatar" />
+      <t-avatar image="{{userInfo.avatarUrl}}" class="user-center-card__header__avatar">
+        <view class="user-center-card__avatar-fallback">用</view>
+      </t-avatar>
       <view class="user-center-card__header__name">{{userInfo.nickName || '微信用户'}}</view>
       <!-- 需要授权用户信息，通过slot添加弹窗 -->
       <view class="user-center-card__header__transparent" wx:if="{{isNeedGetUserInfo}}">
@@ -22,12 +26,9 @@
   <!-- 已登录且已经授权用户信息的情况 -->
   <block wx:if="{{currAuthStep === AuthStepType.THREE}}">
     <view class="user-center-card__header" bind:tap="gotoUserEditPage">
-      <t-avatar
-        t-class="avatar"
-        mode="aspectFill"
-        class="user-center-card__header__avatar"
-        image="{{userInfo.avatarUrl || defaultAvatarUrl}}"
-      />
+      <t-avatar t-class="avatar" mode="aspectFill" class="user-center-card__header__avatar" image="{{userInfo.avatarUrl}}">
+        <view class="user-center-card__avatar-fallback">用</view>
+      </t-avatar>
       <view class="user-center-card__header__name">{{userInfo.nickName || '微信用户'}}</view>
     </view>
   </block>

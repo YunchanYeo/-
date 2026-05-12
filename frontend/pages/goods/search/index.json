@@ -1,9 +1,9 @@
 {
   "navigationBarTitleText": "搜索",
   "usingComponents": {
-    "t-search": "tdesign-miniprogram/search/search",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog"
+    "t-search": "/miniprogram_npm/tdesign-miniprogram/search/search",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog"
   },
   "enablePullDownRefresh": true
 }

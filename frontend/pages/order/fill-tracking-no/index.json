@@ -1,14 +1,14 @@
 {
   "navigationBarTitleText": "填写运单号",
   "usingComponents": {
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
-    "t-textarea": "tdesign-miniprogram/textarea/textarea",
-    "t-input": "tdesign-miniprogram/input/input",
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-button": "tdesign-miniprogram/button/button",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-cell-group": "/miniprogram_npm/tdesign-miniprogram/cell-group/cell-group",
+    "t-textarea": "/miniprogram_npm/tdesign-miniprogram/textarea/textarea",
+    "t-input": "/miniprogram_npm/tdesign-miniprogram/input/input",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog",
+    "t-button": "/miniprogram_npm/tdesign-miniprogram/button/button",
     "ui-reason-sheet": "../components/reason-sheet/index"
   }
 }

@@ -1,7 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-avatar": "tdesign-miniprogram/avatar/avatar"
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-avatar": "/miniprogram_npm/tdesign-miniprogram/avatar/avatar"
   }
 }

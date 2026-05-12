@@ -4,16 +4,16 @@
     "wr-price": "/components/price/index",
     "wr-order-goods-card": "../components/order-goods-card/index",
     "wr-reason-sheet": "../components/reason-sheet/index",
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-button": "tdesign-miniprogram/button/button",
-    "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
-    "t-stepper": "tdesign-miniprogram/stepper/stepper",
-    "t-popup": "tdesign-miniprogram/popup/popup",
-    "t-textarea": "tdesign-miniprogram/textarea/textarea",
-    "t-input": "tdesign-miniprogram/input/input",
-    "t-upload": "tdesign-miniprogram/upload/upload"
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog",
+    "t-button": "/miniprogram_npm/tdesign-miniprogram/button/button",
+    "t-cell-group": "/miniprogram_npm/tdesign-miniprogram/cell-group/cell-group",
+    "t-stepper": "/miniprogram_npm/tdesign-miniprogram/stepper/stepper",
+    "t-popup": "/miniprogram_npm/tdesign-miniprogram/popup/popup",
+    "t-textarea": "/miniprogram_npm/tdesign-miniprogram/textarea/textarea",
+    "t-input": "/miniprogram_npm/tdesign-miniprogram/input/input",
+    "t-upload": "/miniprogram_npm/tdesign-miniprogram/upload/upload"
   }
 }

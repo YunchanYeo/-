@@ -1,12 +1,12 @@
 {
   "navigationBarTitleText": "个人资料",
   "usingComponents": {
-    "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-button": "tdesign-miniprogram/button/button",
+    "t-cell-group": "/miniprogram_npm/tdesign-miniprogram/cell-group/cell-group",
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-button": "/miniprogram_npm/tdesign-miniprogram/button/button",
     "t-image": "/components/webp-image/index",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-toast": "tdesign-miniprogram/toast/toast",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
     "t-select-picker": "../../usercenter/components/ui-select-picker/index"
   }
 }

@@ -1,7 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "t-stepper": "tdesign-miniprogram/stepper/stepper",
+    "t-stepper": "/miniprogram_npm/tdesign-miniprogram/stepper/stepper",
     "goods-card": "../specs-goods-card/index"
   }
 }

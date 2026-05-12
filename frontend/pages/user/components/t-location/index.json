@@ -1,8 +1,8 @@
 {
   "component": true,
   "usingComponents": {
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-toast": "tdesign-miniprogram/toast/toast"
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast"
   }
 }

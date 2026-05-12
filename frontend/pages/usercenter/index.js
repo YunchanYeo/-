@@ -1,6 +1,6 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { getToken, oneClickLoginByWeChatPhoneCode } from '../../services/auth/session';
+import { getToken, oneClickLoginByWeChatPhoneCode, loginWithWeChat } from '../../services/auth/session';
 import { requestJson } from '../../services/_utils/http';
 const menuData = [
     [
@@ -137,12 +137,15 @@ Page({
                     ...v,
                     ...orderInfo[index],
                 }));
+                /** 已登录但 DB 에 아바타·닉네임 없음 → 2(资料待完善). 무토큰만 1(请登录). 잘못 1로 두면 로그인 후에도 상단이 미로그인 UI 로 남음 */
+                const loggedIn = !!getToken();
+                const currAuthStep = !loggedIn ? 1 : (hasWechatProfile ? 3 : 2);
                 this.setData({
                     userInfo,
                     menuData: nextMenu,
                     orderTagInfos: info,
                     customerServiceInfo,
-                    currAuthStep: hasWechatProfile ? 3 : 1,
+                    currAuthStep,
                 });
             })
             .catch(() => {

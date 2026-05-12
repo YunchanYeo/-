@@ -3,6 +3,6 @@
   "usingComponents": {
     "price": "/components/price/index",
     "t-image": "/components/webp-image/index",
-    "t-icon": "tdesign-miniprogram/icon/icon"
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon"
   }
 }

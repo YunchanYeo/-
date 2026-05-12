@@ -75,10 +75,58 @@ docker compose ps
 
 - 통합 배포 가이드: `docs/kr/DEPLOY_CN_WECHAT.md`
 - 위챗페이 인증서·`probe:wechat-pay`: `backend/certs/wechat-pay/README.md`
+- 미니프로그램용 HTTPS 호스트 일괄 점검: `deploy/china-test/check-mp-https-hosts.sh` (내부에서 `check-ssl.sh` 호출)
+- **tdesign `miniprogram_npm` + 루트 `/` 경로 보정**: 레포 루트에서 **`npm install`**(루트에 `miniprogram-build-npm` devDependency) 후 **`npm run miniprogram:npm`** — `scripts/build-miniprogram-npm.js` 가 `frontend` 에 `npm install --omit=dev` → 루트의 `miniprogram-build-npm` 으로 빌드 → `link-miniprogram-npm-to-root.js`. **`miniprogram-build-npm` 은 `frontend/node_modules` 에 두지 않음**(개발자 도구가 `frontend/miniprogram-build-npm/index.js` 를 찾다 ENOENT 나는 문제 방지). **`/pages`·`/miniprogram_npm` 등만 깨질 때** 빌드 없이 `npm run miniprogram:link` 만 실행(심볼릭 링크: `miniprogram_npm`、`components`、`pages`、`custom-tab-bar`、`assets`). 링크·`miniprogram_npm` 은 `.gitignore` 로 커밋 제외.
 
 ---
 
-## 6. 서버를 갈아엎을 때 (선택)
+## 6. 微信小程序真机预览 — 合法域名·TLS·`/api/health`·AppID (운영 체크)
+
+아래는 **코드로 대체 불가**한 위챗 백오피스 작업과, **서버에서 바로 확인**할 수 있는 항목이다. IP·도메인을 바꾸면 `deploy/china-test/Caddyfile`·`frontend/config/runtime.js`·본 절의 호스트 목록을 같이 맞춘다.
+
+### 6.1 `request合法域名` 등록 (https://mp.weixin.qq.com)
+
+1. **로그인** → 지금 미리보기·업로드에 쓰는 **同一个小程序** 선택.
+2. **开发 → 开发管理 → 开发设置 → 服务器域名** → **修改** (월 변경 횟수 제한 있음).
+3. **request合法域名**에 아래 **호스트만** 등록한다. (저장되는 값은 위챗 규칙상 **도메인·호스트 한 덩어리**이며, 포트·경로 없음.)
+   - 백오피스 입력란 **앞쪽에 `https://` 가 고정으로 보이는 경우**가 많다. 이 경우 **`https://` 는 다시 치지 않고**, 그 뒤에 `hebibingtest.shop` 처럼 **호스트만** 넣으면 된다. (화면에 접두사가 “무조건” 보이는 것은 UI일 뿐, **중복으로 `https://https://` 를 넣지 말 것**.)
+   - 일부 화면에서는 한 줄에 전체를 입력하게 되어 있어도, 최종적으로 **合法域名 목록에는 호스트**(및 필요 시 경로 없음) 형태로 잡히는지 저장 후 목록을 다시 확인한다.
+
+| 등록할 호스트 (현재 Caddyfile·`runtime.js` 기준) |
+|-----------------------------------------------|
+| `hebibingtest.shop` |
+| `39-106-213-185.sslip.io` |
+| `39.106.213.185.nip.io` |
+
+- 실제로 미니프로그램이 요청하지 않는 호스트는 생략 가능하나, `app.js` **真机**은 `getPhoneHttpsProbeBases()` 로 위 **sslip·nip** 후보까지 순차 프로브하므로 쓰려면 **반드시 등록**한다.
+- 상품 이미지 등 **download** 가 동일 호스트면 **download合法域名**에도 동일 호스트 추가 (`docs/kr/DEPLOY_CN_WECHAT.md` §6 참고).
+- **微信头像** `https://thirdwx.qlogo.cn` / `https://wx.qlogo.cn` 등을 `<image>`·`t-avatar` 로 직접 쓰면 **download合法域名**에 해당 호스트도 등록해야 함. 기본 플레이스홀더는 외부 CDN 없이 슬롯으로 처리함(`user-center-card`).
+
+### 6.2 HTTPS·인증서·`/api/health` = 200
+
+- **아키텍처**: `443` → Caddy(TLS) → `admin-web:80`(nginx) → 경로 `/api/` 는 `backend:3000` (`admin-web/nginx.conf` 의 `proxy_pass`).
+- **ECS** (`ECS_COMPOSE_DIR` 또는 동일 compose 디렉터리):
+
+```bash
+cd /root/wechat-app-live/deploy/china-test   # 실제 경로는 §1 표 참고
+bash check-mp-https-hosts.sh
+```
+
+- 기대: 각 호스트마다 `curl` **http_code=200**, 응답 본문에 백엔드 헬스 JSON(예: `ok` 필드)이 보인다. 실패 시 `docker compose logs --tail=80 caddy`·`docker compose ps`·보안그룹 **80·443** 인바운드 확인.
+
+### 6.3 같은 AppID로 미리보기
+
+- 레포 `project.config.json` 의 **`appid`** = 위챗 백오피스에서 연 **小程序 AppID** = `backend/.env` 의 **`WECHAT_APPID`** 가 같아야 한다. 다르면 **真机**만 도메인·토큰 불일치로 실패하는 경우가 많다. (저장소 기본값 예: `wxdd12341e879d5d6b` — 실제 운영 AppID 와 다르면 파일·`.env` 를 맞출 것.)
+- 개발자도구: **清缓存 → 编译 → 预览** 로 QR 을 새로 찍는다.
+
+### 6.4 코드·배포 경로
+
+- API 베이스·폰 프로브 순서: **`frontend/config/runtime.js`** (`CLOUD_HTTPS_API_BASE` 등).
+- 상세 배포 루프: 본 문서 **§3** 및 `docs/kr/DEPLOY_CN_WECHAT.md`.
+
+---
+
+## 7. 서버를 갈아엎을 때 (선택)
 
 장기적으로 **`ECS_LIVE_ROOT` 를 `git clone` 으로 다시 만들고** compose 만 그 트리를 쓰면, §3 의 rsync 단계 없이 `git pull` 한 곳에서 빌드할 수 있다. 전환 시 `.env`·`data` 백업 필수.
 

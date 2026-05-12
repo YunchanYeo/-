@@ -1,8 +1,8 @@
 {
   "component": true,
   "usingComponents": {
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-tag": "tdesign-miniprogram/tag/tag",
-    "t-swipe-cell": "tdesign-miniprogram/swipe-cell/swipe-cell"
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-tag": "/miniprogram_npm/tdesign-miniprogram/tag/tag",
+    "t-swipe-cell": "/miniprogram_npm/tdesign-miniprogram/swipe-cell/swipe-cell"
   }
 }

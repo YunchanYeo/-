@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "客服会话（管理员）",
   "usingComponents": {
-    "t-toast": "tdesign-miniprogram/toast/toast"
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast"
   }
 }
 

@@ -4,6 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
+    "miniprogram:npm": "node scripts/build-miniprogram-npm.js",
+    "miniprogram:link": "node scripts/link-miniprogram-npm-to-root.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint --cache --fix --ext .js",
     "check": "node config/eslintCheck.js",
@@ -44,6 +46,7 @@
     "eslint-plugin-prettier": "^3.1.2",
     "husky": "^8.0.3",
     "lint-staged": "^10.0.8",
+    "miniprogram-build-npm": "1.0.0",
     "prettier": "^2.1.2"
   }
 }

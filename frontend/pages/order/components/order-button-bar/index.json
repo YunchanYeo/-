@@ -1,8 +1,8 @@
 {
   "component": true,
   "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button",
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog"
+    "t-button": "/miniprogram_npm/tdesign-miniprogram/button/button",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog"
   }
 }

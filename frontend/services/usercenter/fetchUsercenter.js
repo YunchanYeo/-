@@ -32,9 +32,12 @@ export function fetchUserCenter() {
             const hit = rows.find((x) => x.tabType === tabType);
             return Number(hit?.orderNum ?? 0);
         };
+        let avatarUrl = String(me.avatarUrl || '').trim();
+        if (avatarUrl.startsWith('http://'))
+            avatarUrl = `https://${avatarUrl.slice(7)}`;
         return {
             userInfo: {
-                avatarUrl: me.avatarUrl || '',
+                avatarUrl,
                 nickName: me.nickName || '微信用户',
                 phoneNumber: me.phoneNumber || '',
             },

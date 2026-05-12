@@ -1,12 +1,12 @@
 {
   "navigationBarTitleText": "订单确认",
   "usingComponents": {
-    "t-popup": "tdesign-miniprogram/popup/popup",
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-textarea": "tdesign-miniprogram/textarea/textarea",
+    "t-popup": "/miniprogram_npm/tdesign-miniprogram/popup/popup",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-dialog": "/miniprogram_npm/tdesign-miniprogram/dialog/dialog",
+    "t-textarea": "/miniprogram_npm/tdesign-miniprogram/textarea/textarea",
     "price": "/components/price/index",
     "select-coupons": "../components/selectCoupons/selectCoupons",
     "no-goods": "../components/noGoods/noGoods",

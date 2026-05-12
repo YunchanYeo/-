@@ -18,6 +18,10 @@
       {
         "type": "file",
         "value": "frontend/miniprogram_npm/tslib/index.js.map"
+      },
+      {
+        "type": "folder",
+        "value": "frontend/node_modules/miniprogram-build-npm"
       }
     ],
     "include": []
@@ -61,11 +65,11 @@
     "minifyWXML": true,
     "showES6CompileOption": false,
     "useCompilerPlugins": false,
-    "ignoreUploadUnusedFiles": true,
+    "ignoreUploadUnusedFiles": false,
     "useStaticServer": true,
     "compileWorklet": false,
     "localPlugins": false,
-    "condition": false,
+    "condition": true,
     "swc": false,
     "disableSWC": true
   },

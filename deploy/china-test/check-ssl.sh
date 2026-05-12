@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# ECS 등에서 실행: TLS/SNI·간단 HTTP 확인. 인자 없으면 sslip 호스트 기본.
+# ECS 등에서 실행: TLS/SNI·간단 HTTP 확인. 인자 없으면 운영 도메인 기본.
 # 맥(LibreSSL)의 openssl s_client 는 -brief 옵션이 없음 — 이 스크립트는 -brief 미사용.
 # 사용: bash check-ssl.sh
-#       bash check-ssl.sh api.example.com
+#       bash check-ssl.sh hebibingtest.shop
+#       bash check-ssl.sh 39-106-213-185.sslip.io
 set -euo pipefail
-HOST="${1:-39-106-213-185.sslip.io}"
+HOST="${1:-hebibingtest.shop}"
 echo "=== check-ssl: ${HOST}:443 ==="
 echo "--- openssl: subject / issuer / dates ---"
 if echo | openssl s_client -connect "${HOST}:443" -servername "${HOST}" 2>/dev/null \

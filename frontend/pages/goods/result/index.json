@@ -1,15 +1,15 @@
 {
   "navigationBarTitleText": "搜索",
   "usingComponents": {
-    "t-search": "tdesign-miniprogram/search/search",
-    "t-input": "tdesign-miniprogram/input/input",
-    "t-empty": "tdesign-miniprogram/empty/empty",
-    "t-toast": "tdesign-miniprogram/toast/toast",
+    "t-search": "/miniprogram_npm/tdesign-miniprogram/search/search",
+    "t-input": "/miniprogram_npm/tdesign-miniprogram/input/input",
+    "t-empty": "/miniprogram_npm/tdesign-miniprogram/empty/empty",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
     "goods-list": "/components/goods-list/index",
     "filter": "/components/filter/index",
     "filter-popup": "/components/filter-popup/index",
     "load-more": "/components/load-more/index",
-    "t-icon": "tdesign-miniprogram/icon/icon"
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon"
   },
   "onReachBottomDistance": 50,
   "enablePullDownRefresh": true

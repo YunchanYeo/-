@@ -1,6 +1,6 @@
 {
   "component": true,
   "usingComponents": {
-    "t-image": "tdesign-miniprogram/image/image"
+    "t-image": "/miniprogram_npm/tdesign-miniprogram/image/image"
   }
 }

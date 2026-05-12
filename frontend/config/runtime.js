@@ -5,6 +5,10 @@
  * 微信公众平台 → 开发 → 开发管理 → 服务器域名 → request 合法域名 中配置（须备案域名，不能填裸 IP）。
  * 文档：https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html
  *
+ * 与本仓库 Caddy 块对应、须在后台登记的主机示例（无 https://）:
+ *   hebibingtest.shop, 39-106-213-185.sslip.io, 39.106.213.185.nip.io
+ * 运营核对清单: docs/kr/SERVER_SYNC_AND_PATHS.md §6
+ *
  * 开发者工具：可勾选「不校验合法域名」时用 HTTP 直连 ECS:3000 调试（仅本地）。
  */
 

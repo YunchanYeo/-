@@ -4,15 +4,15 @@
   "backgroundTextStyle": "light",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "t-search": "tdesign-miniprogram/search/search",
-    "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-swiper": "tdesign-miniprogram/swiper/swiper",
-    "t-swiper-nav": "tdesign-miniprogram/swiper-nav/swiper-nav",
+    "t-search": "/miniprogram_npm/tdesign-miniprogram/search/search",
+    "t-loading": "/miniprogram_npm/tdesign-miniprogram/loading/loading",
+    "t-swiper": "/miniprogram_npm/tdesign-miniprogram/swiper/swiper",
+    "t-swiper-nav": "/miniprogram_npm/tdesign-miniprogram/swiper-nav/swiper-nav",
     "t-image": "/components/webp-image/index",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-tabs": "tdesign-miniprogram/tabs/tabs",
-    "t-tab-panel": "tdesign-miniprogram/tab-panel/tab-panel",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-tabs": "/miniprogram_npm/tdesign-miniprogram/tabs/tabs",
+    "t-tab-panel": "/miniprogram_npm/tdesign-miniprogram/tab-panel/tab-panel",
     "goods-list": "/components/goods-list/index",
     "load-more": "/components/load-more/index"
   }

@@ -1,9 +1,9 @@
 {
   "component": true,
   "usingComponents": {
-    "t-toast": "tdesign-miniprogram/toast/toast",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-stepper": "tdesign-miniprogram/stepper/stepper",
+    "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-stepper": "/miniprogram_npm/tdesign-miniprogram/stepper/stepper",
     "swipeout": "/components/swipeout/index",
     "goods-card": "../../components/goods-card/index",
     "specs-popup": "../../components/specs-popup/index"

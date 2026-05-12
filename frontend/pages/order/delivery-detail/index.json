@@ -1,11 +1,11 @@
 {
   "navigationBarTitleText": "物流信息",
   "usingComponents": {
-    "t-cell": "tdesign-miniprogram/cell/cell",
-    "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
+    "t-cell": "/miniprogram_npm/tdesign-miniprogram/cell/cell",
+    "t-cell-group": "/miniprogram_npm/tdesign-miniprogram/cell-group/cell-group",
     "t-image": "/components/webp-image/index",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-steps": "tdesign-miniprogram/steps/steps",
-    "t-step": "tdesign-miniprogram/step-item/step-item"
+    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
+    "t-steps": "/miniprogram_npm/tdesign-miniprogram/steps/steps",
+    "t-step": "/miniprogram_npm/tdesign-miniprogram/step-item/step-item"
   }
 }

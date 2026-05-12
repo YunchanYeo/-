@@ -1,15 +1,16 @@
 /**
  * ━━━ 배포·정식 도메인: docs/kr/DEPLOY_CN_WECHAT.md ━━━
+ * ━━━ 폰 연결 체크리스트(복붙): docs/kr/SERVER_SYNC_AND_PATHS.md §6 ━━━
  * ━━━ 폰에서 서버 연결 — 직접 할 일(코드만으로 불가) ━━━
  * 1) https://mp.weixin.qq.com → 지금 쓰는小程序(아래 AppID와 반드시 동일) → 开发 → 开发设置 → 服务器域名
- *    → request合法域名에 호스트만: 39-106-213-185.sslip.io (화면이 https:// 요구하면 그 형식으로 저장)
+ *    → request合法域名에 호스트만(스킴 없이): hebibingtest.shop, 39-106-213-185.sslip.io, 39.106.213.185.nip.io
+ *      (sslip/nip 은 폰 프로브 후보라 쓰면 반드시 등록; 미사용이면 생략 가능)
  *    → 이미지 로드 실패 시 download合法域名에도 동일 호스트
  * 2) project.config.json 의 appid = 그小程序의 AppID (= backend/.env 의 WECHAT_APPID). 다르면 폰만 실패함.
- * 3) 공인 IP 바뀌면 Caddyfile·CLOUD_HTTPS_API_BASE·CLOUD_HTTP_API_BASE·微信公众平台 도메인 모두 같이 수정
- *    정식 도메인: 서버에서 CUSTOM_DOMAIN=api.xxx.com bash deploy/china-test/enable-public-domain.sh
- *    → frontend CLOUD_HTTPS_API_BASE_OVERRIDE·backend API_PUBLIC_BASE_URL 을 동일 https://api.xxx.com 로
- * 4) 微信开发者工具: 编译 → 预览 QR 새로 찍기(구버전 패키지 버리기)
- * ━━━ 자동: 폰=iOS/Android → HTTPS(sslip), 시뮬레이터(devtools) → HTTP:3000 ━━━
+ * 3) API 베이스는 config/runtime.js 가 단일 소스; 본 파일은 주로 areaData 등 대용량 포함
+ * 4) 공인 IP 바뀌면 Caddyfile·runtime.js(CLOUD_*)·微信公众平台 도메인 모두 같이 수정
+ * 5) 微信开发者工具: 清缓存 → 编译 → 预览 QR 새로 찍기
+ * ━━━ 자동: 폰=iOS/Android → HTTPS 프로브, 시뮬레이터(devtools) → HTTP:3000 옵션 ━━━
  */
 /** 로컬에서 백엔드만 돌릴 때 true. 클라우드 서버 쓰면 false. */
 const USE_LOCAL_API = false;

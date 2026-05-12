@@ -137,12 +137,14 @@ echo | openssl s_client -connect 39-106-213-185.sslip.io:443 -servername 39-106-
 3. **request合法域名**: 호스트만 (예: `39-106-213-185.sslip.io`). `https://` 붙이지 않음.  
 4. 이미지·다운로드가 같은 도메인이면 **download合法域名** 도 추가.
 
-### 6.2 이 프로젝트 `frontend/config/index.js`
+### 6.2 이 프로젝트 API 베이스 (`frontend/config/runtime.js`)
 
-- **`CLOUD_HTTPS_API_BASE`**: sslip 전체 URL (`https://39-106-213-185.sslip.io` 형태). IP 바뀌면 sslip 호스트도 바꿈.  
-- **`CLOUD_HTTPS_API_BASE_OVERRIDE`**: 정식 도메인 쓸 때만 예) `'https://api.example.com'` (끝 `/` 없음). 비우면 sslip 사용.  
-- 시뮬레이터는 기본 **`http://<ECS_IP>:3000`**. 폰은 HTTPS.  
-- **`project.config.json` 의 `appid`** 와 백엔드 `.env` 의 WeChat AppID 가 같은小程序 인지 확인.
+- **`CLOUD_HTTPS_API_BASE`**: 정식 도메인 또는 sslip 전 URL (`https://hebibingtest.shop` 등). IP 바뀌면 sslip·nip 호스트·`Caddyfile` 도 같이 수정.  
+- **`CLOUD_HTTPS_API_BASE_OVERRIDE`**: 임시로 다른 HTTPS 루트를 쓸 때만. 비우면 위 기본값 사용.  
+- **`CLOUD_HTTP_API_BASE`**: `http://<ECS_IP>:3000` — 폰 프로브에서 sslip/nip 자동 후보를 만들 때도 사용.  
+- 시뮬레이터는 설정에 따라 HTTP:3000 또는 HTTPS. 폰은 HTTPS + **合法域名**.  
+- **`project.config.json` 의 `appid`** 와 백엔드 `.env` 의 WeChat AppID 가 같은小程序 인지 확인.  
+- **일괄 TLS·`/api/health` 점검**: `deploy/china-test/check-mp-https-hosts.sh` — 절차 요약은 `docs/kr/SERVER_SYNC_AND_PATHS.md` §6.
 
 ### 6.3 개발자도구
 

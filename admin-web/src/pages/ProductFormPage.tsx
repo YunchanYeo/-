@@ -24,6 +24,7 @@ export default function ProductFormPage() {
   const nav = useNavigate();
 
   const [cats, setCats] = useState<CategoryRow[]>([]);
+  const [catsErr, setCatsErr] = useState('');
   const [loading, setLoading] = useState(!isNew);
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
@@ -42,7 +43,13 @@ export default function ProductFormPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetchCategories(token).then(setCats).catch(() => {});
+    setCatsErr('');
+    fetchCategories(token)
+      .then(setCats)
+      .catch((e: unknown) => {
+        setCats([]);
+        setCatsErr(e instanceof Error ? e.message : '分类加载失败');
+      });
   }, [token]);
 
   useEffect(() => {
@@ -198,6 +205,9 @@ export default function ProductFormPage() {
     return <p style={{ color: 'var(--muted)' }}>无效的商品 ID</p>;
   }
 
+  const categoryInList = cats.some((c) => c.name === category);
+  const categorySelectValue = categoryInList ? category : category ? '__manual__' : '';
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
       <div style={{ width: '100%', maxWidth: 680, minWidth: 0, padding: '0 clamp(0, 2vw, 0.5rem)', boxSizing: 'border-box' }}>
@@ -233,12 +243,42 @@ export default function ProductFormPage() {
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>分类（与小程序分类名称一致）</span>
-            <input list="cat-options" value={category} onChange={(e) => setCategory(e.target.value)} />
-            <datalist id="cat-options">
-              {cats.map((c) => (
-                <option key={c.id} value={c.name} />
-              ))}
-            </datalist>
+            {cats.length > 0 ? (
+              <>
+                <select
+                  value={categorySelectValue}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '__manual__') setCategory('');
+                    else setCategory(v);
+                  }}
+                  style={{ maxWidth: '100%', padding: '0.45rem 0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+                >
+                  <option value="">— 请选择分类 —</option>
+                  {cats.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                  <option value="__manual__">手动输入分类名称…</option>
+                </select>
+                {(categorySelectValue === '__manual__' || (category && !categoryInList)) && (
+                  <input
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="输入与小程序一致的分类名称"
+                    style={{ marginTop: '0.25rem' }}
+                  />
+                )}
+              </>
+            ) : (
+              <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="分类名称" />
+            )}
+            {catsErr ? (
+              <span style={{ fontSize: '0.75rem', color: 'var(--danger, #c00)' }}>{catsErr}</span>
+            ) : cats.length === 0 && !catsErr ? (
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>暂无分类，请先在「分类管理」中添加</span>
+            ) : null}
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>状态</span>
