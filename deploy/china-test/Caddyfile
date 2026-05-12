@@ -1,7 +1,8 @@
 {
 	# HTTP/3(QUIC) 끔 — 일부 위챗/회선에서만 RST 나는 경우 완화 (Caddy 공식 global 옵션)
 	servers {
-		protocols h1 h2
+		# 실기기(위챗)에서 net::ERR_CONNECTION_RESET 발생 시, ALPN h2 협상 자체가 원인인 경우가 있어 h1로 고정
+		protocols h1
 	}
 }
 
@@ -12,6 +13,11 @@
 #
 # sslip.io — 하이픈 IP 형식, nip.io보다 열리는 경우가 많음 (미니프로그램·브라우저 기본 권장)
 39-106-213-185.sslip.io {
+	# 미니프로그램 요청 도착 여부 확인용 access log
+	log {
+		output stdout
+		format console
+	}
 	tls {
 		protocols tls1.2 tls1.3
 	}
@@ -20,6 +26,11 @@
 
 # nip.io — 예비 (DNS 되는 환경에서만). 위와 동일 백엔드.
 39.106.213.185.nip.io {
+	# 미니프로그램 요청 도착 여부 확인용 access log
+	log {
+		output stdout
+		format console
+	}
 	tls {
 		protocols tls1.2 tls1.3
 	}
@@ -31,8 +42,16 @@
 # 수동 조각: deploy/china-test/caddy-snippet-custom-domain.txt
 # 전체 절차: docs/kr/DEPLOY_CN_WECHAT.md 섹션 8
 hebibingtest.shop {
+	# 폰(위챗)에서 요청이 서버까지 도착하는지 확인용 access log
+	log {
+		output stdout
+		format console
+	}
 	tls {
-		protocols tls1.2 tls1.3
+		# 일부 단말/회선/위챗 네트워크 스택에서 TLS1.3 협상 중 RST 사례가 있어 TLS1.2로 고정
+		protocols tls1.2
+		# 위챗(실기기)에서 간헐적으로 ECDSA 체인/키와 궁합이 안 맞는 케이스가 있어 RSA로 강제
+		key_type rsa2048
 	}
 	reverse_proxy admin-web:80
 }

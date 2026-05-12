@@ -29,6 +29,12 @@ export function requestJson(path, options = {}) {
     const url = joinUrl(config.apiBaseUrl, path);
     return new Promise((resolve, reject) => {
         const token = getToken();
+        try {
+            console.log('[wx.request]', method, url);
+        }
+        catch (_) {
+            // ignore
+        }
         wx.request({
             ...wxRequestTransportOpts,
             url,
@@ -65,6 +71,17 @@ export function requestJson(path, options = {}) {
             },
             fail(err) {
                 let msg = err?.errMsg || '网络错误';
+                try {
+                    console.error('[wx.request.fail]', method, url, err);
+                    wx.showToast({
+                        title: String(`[NET] ${msg}`).slice(0, 60),
+                        icon: 'none',
+                        duration: 3000,
+                    });
+                }
+                catch (_) {
+                    // ignore
+                }
                 if (String(msg).toLowerCase().includes('timeout')) {
                     return reject(createAppError(ErrorCodes.TIMEOUT, `请求超时：${url}`, err));
                 }
