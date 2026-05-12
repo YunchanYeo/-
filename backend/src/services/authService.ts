@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import type { Db, AuthedAdmin, AuthedUser, RequestContext } from '../types';
+import { isLikelyWeChatAvatarCdnUrl, normalizeUserAvatarForStorage } from '../lib/normalizeUserAvatarForStorage';
 
 function genSessionToken() {
   return crypto.randomBytes(24).toString('hex');
@@ -194,7 +195,14 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
           `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
            FROM users WHERE openid = ?`,
         )
-        .get(openid);
+        .get(openid) as AuthedUser | undefined;
+      if (me?.id && isLikelyWeChatAvatarCdnUrl(String(me.avatarUrl || ''))) {
+        const next = await normalizeUserAvatarForStorage(db, me.id, String(me.avatarUrl || ''));
+        if (next !== me.avatarUrl) {
+          db.prepare(`UPDATE users SET avatarUrl = ?, updatedAt = datetime('now') WHERE id = ?`).run(next, me.id);
+          me.avatarUrl = next;
+        }
+      }
       return res.json({
         ok: true,
         data: { token, user: me, isDevLogin: false },
@@ -297,7 +305,14 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
           `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
            FROM users WHERE openid = ?`,
         )
-        .get(openid);
+        .get(openid) as AuthedUser | undefined;
+      if (me?.id && isLikelyWeChatAvatarCdnUrl(String(me.avatarUrl || ''))) {
+        const next = await normalizeUserAvatarForStorage(db, me.id, String(me.avatarUrl || ''));
+        if (next !== me.avatarUrl) {
+          db.prepare(`UPDATE users SET avatarUrl = ?, updatedAt = datetime('now') WHERE id = ?`).run(next, me.id);
+          me.avatarUrl = next;
+        }
+      }
 
       return res.json({ ok: true, data: { token, user: me } });
     } catch (e: any) {

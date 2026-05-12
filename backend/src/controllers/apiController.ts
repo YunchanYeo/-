@@ -21,6 +21,7 @@ export function createApiController(services: Services) {
     publicPromotionDetail: services.promotion.publicPromotionDetail as RequestHandler,
     /** 관리자 업로드 상품 이미지(DB BLOB) 조회 */
     serveProductImage: services.productMedia.serveProductImage as RequestHandler,
+    serveUserAvatar: services.userAvatarMedia.serveUserAvatar as RequestHandler,
 
     // user
     me: services.user.me as RequestHandler,

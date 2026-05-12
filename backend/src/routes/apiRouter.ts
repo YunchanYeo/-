@@ -15,6 +15,7 @@ export function createApiRouter(controller: any) {
   router.post('/auth/wechat-login', controller.wechatLogin);
   router.post('/auth/wechat-oneclick', controller.wechatOneClickLogin);
   router.get('/media/product/:id', controller.serveProductImage);
+  router.get('/media/user-avatar/:userId', controller.serveUserAvatar);
   router.get('/products', controller.publicProducts);
   router.get('/products/:id', controller.publicProductDetail);
   router.get('/promotions', controller.publicPromotions);

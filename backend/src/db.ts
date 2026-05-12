@@ -152,6 +152,17 @@ if (!userTableCols.includes('points')) {
   execWithLockHint(`ALTER TABLE users ADD COLUMN points INTEGER NOT NULL DEFAULT 0`);
 }
 
+/** 用户微信头像转存(BLOB) — GET `/api/media/user-avatar/:userId` 与业务 API 同域 */
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_avatar_media (
+  userId INTEGER PRIMARY KEY,
+  mimeType TEXT NOT NULL,
+  data BLOB NOT NULL,
+  updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS user_addresses (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

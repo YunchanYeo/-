@@ -35,6 +35,10 @@ export function fetchUserCenter() {
         let avatarUrl = String(me.avatarUrl || '').trim();
         if (avatarUrl.startsWith('http://'))
             avatarUrl = `https://${avatarUrl.slice(7)}`;
+        if (avatarUrl.startsWith('/')) {
+            const base = config.apiBaseUrl.replace(/\/+$/, '');
+            avatarUrl = `${base}${avatarUrl}`;
+        }
         return {
             userInfo: {
                 avatarUrl,

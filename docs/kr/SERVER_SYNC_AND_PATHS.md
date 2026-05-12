@@ -57,6 +57,8 @@ docker compose up -d --build
 docker compose ps
 ```
 
+**한 블록 복사(SSH 접속 후):** 위 코드펜스 전체를 그대로 붙여넣으면 `git pull` → `rsync`(backend·deploy·admin-web) → `docker compose up -d --build` 까지 순서대로 실행된다.
+
 - **`backend/.env`**, **`backend/data/`** 는 운영 비밀·DB이므로 **rsync 제외** 유지.
 - `rsync` 미설치 시: `yum install -y rsync` 또는 `apt-get install -y rsync`.
 - **`.env`만 바꾼 경우**: `docker compose up -d --no-deps --force-recreate backend` (자세한 이유는 `DEPLOY_CN_WECHAT.md` §5.1).
@@ -100,7 +102,7 @@ docker compose ps
 
 - 실제로 미니프로그램이 요청하지 않는 호스트는 생략 가능하나, `app.js` **真机**은 `getPhoneHttpsProbeBases()` 로 위 **sslip·nip** 후보까지 순차 프로브하므로 쓰려면 **반드시 등록**한다.
 - 상품 이미지 등 **download** 가 동일 호스트면 **download合法域名**에도 동일 호스트 추가 (`docs/kr/DEPLOY_CN_WECHAT.md` §6 참고).
-- **微信头像** `https://thirdwx.qlogo.cn` / `https://wx.qlogo.cn` 등을 `<image>`·`t-avatar` 로 직접 쓰면 **download合法域名**에 해당 호스트도 등록해야 함. 기본 플레이스홀더는 외부 CDN 없이 슬롯으로 처리함(`user-center-card`).
+- **微信头像 URL**(`*.qlogo.cn` 등): 서버가 로그인·`PUT /api/me` 시 **동일 API 根域**으로 BLOB 转存 후 `users.avatarUrl` 을 `/api/media/user-avatar/:userId` 로 바꿈 — **download合法域名**에 `qlogo.cn` 을 넣지 않아도 마이페이지 `<image>` 가 뜨게 하려면 **본 백엔드 배포 후** 사용자가 **다시 로그인**하거나 프로필을 한 번 저장하면 된다.
 
 ### 6.2 HTTPS·인증서·`/api/health` = 200
 

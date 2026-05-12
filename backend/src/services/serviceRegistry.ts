@@ -11,6 +11,7 @@ import { createUserService } from './userService';
 import { createSupportService } from './supportService';
 import { createCouponService } from './couponService';
 import { createProductMediaService } from './productMediaService';
+import { createUserAvatarMediaService } from './userAvatarMediaService';
 import { createPromotionService } from './promotionService';
 
 export function createServices(ctx: RequestContext) {
@@ -21,6 +22,7 @@ export function createServices(ctx: RequestContext) {
   const product = createProductService({ db: ctx.db });
   const admin = createAdminService({ db: ctx.db, uploadsDir: ctx.uploadsDir });
   const productMedia = createProductMediaService({ db: ctx.db });
+  const userAvatarMedia = createUserAvatarMediaService({ db: ctx.db });
   const address = createAddressService({ db: ctx.db });
   const order = createOrderService({
     db: ctx.db,
@@ -34,5 +36,5 @@ export function createServices(ctx: RequestContext) {
   const coupon = createCouponService({ db: ctx.db });
   const promotion = createPromotionService({ db: ctx.db });
 
-  return { health, appConfig, category, auth, product, admin, productMedia, address, order, user, support, coupon, promotion };
+  return { health, appConfig, category, auth, product, admin, productMedia, userAvatarMedia, address, order, user, support, coupon, promotion };
 }
