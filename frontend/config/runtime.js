@@ -5,7 +5,8 @@ const USE_LOCAL_API = false;
 const LOCAL_API_BASE = 'http://127.0.0.1:3000';
 /** null: 개발자도구는 HTTP:3000(회선 TLS RST 회피), 실기는 HTTPS. 맥에서 https 도메인만 끊길 때 유지할 것. */
 const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
-const CLOUD_HTTPS_API_BASE = 'https://39-106-213-185.sslip.io';
+/** 실기 기본: 微信公众平台 request 合法域名과 동일 호스트 권장. RST 시 sslip 등으로 CLOUD_HTTPS_API_BASE_OVERRIDE 만 설정해 A/B. */
+const CLOUD_HTTPS_API_BASE = 'https://hebibingtest.shop';
 const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
 const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
 

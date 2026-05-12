@@ -23,7 +23,11 @@
 		protocols tls1.2
 		key_type rsa2048
 	}
-	reverse_proxy admin-web:80
+	reverse_proxy admin-web:80 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }
 
 # nip.io — 예비 (DNS 되는 환경에서만). 위와 동일 백엔드.
@@ -37,7 +41,11 @@
 		protocols tls1.2
 		key_type rsa2048
 	}
-	reverse_proxy admin-web:80
+	reverse_proxy admin-web:80 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }
 
 # ━━━ 정식 도메인 (sslip 대신 · 위챗 폰 테스트 안정화) ━━━
@@ -56,5 +64,9 @@ hebibingtest.shop {
 		# 위챗(실기기)에서 간헐적으로 ECDSA 체인/키와 궁합이 안 맞는 케이스가 있어 RSA로 강제
 		key_type rsa2048
 	}
-	reverse_proxy admin-web:80
+	reverse_proxy admin-web:80 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }
