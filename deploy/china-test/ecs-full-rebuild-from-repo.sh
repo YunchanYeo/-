@@ -9,13 +9,34 @@
 #   2) backend / deploy/china-test / admin-web 를 ECS_LIVE_ROOT 로 rsync (.env·data 제외)
 #   3) compose down → build --no-cache → up -d
 #
+# ─── 서버 「완전 초기화」(Docker 볼륨까지 삭제 = DB·업로드·Caddy 캐시 초기화) ───
+#   CONFIRM_SERVER_FULL_RESET=YES_DELETE_ALL_DATA SERVER_FULL_RESET=1 bash .../ecs-full-rebuild-from-repo.sh
+#   - 반드시 미리: LIVE 의 backend/.env 백업 (rsync 가 덮어쓰지 않지만 볼륨 삭제 후 재기동 시 필요)
+#
 # 환경 변수:
 #   ECS_REPO_ROOT   기본 /root/wechat-app
 #   ECS_LIVE_ROOT   기본 /root/wechat-app-live
-#   WIPE_VOLUMES=1  backend_data / caddy 인증서 볼륨 등까지 삭제 후 재기동 (DB·업로드 초기화)
-#   PRUNE_DOCKER=1  docker system prune -af (디스크 급할 때)
+#   SERVER_FULL_RESET=1 + CONFIRM_SERVER_FULL_RESET=YES_DELETE_ALL_DATA → WIPE_VOLUMES + 기본 PRUNE
+#   WIPE_VOLUMES=1  compose 볼륨 삭제 (단독으로도 가능)
+#   PRUNE_DOCKER=1  docker system prune -af
 #
 set -euo pipefail
+
+if [[ "${SERVER_FULL_RESET:-0}" == "1" ]]; then
+  if [[ "${CONFIRM_SERVER_FULL_RESET:-}" != "YES_DELETE_ALL_DATA" ]]; then
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo " SERVER_FULL_RESET=1 은 Docker 볼륨(backend SQLite 데이터·Caddy 인증서 저장소 등)을 삭제합니다."
+    echo " 사용자·주문·관리자 세션 등 운영 데이터가 초기화될 수 있습니다."
+    echo " 진행하려면 아래 한 줄을 그대로 실행하세요:"
+    echo ""
+    echo " CONFIRM_SERVER_FULL_RESET=YES_DELETE_ALL_DATA SERVER_FULL_RESET=1 bash \"${BASH_SOURCE[0]}\""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+    exit 2
+  fi
+  export WIPE_VOLUMES=1
+  export PRUNE_DOCKER="${PRUNE_DOCKER:-1}"
+  echo "[모드] SERVER_FULL_RESET — 볼륨 삭제 + (기본) docker prune 후 무캐시 재빌드"
+fi
 
 REPO="${ECS_REPO_ROOT:-/root/wechat-app}"
 LIVE="${ECS_LIVE_ROOT:-/root/wechat-app-live}"
