@@ -28,6 +28,18 @@ function safeBaseName(name: string) {
     .slice(0, 40);
 }
 
+/** 客服/头像等 multipart 上传：与 saveMediaFromBase64 生成规则一致 */
+export function buildPrefixedMediaFileName(parts: {
+  kind: MediaKind;
+  mimeType: string;
+  fileName: string;
+  prefix: string;
+}) {
+  const ext = detectExt(parts.kind, parts.mimeType);
+  const base = safeBaseName(parts.fileName || parts.kind);
+  return `${parts.prefix}_${Date.now()}_${base || parts.kind}_${crypto.randomInt(1000, 9999)}.${ext}`;
+}
+
 function isAliyunOssEnabled() {
   return String(process.env.MEDIA_PROVIDER || '').trim().toLowerCase() === 'aliyun-oss';
 }

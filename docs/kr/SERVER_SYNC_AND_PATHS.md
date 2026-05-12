@@ -47,17 +47,25 @@ rsync -a \
 
 rsync -a /root/wechat-app/deploy/china-test/ /root/wechat-app-live/deploy/china-test/
 
+# 아래 한 덩어리는 **한 줄로 이어져도** `admin-web/cd` 오타가 나지 않도록 `&&` 로 연결함.
 rsync -a \
   --exclude 'node_modules' \
   --exclude 'dist' \
-  /root/wechat-app/admin-web/ /root/wechat-app-live/admin-web/
-
-cd /root/wechat-app-live/deploy/china-test
+  /root/wechat-app/admin-web/ /root/wechat-app-live/admin-web/ && \
+cd /root/wechat-app-live/deploy/china-test && \
 docker compose up -d --build
+```
+
+**컨테이너 상태 확인**은 위 블록이 **끝난 뒤** 프롬프트가 다시 나온 다음, **아래만 따로** 실행한다. (`docker compose ps` 바로 뒤에 `rsync` 등을 붙이면 셸이 `psrsync` 로 합쳐 `unknown docker command: "compose psrsync"` 가 난다.)
+
+```bash
+cd /root/wechat-app-live/deploy/china-test
 docker compose ps
 ```
 
-**한 블록 복사(SSH 접속 후):** 위 코드펜스 전체를 그대로 붙여넣으면 `git pull` → `rsync`(backend·deploy·admin-web) → `docker compose up -d --build` 까지 순서대로 실행된다.
+**주의:** `docker compose` 는 **`docker-compose.yml` 이 있는 디렉터리**에서만 동작한다. 반드시 위처럼 **`cd /root/wechat-app-live/deploy/china-test` 이후** 실행할 것. `/root/wechat-app` 에서 실행하면 `no configuration file provided` 가 난다.
+
+**한 블록 복사(SSH 접속 후):** 첫 번째 코드펜스만 붙여넣으면 `git pull` → rsync 3회 → compose 디렉터리 이동 → `docker compose up -d --build` 까지 실행된다. 상태는 두 번째 펜스로 확인.
 
 - **`backend/.env`**, **`backend/data/`** 는 운영 비밀·DB이므로 **rsync 제외** 유지.
 - `rsync` 미설치 시: `yum install -y rsync` 또는 `apt-get install -y rsync`.
@@ -102,6 +110,7 @@ docker compose ps
 
 - 실제로 미니프로그램이 요청하지 않는 호스트는 생략 가능하나, `app.js` **真机**은 `getPhoneHttpsProbeBases()` 로 위 **sslip·nip** 후보까지 순차 프로브하므로 쓰려면 **반드시 등록**한다.
 - 상품 이미지 등 **download** 가 동일 호스트면 **download合法域名**에도 동일 호스트 추가 (`docs/kr/DEPLOY_CN_WECHAT.md` §6 참고).
+- **upload合法域名**: `open-type="chooseAvatar"`·客服 등에서 **`wx.uploadFile` → `/api/support/upload-media`** 를 쓰므로, **request合法域名**과 **동일한 API 호스트**를 **upload合法域名**에도 등록한다. (`chooseAvatar` 가 개발자 도구에서 `http://tmp/...` 를 줄 때는 `readFile` 이 아니라 **multipart 업로드**가 정석이다.)
 - **微信头像 URL**(`*.qlogo.cn` 등): 서버가 로그인·`PUT /api/me` 시 **동일 API 根域**으로 BLOB 转存 후 `users.avatarUrl` 을 `/api/media/user-avatar/:userId` 로 바꿈 — **download合法域名**에 `qlogo.cn` 을 넣지 않아도 마이페이지 `<image>` 가 뜨게 하려면 **본 백엔드 배포 후** 사용자가 **다시 로그인**하거나 프로필을 한 번 저장하면 된다.
 
 ### 6.2 HTTPS·인증서·`/api/health` = 200

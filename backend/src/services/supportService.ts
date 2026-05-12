@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
-import { saveMediaFromBase64 } from '../storage/mediaStorage';
+import { buildPrefixedMediaFileName, saveMediaFromBase64, saveMediaFromBuffer } from '../storage/mediaStorage';
 
 const MSG_SELECT = `id, userId, fromRole, msgType, content, metaJson, adminRead, userRead, createdAt`;
 
@@ -43,6 +43,34 @@ export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: s
   }
 
   async function uploadMediaBody(req: Request, res: Response) {
+    const multerFile = (req as Request & { file?: Express.Multer.File }).file;
+    if (multerFile?.buffer && multerFile.buffer.length > 0) {
+      const kindParsed = z.enum(['image', 'voice']).safeParse(String((req.body as { kind?: unknown })?.kind || 'image').trim());
+      if (!kindParsed.success) {
+        return res.status(400).json({ ok: false, message: 'Invalid kind', issues: kindParsed.error.issues });
+      }
+      const kind = kindParsed.data;
+      const mimeType =
+        String(multerFile.mimetype || '').trim() || (kind === 'image' ? 'image/jpeg' : 'audio/mpeg');
+      const origName = String((req.body as { fileName?: unknown })?.fileName || multerFile.originalname || 'file').trim() || 'file';
+      const prefix = kind === 'image' ? 'chat_img' : 'chat_voice';
+      const finalName = buildPrefixedMediaFileName({ kind, mimeType, fileName: origName, prefix });
+      try {
+        const url = await saveMediaFromBuffer({
+          kind,
+          mimeType,
+          fileName: finalName,
+          buffer: multerFile.buffer,
+          req,
+          uploadsDir,
+          objectPrefix: 'support/chat',
+        });
+        return res.json({ ok: true, data: { url } });
+      } catch (e) {
+        return res.status(500).json({ ok: false, message: `文件保存失败: ${String((e as any)?.message || e)}` });
+      }
+    }
+
     const schema = z.object({
       kind: z.enum(['image', 'voice']),
       fileName: z.string().optional(),

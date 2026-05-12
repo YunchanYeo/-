@@ -119,10 +119,11 @@ Page({
             });
         }
         catch (error) {
+            const msg = (error && (error.message || error.errMsg)) ? String(error.message || error.errMsg).slice(0, 48) : '头像上传失败，请重试';
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: '头像上传失败，请重试',
+                message: msg,
                 theme: 'error',
             });
         }

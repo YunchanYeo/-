@@ -1,5 +1,4 @@
 "use strict";
-const systemInfo = wx.getSystemInfoSync();
 Component({
     externalClasses: ['t-class', 't-class-load'],
     properties: {
@@ -35,12 +34,24 @@ Component({
     data: {
         thumbHeight: 375,
         thumbWidth: 375,
-        systemInfo,
+        systemInfo: {},
     },
     lifetimes: {
+        attached() {
+            let systemInfo = {};
+            try {
+                if (typeof wx.getDeviceInfo === 'function')
+                    systemInfo = wx.getDeviceInfo() || {};
+                else if (typeof wx.getSystemInfoSync === 'function')
+                    systemInfo = wx.getSystemInfoSync() || {};
+            }
+            catch (_) {
+                systemInfo = {};
+            }
+            this.setData({ systemInfo });
+        },
         ready() {
             const { mode } = this.properties;
-            // 获取容器的真实宽高，设置图片的裁剪宽度
             this.getRect('.J-image').then((res) => {
                 if (res) {
                     const { width, height } = res;
@@ -57,7 +68,8 @@ Component({
     },
     methods: {
         px2rpx(px) {
-            return (750 / (systemInfo.screenWidth || 375)) * px;
+            const sys = this.data.systemInfo || {};
+            return (750 / (sys.screenWidth || 375)) * px;
         },
         getRect(selector) {
             return new Promise((resolve) => {
@@ -67,11 +79,11 @@ Component({
                 this.selectorQuery.select(selector).boundingClientRect(resolve).exec();
             });
         },
+        onImageError(e) {
+            this.triggerEvent('error', e.detail);
+        },
         onLoad(e) {
             this.triggerEvent('load', e.detail);
-        },
-        onError(e) {
-            this.triggerEvent('error', e.detail);
         },
     },
 });

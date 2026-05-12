@@ -33,6 +33,23 @@ const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
 /** 백엔드 직접 URL(DB·업로드 경로에 남는 경우). 폰이 HTTPS 쓸 때 이미지 URL 치환에 사용 */
 const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
 
+function getMiniProgramPlatform() {
+    try {
+        if (typeof wx !== 'undefined' && typeof wx.getDeviceInfo === 'function') {
+            const d = wx.getDeviceInfo();
+            if (d && typeof d.platform === 'string' && d.platform)
+                return d.platform;
+        }
+    }
+    catch (_) { /* ignore */ }
+    try {
+        if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function')
+            return String(wx.getSystemInfoSync().platform || '');
+    }
+    catch (_) { /* ignore */ }
+    return '';
+}
+
 function getCloudHttpsApiBase() {
     const o = String(CLOUD_HTTPS_API_BASE_OVERRIDE || '').trim();
     if (o)
@@ -43,8 +60,8 @@ function getCloudHttpsApiBase() {
 function resolveCloudUseHttpsNip() {
   if (CLOUD_USE_HTTPS_OVERRIDE !== null) return CLOUD_USE_HTTPS_OVERRIDE;
   try {
-    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
-      const platform = wx.getSystemInfoSync().platform;
+    if (typeof wx !== 'undefined') {
+      const platform = getMiniProgramPlatform();
       if (platform === 'devtools') return false;
     }
   } catch (_) {

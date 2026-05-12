@@ -7,6 +7,10 @@ export function createApiRouter(controller: any) {
     storage: multer.memoryStorage(),
     limits: { fileSize: 30 * 1024 * 1024 },
   });
+  const supportChatMediaUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 30 * 1024 * 1024 },
+  });
 
   // public routes
   router.get('/health', controller.health);
@@ -49,7 +53,12 @@ export function createApiRouter(controller: any) {
   router.post('/support/messages', controller.requireAuth, controller.createMySupportMessage);
   router.get('/support/typing', controller.requireAuth, controller.getMySupportPeerTyping);
   router.post('/support/typing', controller.requireAuth, controller.setMySupportTyping);
-  router.post('/support/upload-media', controller.requireAuth, controller.supportUploadMedia);
+  router.post(
+    '/support/upload-media',
+    controller.requireAuth,
+    supportChatMediaUpload.single('file'),
+    controller.supportUploadMedia,
+  );
   router.get('/coupons', controller.requireAuth, controller.listMyCoupons);
   router.get('/coupons/:id', controller.requireAuth, controller.getMyCouponDetail);
 
@@ -99,7 +108,12 @@ export function createApiRouter(controller: any) {
   router.post('/admin/support/messages/:userId', controller.requireAdmin, controller.adminSupportReply);
   router.get('/admin/support/typing/:userId', controller.requireAdmin, controller.adminGetSupportPeerTyping);
   router.post('/admin/support/typing/:userId', controller.requireAdmin, controller.adminSetSupportTyping);
-  router.post('/admin/support/upload-media', controller.requireAdmin, controller.adminSupportUploadMedia);
+  router.post(
+    '/admin/support/upload-media',
+    controller.requireAdmin,
+    supportChatMediaUpload.single('file'),
+    controller.adminSupportUploadMedia,
+  );
 
   return router;
 }

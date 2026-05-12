@@ -89,20 +89,69 @@ export const createAdminSupportReply = (userId, payload) => {
 
 export function uploadAdminSupportMedia(opts) {
   const { kind, filePath, mimeType = kind === 'image' ? 'image/jpeg' : 'audio/mpeg', fileName = 'file' } = opts;
+  const fp = String(filePath || '').trim();
+  const isRemoteHttp = /^https?:\/\//i.test(fp);
+
   return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().readFile({
-      filePath,
-      encoding: 'base64',
-      success: (r) => {
-        requestAdminJson('/api/admin/support/upload-media', {
-          method: 'POST',
-          data: { kind, mimeType, fileName, base64Data: r.data },
-          timeout: 60000,
-        })
-          .then((data) => resolve(/** @type {{ url: string }} */ (data).url))
-          .catch(reject);
+    const readBase64Upload = () => {
+      wx.getFileSystemManager().readFile({
+        filePath: fp,
+        encoding: 'base64',
+        success: (r) => {
+          requestAdminJson('/api/admin/support/upload-media', {
+            method: 'POST',
+            data: { kind, mimeType, fileName, base64Data: r.data },
+            timeout: 60000,
+          })
+            .then((data) => resolve(/** @type {{ url: string }} */ (data).url))
+            .catch(reject);
+        },
+        fail: reject,
+      });
+    };
+
+    if (!fp) {
+      reject(new Error('empty filePath'));
+      return;
+    }
+
+    const token = getAdminToken();
+    wx.uploadFile({
+      ...wxRequestTransportOpts,
+      url: `${config.apiBaseUrl.replace(/\/+$/, '')}/api/admin/support/upload-media`,
+      filePath: fp,
+      name: 'file',
+      formData: { kind, mimeType, fileName },
+      header: token ? { 'x-admin-token': token } : {},
+      timeout: 60000,
+      success: (res) => {
+        const sc = res.statusCode;
+        const badStatus = typeof sc === 'number' && (sc < 200 || sc >= 300);
+        let body = null;
+        try {
+          body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+        } catch (_) {
+          body = null;
+        }
+        const url = body && body.ok && body.data && typeof body.data.url === 'string' ? body.data.url : '';
+        if (!badStatus && url) {
+          resolve(url);
+          return;
+        }
+        if (isRemoteHttp) {
+          const hint = body && typeof body.message === 'string' ? body.message : `HTTP ${sc}`;
+          reject(new Error(String(hint || 'uploadFile failed')));
+          return;
+        }
+        readBase64Upload();
       },
-      fail: reject,
+      fail: (err) => {
+        if (isRemoteHttp) {
+          reject(new Error(err?.errMsg || 'uploadFile failed'));
+          return;
+        }
+        readBase64Upload();
+      },
     });
   });
 }

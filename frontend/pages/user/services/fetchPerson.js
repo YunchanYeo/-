@@ -1,5 +1,6 @@
 import { config } from '../../../config/runtime';
 import { requestJson } from '../../../services/_utils/http';
+import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 function mockFetchPerson() {
     const { delay } = require('../../../services/_utils/delay');
     const { genSimpleUserInfo } = require('../../../model/usercenter');
@@ -19,7 +20,7 @@ export function fetchPerson() {
     if (config.useMock)
         return mockFetchPerson();
     return requestJson('/api/me', { method: 'GET' }).then((me) => ({
-        avatarUrl: me.avatarUrl || '',
+        avatarUrl: normalizeGoodsImageUrl(me.avatarUrl || ''),
         nickName: me.nickName || '微信用户',
         gender: me.gender || 0,
         phoneNumber: me.phoneNumber || '',

@@ -45,7 +45,9 @@
 - `wx.createInnerAudioContext`
   - 음성 재생
 - `wx.getFileSystemManager().readFile`
-  - 파일 -> base64 변환 후 업로드
+  - 로컬 임시 파일만 읽기 가능 (`http://tmp/...` 같은 chooseAvatar 개발자도구 URL은 **readFile 불가**)
+- `wx.uploadFile`
+  - `/api/support/upload-media` 등에 **multipart(`file` 필드)** 로 직접 업로드(아바타·채팅 이미지 권장)
 
 ### 2.5 페이지/UX
 
@@ -73,14 +75,14 @@
 
 - 메시지 목록 조회: `GET /api/support/messages`
 - 메시지 전송: `POST /api/support/messages`
-- 이미지/음성 업로드: `POST /api/support/upload-media`
+- 이미지/음성 업로드: `POST /api/support/upload-media` (**multipart `file`** 우선, JSON+base64 호환 유지)
 
 ### 관리자
 
 - 대화 목록: `GET /api/admin/support/conversations`
 - 특정 사용자 대화: `GET /api/admin/support/messages/:userId`
 - 답장 전송: `POST /api/admin/support/messages/:userId`
-- 이미지/음성 업로드: `POST /api/admin/support/upload-media`
+- 이미지/음성 업로드: `POST /api/admin/support/upload-media` (**multipart `file`** 우선, JSON+base64 호환 유지)
 
 ## 5. `app.json`에서 중요한 권한
 
@@ -115,8 +117,9 @@
 
 ### 이미지/음성 업로드 실패
 
+- **真机**: `wx.uploadFile` 사용 시 **upload合法域名**에 API 호스트 등록 (`request` 과 동일 호스트)
+- `chooseAvatar` 가 `http://tmp/...` 를 주는 경우 **`readFile` 금지** — `wx.uploadFile` + 서버 multipart
 - 파일 크기/형식 확인
-- base64 변환 실패 여부 확인
 - 백엔드 `uploads` 정적 경로(`/uploads`) 확인
 
 ### 실기기에서 API 실패

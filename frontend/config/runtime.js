@@ -42,6 +42,27 @@ const CLOUD_HTTPS_FALLBACK_BASE = '';
 /** 直连后端 HTTP（仅开发者工具 + 关闭域名校验；真机预览不可用） */
 const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
 
+/**
+ * 运行环境 platform（devtools / ios / android …）
+ * 优先 wx.getDeviceInfo，避免 apiBaseUrl getter 等高频路径反复触发 getSystemInfoSync 弃用警告。
+ */
+function getMiniProgramPlatform() {
+    try {
+        if (typeof wx !== 'undefined' && typeof wx.getDeviceInfo === 'function') {
+            const d = wx.getDeviceInfo();
+            if (d && typeof d.platform === 'string' && d.platform)
+                return d.platform;
+        }
+    }
+    catch (_) { /* ignore */ }
+    try {
+        if (typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function')
+            return String(wx.getSystemInfoSync().platform || '');
+    }
+    catch (_) { /* ignore */ }
+    return '';
+}
+
 function parseEcsPublicIpFromHttpBase() {
   const raw = String(CLOUD_HTTP_API_BASE || '');
   const m = raw.match(/^https?:\/\/([\d.]+)(?::\d+)?/);
@@ -71,8 +92,8 @@ export function setSessionApiBaseUrl(url) {
   const u = String(url || '').trim().replace(/\/+$/, '');
   if (!u) return;
   try {
-    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
-      const p = wx.getSystemInfoSync().platform || '';
+    if (typeof wx !== 'undefined') {
+      const p = getMiniProgramPlatform();
       if (p !== 'devtools' && !/^https:\/\//i.test(u)) return;
     }
   } catch (_) {
@@ -104,8 +125,8 @@ export function getPhoneHttpsProbeBases() {
 export function getAlternateApiBaseForDevtools(currentBase) {
   if (CLOUD_USE_HTTPS_OVERRIDE !== null) return '';
   try {
-    if (typeof wx === 'undefined' || !wx.getSystemInfoSync) return '';
-    if (wx.getSystemInfoSync().platform !== 'devtools') return '';
+    if (typeof wx === 'undefined') return '';
+    if (getMiniProgramPlatform() !== 'devtools') return '';
   } catch (_) {
     return '';
   }
@@ -121,8 +142,8 @@ export function getAlternateApiBaseForDevtools(currentBase) {
 export function getAlternatePhoneHttpsBase(currentBase) {
   if (CLOUD_USE_HTTPS_OVERRIDE !== null) return '';
   try {
-    if (typeof wx === 'undefined' || !wx.getSystemInfoSync) return '';
-    if (wx.getSystemInfoSync().platform === 'devtools') return '';
+    if (typeof wx === 'undefined') return '';
+    if (getMiniProgramPlatform() === 'devtools') return '';
   } catch (_) {
     return '';
   }
@@ -142,8 +163,8 @@ function getCloudHttpsApiBase() {
 function resolveCloudUseHttpsNip() {
   if (CLOUD_USE_HTTPS_OVERRIDE !== null) return CLOUD_USE_HTTPS_OVERRIDE;
   try {
-    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
-      const platform = wx.getSystemInfoSync().platform;
+    if (typeof wx !== 'undefined') {
+      const platform = getMiniProgramPlatform();
       if (platform === 'devtools') return DEVTOOLS_USE_CLOUD_HTTPS;
     }
   } catch (_) {}
@@ -156,7 +177,7 @@ export const config = {
     if (USE_LOCAL_API) return LOCAL_API_BASE;
     if (sessionApiBaseUrl) {
       try {
-        const p = wx.getSystemInfoSync?.().platform || '';
+        const p = getMiniProgramPlatform();
         if (p !== 'devtools' && !/^https:\/\//i.test(sessionApiBaseUrl)) {
           return getCloudHttpsApiBase();
         }
