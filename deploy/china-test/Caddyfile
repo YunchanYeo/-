@@ -19,7 +19,9 @@
 		format console
 	}
 	tls {
-		protocols tls1.2 tls1.3
+		# hebibingtest.shop 과 동일: 위챗 실기기 TLS1.3/ECDSA 조합에서 RST 나는 경우 완화
+		protocols tls1.2
+		key_type rsa2048
 	}
 	reverse_proxy admin-web:80
 }
@@ -32,7 +34,8 @@
 		format console
 	}
 	tls {
-		protocols tls1.2 tls1.3
+		protocols tls1.2
+		key_type rsa2048
 	}
 	reverse_proxy admin-web:80
 }
