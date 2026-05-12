@@ -1,12 +1,133 @@
 /**
  * 런타임 공통 설정(경량): areaData 대용량 데이터는 포함하지 않음
+ *
+ * 真机预览 / 线上：wx.request 仅允许 HTTPS，且请求主机须在
+ * 微信公众平台 → 开发 → 开发管理 → 服务器域名 → request 合法域名 中配置（须备案域名，不能填裸 IP）。
+ * 文档：https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html
+ *
+ * 开发者工具：可勾选「不校验合法域名」时用 HTTP 直连 ECS:3000 调试（仅本地）。
  */
+
 const USE_LOCAL_API = false;
 const LOCAL_API_BASE = 'http://127.0.0.1:3000';
-const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (true);
+
+/**
+ * null: 按平台规则。
+ * true/false: 强制全体走 HTTPS / HTTP（仅排障）
+ */
+const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
+
+/**
+ * true: 开发者工具优先走 HTTPS（海外网络常连不上国内 ECS 公网 3000）。
+ * false: 开发者工具走 CLOUD_HTTP_API_BASE（须关闭域名校验且本机能访问 3000）。
+ */
+const DEVTOOLS_USE_CLOUD_HTTPS = true;
+
+/** 主 HTTPS API 根（须与 mp 后台 request 合法域名中的主机一致，无路径无端口） */
 const CLOUD_HTTPS_API_BASE = 'https://hebibingtest.shop';
+
+/** 覆盖主地址（排查时临时指向 sslip 等，须同期在 mp 后台登记该域名） */
 const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
+
+/**
+ * 真机备用 HTTPS 根（可选）。主域名在部分网络 RST 时，若已在后台登记 sslip 等可填此项。
+ * 例：https://39-106-213-185.sslip.io
+ */
+const CLOUD_HTTPS_FALLBACK_BASE = '';
+
+/** 直连后端 HTTP（仅开发者工具 + 关闭域名校验；真机预览不可用） */
 const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
+
+function parseEcsPublicIpFromHttpBase() {
+  const raw = String(CLOUD_HTTP_API_BASE || '');
+  const m = raw.match(/^https?:\/\/([\d.]+)(?::\d+)?/);
+  return m ? m[1] : '';
+}
+
+/** 由 ECS 公网 IP 推导 sslip HTTPS（须在 mp 登记 request 域名） */
+function getAutoSslipHttpsBase() {
+  const ip = parseEcsPublicIpFromHttpBase();
+  if (!ip) return '';
+  const octets = ip.split('.');
+  if (octets.length !== 4) return '';
+  return `https://${octets.join('-')}.sslip.io`.replace(/\/+$/, '');
+}
+
+/** 由同一 IP 推导 nip.io HTTPS（DNS·后台均须可用时再作为候选） */
+function getAutoNipHttpsBase() {
+  const ip = parseEcsPublicIpFromHttpBase();
+  if (!ip) return '';
+  return `https://${ip}.nip.io`.replace(/\/+$/, '');
+}
+
+/** 本会话探测成功的 API 根（真机仅允许 https://） */
+let sessionApiBaseUrl = '';
+
+export function setSessionApiBaseUrl(url) {
+  const u = String(url || '').trim().replace(/\/+$/, '');
+  if (!u) return;
+  try {
+    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
+      const p = wx.getSystemInfoSync().platform || '';
+      if (p !== 'devtools' && !/^https:\/\//i.test(u)) return;
+    }
+  } catch (_) {
+    if (!/^https:\/\//i.test(u)) return;
+  }
+  sessionApiBaseUrl = u;
+}
+
+export function getDevtoolsProbeBaseUrls() {
+  const h = getCloudHttpsApiBase();
+  const p = CLOUD_HTTP_API_BASE.replace(/\/+$/, '');
+  return DEVTOOLS_USE_CLOUD_HTTPS ? [h, p] : [p, h];
+}
+
+/** 真机用于启动探测的 HTTPS 列表（主域名 + 手工备用 + 自动 sslip + 自动 nip） */
+export function getPhoneHttpsProbeBases() {
+  const primary = getCloudHttpsApiBase();
+  const list = [primary];
+  const fb = String(CLOUD_HTTPS_FALLBACK_BASE || '').trim().replace(/\/+$/, '');
+  if (fb && fb !== primary && !list.includes(fb)) list.push(fb);
+  const autoSslip = getAutoSslipHttpsBase();
+  if (autoSslip && !list.includes(autoSslip)) list.push(autoSslip);
+  const autoNip = getAutoNipHttpsBase();
+  if (autoNip && !list.includes(autoNip)) list.push(autoNip);
+  return list;
+}
+
+/** 开发者工具：HTTPS ↔ HTTP 直连 切换 */
+export function getAlternateApiBaseForDevtools(currentBase) {
+  if (CLOUD_USE_HTTPS_OVERRIDE !== null) return '';
+  try {
+    if (typeof wx === 'undefined' || !wx.getSystemInfoSync) return '';
+    if (wx.getSystemInfoSync().platform !== 'devtools') return '';
+  } catch (_) {
+    return '';
+  }
+  const cur = String(currentBase || '').trim().replace(/\/+$/, '');
+  const h = getCloudHttpsApiBase();
+  const p = CLOUD_HTTP_API_BASE.replace(/\/+$/, '');
+  if (cur === h) return p;
+  if (cur === p) return h;
+  return '';
+}
+
+/** 真机：按 getPhoneHttpsProbeBases() 顺序链式切换下一个 HTTPS（不降级到 HTTP） */
+export function getAlternatePhoneHttpsBase(currentBase) {
+  if (CLOUD_USE_HTTPS_OVERRIDE !== null) return '';
+  try {
+    if (typeof wx === 'undefined' || !wx.getSystemInfoSync) return '';
+    if (wx.getSystemInfoSync().platform === 'devtools') return '';
+  } catch (_) {
+    return '';
+  }
+  const cur = String(currentBase || '').trim().replace(/\/+$/, '');
+  const chain = getPhoneHttpsProbeBases();
+  const i = chain.indexOf(cur);
+  if (i >= 0 && i < chain.length - 1) return chain[i + 1];
+  return '';
+}
 
 function getCloudHttpsApiBase() {
   const o = String(CLOUD_HTTPS_API_BASE_OVERRIDE || '').trim();
@@ -19,11 +140,9 @@ function resolveCloudUseHttpsNip() {
   try {
     if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
       const platform = wx.getSystemInfoSync().platform;
-      if (platform === 'devtools') return false;
+      if (platform === 'devtools') return DEVTOOLS_USE_CLOUD_HTTPS;
     }
-  } catch (_) {
-    // wx 초기화 전에는 폰 기준으로 HTTPS
-  }
+  } catch (_) {}
   return true;
 }
 
@@ -31,6 +150,17 @@ export const config = {
   useMock: false,
   get apiBaseUrl() {
     if (USE_LOCAL_API) return LOCAL_API_BASE;
+    if (sessionApiBaseUrl) {
+      try {
+        const p = wx.getSystemInfoSync?.().platform || '';
+        if (p !== 'devtools' && !/^https:\/\//i.test(sessionApiBaseUrl)) {
+          return getCloudHttpsApiBase();
+        }
+      } catch (_) {
+        if (!/^https:\/\//i.test(sessionApiBaseUrl)) return getCloudHttpsApiBase();
+      }
+      return sessionApiBaseUrl;
+    }
     return resolveCloudUseHttpsNip() ? getCloudHttpsApiBase() : CLOUD_HTTP_API_BASE;
   },
   cloudServerHttpOrigin: USE_LOCAL_API ? '' : CLOUD_HTTP_API_BASE.replace(/\/+$/, ''),
@@ -38,4 +168,3 @@ export const config = {
 };
 
 export const cdnBase = 'https://we-retail-static-1300977798.cos.ap-guangzhou.myqcloud.com/retail-mp';
-

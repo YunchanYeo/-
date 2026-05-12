@@ -1,4 +1,4 @@
-import { config } from '../../config/runtime';
+import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl } from '../../config/runtime';
 import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 const TOKEN_KEY = 'auth.token';
 const USER_KEY = 'auth.user';
@@ -22,29 +22,44 @@ export function logout() {
     wx.removeStorageSync(PREFETCH_ORDER_COUNTS_KEY);
     wx.removeStorageSync(PREFETCH_SUPPORT_MESSAGES_KEY);
 }
+const MAX_AUTH_ALT_HOPS = 4;
+
 function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
-    return new Promise((resolve, reject) => {
-        wx.request({
-            ...wxRequestTransportOpts,
-            url: `${config.apiBaseUrl}${path}`,
-            method,
-            data,
-            timeout: 10000,
-            header: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            success(res) {
-                if (res.statusCode < 200 || res.statusCode >= 300) {
-                    const msg = res.data?.message || res.data?.errmsg || '';
-                    return reject(new Error(msg ? `${msg}` : `HTTP ${res.statusCode}`));
-                }
-                if (!res.data?.ok)
-                    return reject(new Error(res.data?.message || 'Auth API failed'));
-                return resolve(res.data.data);
-            },
-            fail(err) {
-                reject(err);
-            },
+    const run = (base, hop) =>
+        new Promise((resolve, reject) => {
+            const root = String(base || '').replace(/\/+$/, '');
+            wx.request({
+                ...wxRequestTransportOpts,
+                url: `${root}${path}`,
+                method,
+                data,
+                timeout: 10000,
+                header: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                success(res) {
+                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                        const msg = res.data?.message || res.data?.errmsg || '';
+                        return reject(new Error(msg ? `${msg}` : `HTTP ${res.statusCode}`));
+                    }
+                    if (!res.data?.ok)
+                        return reject(new Error(res.data?.message || 'Auth API failed'));
+                    if (hop > 0)
+                        setSessionApiBaseUrl(root);
+                    return resolve(res.data.data);
+                },
+                fail(err) {
+                    const alt =
+                        hop < MAX_AUTH_ALT_HOPS
+                            ? getAlternateApiBaseForDevtools(base) || getAlternatePhoneHttpsBase(base)
+                            : '';
+                    if (alt) {
+                        run(String(alt).replace(/\/+$/, ''), hop + 1).then(resolve).catch(reject);
+                        return;
+                    }
+                    reject(err);
+                },
+            });
         });
-    });
+    return run(config.apiBaseUrl, 0);
 }
 async function trySyncWeChatProfileSilently(token) {
     if (!token)

@@ -1,38 +1,60 @@
 {
-	# HTTP/3(QUIC) 끔 — 일부 위챗/회선에서만 RST 나는 경우 완화 (Caddy 공식 global 옵션)
+	# HTTP/3(QUIC) 끔. 일부 위챗 WebView / 회선에서만 RST 나는 경우 h2 자체를 끄고 h1만 사용
 	servers {
-		protocols h1 h2
+		protocols h1
 	}
 }
 
 # 공인 IP 바뀌면 sslip/nip 호스트를 같은 규칙으로 수정하세요.
 # Let's Encrypt: 외부 TCP 80·443 필요. `deploy/china-test` 에서 `docker compose up -d` 시 Caddy 함께 기동.
 #
-# tls protocols: 위챗 진기 WebView 호환을 위해 TLS1.2+ 명시 (Caddy 기본과 동일 계열, 문서/커뮤니티 점검용).
-#
-# sslip.io — 하이픈 IP 형식, nip.io보다 열리는 경우가 많음 (미니프로그램·브라우저 기본 권장)
+# tls: 위챗 실기 Android 일부에서 TLS1.3·ECDSA·ALPN h2 조합으로 RST 나는 사례가 있어
+#      TLS1.2 고정 + RSA 키로 완화 (문서·커뮤니티 점검용).
+
 39-106-213-185.sslip.io {
-	tls {
-		protocols tls1.2 tls1.3
+	log {
+		output stdout
+		format console
 	}
-	reverse_proxy admin-web:80
+	tls {
+		protocols tls1.2
+		key_type rsa2048
+	}
+	reverse_proxy admin-web:80 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }
 
-# nip.io — 예비 (DNS 되는 환경에서만). 위와 동일 백엔드.
 39.106.213.185.nip.io {
-	tls {
-		protocols tls1.2 tls1.3
+	log {
+		output stdout
+		format console
 	}
-	reverse_proxy admin-web:80
+	tls {
+		protocols tls1.2
+		key_type rsa2048
+	}
+	reverse_proxy admin-web:80 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }
 
-# ━━━ 정식 도메인 (sslip 대신 · 위챗 폰 테스트 안정화) ━━━
-# 서버에서: CUSTOM_DOMAIN=api.你的域名.com bash deploy/china-test/enable-public-domain.sh
-# 수동 조각: deploy/china-test/caddy-snippet-custom-domain.txt
-# 전체 절차: docs/kr/DEPLOY_CN_WECHAT.md 섹션 8
 hebibingtest.shop {
-	tls {
-		protocols tls1.2 tls1.3
+	log {
+		output stdout
+		format console
 	}
-	reverse_proxy admin-web:80
+	tls {
+		protocols tls1.2
+		key_type rsa2048
+	}
+	reverse_proxy admin-web:80 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }
