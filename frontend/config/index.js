@@ -19,7 +19,8 @@ const LOCAL_API_BASE = 'http://127.0.0.1:3000';
  * null = 자동: 개발자도구(platform===devtools)는 HTTP:3000(sslip TLS 끊김 회피), 폰(ios/android 등)은 HTTPS sslip.
  * true/false 로 고정하고 싶으면 여기만 바꿈.
  */
-const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (true);
+/** null: 개발자도구는 HTTP:3000, 실기는 HTTPS — runtime.js 와 동일 권장 */
+const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
 
 /** IP 각 옥텟을 하이픈으로: 39.106.213.185 → 39-106-213-185.sslip.io (Caddyfile·微信公众平台 과 동일) */
 const CLOUD_HTTPS_API_BASE = 'https://hebibingtest.shop';

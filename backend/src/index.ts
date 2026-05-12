@@ -85,7 +85,8 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-app.listen(port, () => {
-  console.log(`[backend] listening on http://127.0.0.1:${port}`);
+const listenHost = process.env.LISTEN_HOST || '0.0.0.0';
+app.listen(port, listenHost, () => {
+  console.log(`[backend] listening on http://${listenHost}:${port}`);
 });
 
