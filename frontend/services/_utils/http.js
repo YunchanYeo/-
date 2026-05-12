@@ -1,4 +1,4 @@
-import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl } from '../../config/runtime';
+import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl, ensurePhoneApiSessionBase } from '../../config/runtime';
 import { createAppError, ErrorCodes } from './errors';
 import { getToken } from '../auth/session';
 import { wxRequestTransportOpts } from './wxRequestTransport';
@@ -24,7 +24,7 @@ function getStatusHint(statusCode) {
     };
     return map[statusCode] || 'HTTP 请求失败。';
 }
-const MAX_NET_ALT_HOPS = 4;
+const MAX_NET_ALT_HOPS = 6;
 
 export function requestJson(path, options = {}) {
     const { method = 'GET', data, header = {}, timeoutMs = 15000 } = options;
@@ -64,8 +64,19 @@ export function requestJson(path, options = {}) {
                     if (!body.ok) {
                         return reject(createAppError(ErrorCodes.BACKEND_ERROR, body.message || '服务器返回了错误。', body));
                     }
-                    if (hop > 0)
-                        setSessionApiBaseUrl(String(base).replace(/\/+$/, ''));
+                    try {
+                        const sys = typeof wx !== 'undefined' && wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
+                        const isDevtools = String(sys.platform || '') === 'devtools';
+                        const b = String(base || '').trim().replace(/\/+$/, '');
+                        if (!isDevtools && hop === 0 && /^https:\/\//i.test(b))
+                            setSessionApiBaseUrl(b);
+                        else if (hop > 0)
+                            setSessionApiBaseUrl(b);
+                    }
+                    catch (_) {
+                        if (hop > 0)
+                            setSessionApiBaseUrl(String(base).replace(/\/+$/, ''));
+                    }
                     resolve(body.data);
                 },
                 fail(err) {
@@ -83,11 +94,13 @@ export function requestJson(path, options = {}) {
                     }
                     const m = String(msg);
                     if (/合法域名|domain|not in domain list|ssl|certificate|TLS|CONNECTION_RESET|connection reset/i.test(m)) {
-                        msg += `（请核对：1）mp.weixin.qq.com 服务器域名是否含请求主机；2）project.config.json 的 appid 是否与该小程序一致；3）重新编译后再预览；4）仍 RST 可试换自有域名 HTTPS）`;
+                        msg += `（真机须 mp 后台登记 request/upload 域名；开发者工具「不校验」对真机无效；仍失败可换 Wi‑Fi/4G、清小程序缓存、重编译预览；详见 runtime.js 顶部注释）`;
                     }
                     reject(createAppError(ErrorCodes.NETWORK_ERROR, msg, { ...err, url, method }));
                 },
             });
         });
-    return run(config.apiBaseUrl, 0);
+    return ensurePhoneApiSessionBase({ timeoutMs: Math.min(12000, timeoutMs) })
+        .catch(() => {})
+        .then(() => run(config.apiBaseUrl, 0));
 }

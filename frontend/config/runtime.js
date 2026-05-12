@@ -88,6 +88,10 @@ function getAutoNipHttpsBase() {
 /** 本会话探测成功的 API 根（真机仅允许 https://） */
 let sessionApiBaseUrl = '';
 
+export function getSessionApiBaseUrl() {
+  return sessionApiBaseUrl;
+}
+
 export function setSessionApiBaseUrl(url) {
   const u = String(url || '').trim().replace(/\/+$/, '');
   if (!u) return;
@@ -138,6 +142,79 @@ export function getAlternateApiBaseForDevtools(currentBase) {
   return '';
 }
 
+/** API 根 URL 비교용（호스트 대소문자·기본 포트 정리）— indexOf 폴백 끊김 방지 */
+function normalizeHttpsOrigin(u) {
+  const s = String(u || '').trim().replace(/\/+$/, '');
+  try {
+    const x = new URL(s);
+    const host = x.hostname.toLowerCase();
+    const proto = x.protocol.toLowerCase();
+    if (proto === 'https:' && (!x.port || x.port === '443')) return `https://${host}`;
+    if (proto === 'http:' && (!x.port || x.port === '80')) return `http://${host}`;
+    return `${proto}//${host}:${x.port}`;
+  } catch (_) {
+    return s.toLowerCase();
+  }
+}
+
+const _wxProbeNet = Object.freeze({ enableHttp2: false, enableQuic: false });
+
+function probeApiHealthOnce(baseUrl, timeoutMs) {
+  const b = String(baseUrl || '').trim().replace(/\/+$/, '');
+  return new Promise((resolve) => {
+    if (!b || typeof wx === 'undefined' || typeof wx.request !== 'function') {
+      resolve(false);
+      return;
+    }
+    wx.request({
+      ..._wxProbeNet,
+      url: `${b}/api/health`,
+      method: 'GET',
+      timeout: timeoutMs,
+      success(res) {
+        const codeOk = res.statusCode >= 200 && res.statusCode < 300;
+        const body = res.data;
+        const jsonOk = body == null || typeof body !== 'object' || body.ok !== false;
+        resolve(Boolean(codeOk && jsonOk));
+      },
+      fail: () => resolve(false),
+    });
+  });
+}
+
+let _phoneSessionEnsureInFlight = null;
+
+/**
+ * 真机且尚未 setSessionApiBaseUrl 时，按 getPhoneHttpsProbeBases 顺序探测 /api/health。
+ * 缓解 App.onLaunch 异步探测与首屏 requestJson 竞态（官方社区常见「首包失败」场景）。
+ */
+export function ensurePhoneApiSessionBase(opts = {}) {
+  if (getSessionApiBaseUrl()) return Promise.resolve(true);
+  try {
+    if (typeof wx === 'undefined') return Promise.resolve(true);
+    if (getMiniProgramPlatform() === 'devtools') return Promise.resolve(true);
+  } catch (_) {
+    return Promise.resolve(true);
+  }
+  if (_phoneSessionEnsureInFlight) return _phoneSessionEnsureInFlight;
+  const timeoutMs = typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0 ? opts.timeoutMs : 10000;
+  _phoneSessionEnsureInFlight = (async () => {
+    try {
+      const bases = getPhoneHttpsProbeBases();
+      for (const base of bases) {
+        if (await probeApiHealthOnce(base, timeoutMs)) {
+          setSessionApiBaseUrl(base);
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      _phoneSessionEnsureInFlight = null;
+    }
+  })();
+  return _phoneSessionEnsureInFlight;
+}
+
 /** 真机：按 getPhoneHttpsProbeBases() 顺序链式切换下一个 HTTPS（不降级到 HTTP） */
 export function getAlternatePhoneHttpsBase(currentBase) {
   if (CLOUD_USE_HTTPS_OVERRIDE !== null) return '';
@@ -147,9 +224,10 @@ export function getAlternatePhoneHttpsBase(currentBase) {
   } catch (_) {
     return '';
   }
-  const cur = String(currentBase || '').trim().replace(/\/+$/, '');
+  const cur = normalizeHttpsOrigin(currentBase);
   const chain = getPhoneHttpsProbeBases();
-  const i = chain.indexOf(cur);
+  const canon = chain.map(normalizeHttpsOrigin);
+  const i = canon.indexOf(cur);
   if (i >= 0 && i < chain.length - 1) return chain[i + 1];
   return '';
 }

@@ -124,7 +124,10 @@
 
 ### 실기기에서 API 실패
 
-- `apiBaseUrl`이 `localhost`로 되어 있지 않은지 확인
+- `requestJson` 호출 전 **`ensurePhoneApiSessionBase()`** 로 `/api/health` 순차 탐색(与 `App.onLaunch` 竞态 보완).
+- `getAlternatePhoneHttpsBase` 는 **호스트 대소문자·443 포트** 정규화 후 다음 후보로 전환.
+- `App.onShow` 에서 session 비어 있으면 **5초 스로틀** 로 재탐색.
+- `apiBaseUrl` 이 `localhost` 로 되어 있지 않은지 확인
 - 합법 도메인/HTTPS 정책 확인
 
 

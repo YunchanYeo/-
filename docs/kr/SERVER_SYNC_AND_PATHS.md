@@ -110,7 +110,7 @@ docker compose ps
 
 - 실제로 미니프로그램이 요청하지 않는 호스트는 생략 가능하나, `app.js` **真机**은 `getPhoneHttpsProbeBases()` 로 위 **sslip·nip** 후보까지 순차 프로브하므로 쓰려면 **반드시 등록**한다.
 - 상품 이미지 등 **download** 가 동일 호스트면 **download合法域名**에도 동일 호스트 추가 (`docs/kr/DEPLOY_CN_WECHAT.md` §6 참고).
-- **upload合法域名**: `open-type="chooseAvatar"`·客服 등에서 **`wx.uploadFile` → `/api/support/upload-media`** 를 쓰므로, **request合法域名**과 **동일한 API 호스트**를 **upload合法域名**에도 등록한다. (`chooseAvatar` 가 개발자 도구에서 `http://tmp/...` 를 줄 때는 `readFile` 이 아니라 **multipart 업로드**가 정석이다.)
+- **upload合法域名**: `open-type="chooseAvatar"`·客服 등에서 **`wx.uploadFile` → `/api/support/upload-media`** 를 쓰므로, **request合法域名**과 **동일한 API 호스트**를 **upload合法域名**에도 등록한다. 공식상 `wx.uploadFile` 의 `filePath` 는 **로컬 경로만** 허용되므로, 개발자 도구의 `http://tmp/...` 는 앱에서 `wx.getImageInfo` 등으로 **실제 temp 경로**로 바꾼 뒤 업로드한다(그대로내면 빈 파일 → `Invalid upload body`).
 - **微信头像 URL**(`*.qlogo.cn` 등): 서버가 로그인·`PUT /api/me` 시 **동일 API 根域**으로 BLOB 转存 후 `users.avatarUrl` 을 `/api/media/user-avatar/:userId` 로 바꿈 — **download合法域名**에 `qlogo.cn` 을 넣지 않아도 마이페이지 `<image>` 가 뜨게 하려면 **본 백엔드 배포 후** 사용자가 **다시 로그인**하거나 프로필을 한 번 저장하면 된다.
 
 ### 6.2 HTTPS·인증서·`/api/health` = 200

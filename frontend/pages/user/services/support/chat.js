@@ -1,7 +1,8 @@
 import { requestJson } from '../../../../services/_utils/http';
-import { config } from '../../../../config/runtime';
+import { config, ensurePhoneApiSessionBase } from '../../../../config/runtime';
 import { getToken } from '../../../../services/auth/session';
 import { wxRequestTransportOpts } from '../../../../services/_utils/wxRequestTransport';
+import { resolveLocalUploadPath } from '../../../../services/_utils/resolveLocalUploadPath';
 
 export function normalizeChatMediaUrl(url) {
   if (!url) return '';
@@ -64,74 +65,86 @@ function joinApiUrl(path) {
 }
 
 /**
- * 客服图片/语音上传。chooseAvatar 在开发者工具返回的 `http://tmp/...` 须用 wx.uploadFile（官方推荐），readFile 会失败。
- * 本地 wxfile/普通临时路径：优先 multipart，失败时回退 JSON+base64（兼容旧后端）。
+ * 客服图片/语音上传。wx.uploadFile 의 filePath 는 **로컬 경로만**(공식)；`http://tmp/...` 는 resolveLocalUploadPath 로 변환 후 multipart.
+ * 本地路径：uploadFile 실패 시 JSON+base64 폴백.
  */
 export function uploadSupportMedia(opts) {
   const { kind, filePath, mimeType = kind === 'image' ? 'image/jpeg' : 'audio/mpeg', fileName = 'file' } = opts;
   const fp = String(filePath || '').trim();
-  const isRemoteHttp = /^https?:\/\//i.test(fp);
 
-  return new Promise((resolve, reject) => {
-    const readBase64Upload = () => {
-      wx.getFileSystemManager().readFile({
-        filePath: fp,
-        encoding: 'base64',
-        success: (r) => {
-          requestJson('/api/support/upload-media', {
-            method: 'POST',
-            data: { kind, mimeType, fileName, base64Data: r.data },
-            timeoutMs: 60000,
-          })
-            .then((data) => resolve(/** @type {{ url: string }} */ (data).url))
+  return ensurePhoneApiSessionBase({ timeoutMs: 12000 })
+    .catch(() => {})
+    .then(
+      () =>
+        new Promise((resolve, reject) => {
+          if (!fp) {
+            reject(new Error('empty filePath'));
+            return;
+          }
+
+          const readBase64Upload = (localFp) => {
+            wx.getFileSystemManager().readFile({
+              filePath: localFp,
+              encoding: 'base64',
+              success: (r) => {
+                requestJson('/api/support/upload-media', {
+                  method: 'POST',
+                  data: { kind, mimeType, fileName, base64Data: r.data },
+                  timeoutMs: 60000,
+                })
+                  .then((data) => resolve(/** @type {{ url: string }} */ (data).url))
+                  .catch(reject);
+              },
+              fail: reject,
+            });
+          };
+
+          const runMultipart = (localFp) => {
+            const token = getToken();
+            const canBase64Fallback = !/^https?:\/\//i.test(localFp);
+            wx.uploadFile({
+              ...wxRequestTransportOpts,
+              url: joinApiUrl('/api/support/upload-media'),
+              filePath: localFp,
+              name: 'file',
+              formData: {
+                kind: String(kind),
+                mimeType: String(mimeType),
+                fileName: String(fileName),
+              },
+              header: token ? { Authorization: `Bearer ${token}` } : {},
+              timeout: 60000,
+              success: (res) => {
+                const sc = res.statusCode;
+                const badStatus = typeof sc === 'number' && (sc < 200 || sc >= 300);
+                let body = null;
+                try {
+                  body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+                } catch (_) {
+                  body = null;
+                }
+                const url = body && body.ok && body.data && typeof body.data.url === 'string' ? body.data.url : '';
+                if (!badStatus && url) {
+                  resolve(url);
+                  return;
+                }
+                if (canBase64Fallback) {
+                  readBase64Upload(localFp);
+                  return;
+                }
+                const hint = body && typeof body.message === 'string' ? body.message : `HTTP ${sc}`;
+                reject(new Error(String(hint || 'uploadFile failed')));
+              },
+              fail: (err) => {
+                if (canBase64Fallback) readBase64Upload(localFp);
+                else reject(new Error(err?.errMsg || 'uploadFile failed'));
+              },
+            });
+          };
+
+          resolveLocalUploadPath(fp)
+            .then(runMultipart)
             .catch(reject);
-        },
-        fail: reject,
-      });
-    };
-
-    if (!fp) {
-      reject(new Error('empty filePath'));
-      return;
-    }
-
-    const token = getToken();
-    wx.uploadFile({
-      ...wxRequestTransportOpts,
-      url: joinApiUrl('/api/support/upload-media'),
-      filePath: fp,
-      name: 'file',
-      formData: { kind, mimeType, fileName },
-      header: token ? { Authorization: `Bearer ${token}` } : {},
-      timeout: 60000,
-      success: (res) => {
-        const sc = res.statusCode;
-        const badStatus = typeof sc === 'number' && (sc < 200 || sc >= 300);
-        let body = null;
-        try {
-          body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-        } catch (_) {
-          body = null;
-        }
-        const url = body && body.ok && body.data && typeof body.data.url === 'string' ? body.data.url : '';
-        if (!badStatus && url) {
-          resolve(url);
-          return;
-        }
-        if (isRemoteHttp) {
-          const hint = body && typeof body.message === 'string' ? body.message : `HTTP ${sc}`;
-          reject(new Error(String(hint || 'uploadFile failed')));
-          return;
-        }
-        readBase64Upload();
-      },
-      fail: (err) => {
-        if (isRemoteHttp) {
-          reject(new Error(err?.errMsg || 'uploadFile failed'));
-          return;
-        }
-        readBase64Upload();
-      },
-    });
-  });
+        }),
+    );
 }

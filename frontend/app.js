@@ -1,9 +1,8 @@
 import updateManager from './common/updateManager';
 import { getErrorMessage } from './services/_utils/errors';
-import { config, setSessionApiBaseUrl, getDevtoolsProbeBaseUrls, getPhoneHttpsProbeBases } from './config/runtime';
+import { config, setSessionApiBaseUrl, getDevtoolsProbeBaseUrls, getPhoneHttpsProbeBases, getSessionApiBaseUrl, ensurePhoneApiSessionBase } from './config/runtime';
 import { wxRequestTransportOpts } from './services/_utils/wxRequestTransport';
 
-/** @param {{ timeout?: number, attempts?: number, gapMs?: number }} opts */
 function probeHealthReachable(baseUrl, opts = {}) {
     const b = String(baseUrl || '').replace(/\/+$/, '');
     const timeout = opts.timeout ?? 8000;
@@ -52,9 +51,39 @@ function probeHealthReachable(baseUrl, opts = {}) {
     });
 }
 
+let _netReprobeBound = false;
+/** 真机：断网恢复后再次探测 API 根 */
+function bindNetworkApiReprobe() {
+    if (_netReprobeBound) return;
+    _netReprobeBound = true;
+    if (typeof wx.onNetworkStatusChange !== 'function') return;
+    wx.onNetworkStatusChange((res) => {
+        try {
+            if (!res || !res.isConnected) return;
+            const sys = typeof wx.getSystemInfoSync === 'function' ? wx.getSystemInfoSync() : {};
+            if (String(sys.platform || '') === 'devtools') return;
+            const phoneBases = getPhoneHttpsProbeBases();
+            (async () => {
+                const probeOpts = { attempts: 2, timeout: 12000, gapMs: 500 };
+                for (const base of phoneBases) {
+                    if (await probeHealthReachable(base, probeOpts)) {
+                        setSessionApiBaseUrl(base);
+                        console.info('[apiBase] 网络恢复后重探测可用', base);
+                        return;
+                    }
+                }
+            })();
+        }
+        catch (_) { /* ignore */ }
+    });
+}
+
+let _lastOnShowPhoneEnsureMs = 0;
+
 App({
     globalData: {},
     onLaunch: function () {
+        bindNetworkApiReprobe();
         const logApiBase = () => {
             try {
                 const sys = typeof wx !== 'undefined' && wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
@@ -96,6 +125,20 @@ App({
                     '[apiBase] 真机 HTTPS 均失败：①开发管理→服务器域名→request合法域名须含 hebibingtest.shop 与 sslip 主机(若用) ②同一小程序AppID ③清除缓存重编译预览 ④仍失败多为 TLS/RST 见 ECS/Caddy',
                 );
                 logApiBase();
+                setTimeout(() => {
+                    if (getSessionApiBaseUrl()) return;
+                    (async () => {
+                        const retryOpts = { attempts: 2, timeout: 15000, gapMs: 800 };
+                        for (const base of phoneBases) {
+                            if (await probeHealthReachable(base, retryOpts)) {
+                                setSessionApiBaseUrl(base);
+                                console.info('[apiBase] 真机延迟二次探测可用', base);
+                                logApiBase();
+                                return;
+                            }
+                        }
+                    })();
+                }, 4500);
             })();
             return;
         }
@@ -105,6 +148,21 @@ App({
     },
     onShow: function () {
         updateManager();
+        try {
+            const sys = wx.getSystemInfoSync?.() || {};
+            if (String(sys.platform || '') === 'devtools') return;
+            if (getSessionApiBaseUrl()) return;
+            const now = Date.now();
+            if (now - _lastOnShowPhoneEnsureMs < 5000) return;
+            _lastOnShowPhoneEnsureMs = now;
+            ensurePhoneApiSessionBase({ timeoutMs: 9000 })
+                .then((ok) => {
+                    if (ok)
+                        console.info('[apiBase] onShow 补探测已写入 session');
+                })
+                .catch(() => {});
+        }
+        catch (_) { /* ignore */ }
     },
     onError(err) {
         try {
