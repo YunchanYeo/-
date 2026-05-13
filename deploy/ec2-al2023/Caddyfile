@@ -1,5 +1,5 @@
 # TLS: Let's Encrypt (HTTP-01). EC2 보안 그룹에서 80·443 인바운드 필요.
-# 아래 `server_name` 과 `backend.env` 의 공개 URL(PUBLIC_* / NOTIFY_URL) 은 같은 호스트로 맞추세요.
+# 아래 `server_name` 과 `backend/.env` 의 공개 URL(PUBLIC_* / NOTIFY_URL) 은 같은 호스트로 맞추세요.
 
 {
 	# 브라우저가 신뢰하는 공인 인증서(스테이징 CA 가 아님)

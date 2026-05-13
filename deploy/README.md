@@ -8,9 +8,9 @@
 - 관리자: `cd admin-web && npm install && npm run dev`
 - 미니프로그램: 위챗 개발자도구에서 `frontend` 디렉터리 열기
 
-## EC2 (Amazon Linux 2023) + `hebibingtest.shop`
+## EC2 (Amazon Linux 2023)
 
-- **`deploy/ec2-al2023/`** — `docker-compose.yml` · `Caddyfile` · `backend.env.example` · 서버에서 할 작업 요약 `README.md`
+- **`deploy/ec2-al2023/`** — `docker-compose.yml` · `Caddyfile` · `backend.env.example`(→ `backend/.env` 템플릿) · `README.md`
 - 전체 체크리스트(微信·DNS·`runtime.js`): **`docs/kr/DEPLOY_EC2_HEBIBINGTEST.md`**
 
 ## 자체 서버에 올릴 때 (일반)

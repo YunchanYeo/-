@@ -31,8 +31,12 @@ services:
       context: ../../backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    # 레포의 `backend/.env` 한 곳만 씁니다 (로컬 npm dev 와 동일 파일). EC2 에는 Git 에 없으므로 scp/nano 로 두세요.
     env_file:
-      - ./backend.env
+      - ../../backend/.env
+    environment:
+      # 컨테이너에서는 항상 production (로컬 .env 가 development 여도 덮어씀)
+      NODE_ENV: production
     volumes:
       - backend_data:/app/data
 

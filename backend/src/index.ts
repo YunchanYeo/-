@@ -6,7 +6,7 @@ import http from 'node:http';
 import https from 'node:https';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bootstrapAdminIfDbEmpty, syncAdminPasswordFromEnvOnStart } from './adminBootstrap';
+import { bootstrapAdminIfDbEmpty, ensureAdminFromEnvIfMissing, syncAdminPasswordFromEnvOnStart } from './adminBootstrap';
 import { getDb } from './db';
 import { createServices } from './services/serviceRegistry';
 import { createApiController } from './controllers/apiController';
@@ -27,6 +27,7 @@ app.use('/uploads', express.static(uploadsDir));
 
 const db = getDb();
 await bootstrapAdminIfDbEmpty(db);
+await ensureAdminFromEnvIfMissing(db);
 await syncAdminPasswordFromEnvOnStart(db);
 const paymentMockMode = process.env.WECHAT_PAY_MOCK !== 'false';
 const alipayPaymentMockMode = process.env.ALIPAY_PAY_MOCK !== 'false';

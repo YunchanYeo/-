@@ -36,12 +36,26 @@ export async function bootstrapAdminIfDbEmpty(db: Db): Promise<void> {
   const plainPassword = String(process.env.ADMIN_PASSWORD || '').trim();
   if (!username || !plainPassword) {
     console.warn(
-      '[backend] 관리자 계정이 없습니다. backend/.env 에 ADMIN_USERNAME·ADMIN_PASSWORD 를 넣거나 `npm run seed:admin` 을 실행하세요.',
+      '[backend] 관리자 계정이 없습니다. ADMIN_USERNAME·ADMIN_PASSWORD 를 backend/.env 에 넣고 재시작하세요.',
     );
     return;
   }
   const r = await upsertAdminByCredentials(db, username, plainPassword);
   console.log(`[backend] 초기 관리자 ${r === 'created' ? '생성' : '갱신'}: ${username}`);
+}
+
+/**
+ * 이미 다른 관리자가 있어도, `ADMIN_USERNAME` 에 해당하는 행이 없으면 env 기준으로 1명 추가합니다.
+ * (EC2 등에서 첫 부트에 env 없이 떠서 빈 테이블이 아니게 된 뒤, 나중에 .env 만 채운 경우 대비)
+ */
+export async function ensureAdminFromEnvIfMissing(db: Db): Promise<void> {
+  const username = String(process.env.ADMIN_USERNAME || '').trim();
+  const plainPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+  if (!username || !plainPassword) return;
+  const row = db.prepare(`SELECT id FROM admins WHERE username = ?`).get(username) as { id: number } | undefined;
+  if (row) return;
+  const r = await upsertAdminByCredentials(db, username, plainPassword);
+  console.log(`[backend] 환경 변수 관리자 추가 (${r}): ${username}`);
 }
 
 /**

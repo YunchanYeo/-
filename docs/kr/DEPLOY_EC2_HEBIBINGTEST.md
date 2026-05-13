@@ -21,9 +21,9 @@
 
 1. Docker 설치 후 `ec2-user` 를 `docker` 그룹에 넣고 **재로그인**.
 2. 레포를 `~/wechat-mini` 등 **ASCII 경로**에 클론.
-3. `deploy/ec2-al2023/backend.env.example` → `backend.env` 복사 후 편집.
+3. `deploy/ec2-al2023/backend.env.example` 을 참고해 **`backend/.env`** 를 만들거나(레포 루트에서 `cp deploy/ec2-al2023/backend.env.example backend/.env`), 맥의 `backend/.env` 를 서버에 복사.
 
-### `backend.env` 에서 꼭 맞출 값 (도메인 고정)
+### `backend/.env` 에서 꼭 맞출 값 (도메인 고정)
 
 | 변수 | 예시 |
 |------|------|
@@ -120,7 +120,7 @@ cd deploy/ec2-al2023 && docker compose up -d --build
 
 ## 10. 관련 문서
 
-- `deploy/ec2-al2023/README.md` — Docker 설치·`backend.env`·기동 명령
+- `deploy/ec2-al2023/README.md` — Docker 설치·`backend/.env`·기동 명령
 - `docs/kr/DEPLOY_CN_WECHAT.md` — 위챗 도메인·결제·OSS 등 일반 배포 참고
 - `backend/certs/wechat-pay/README.md` — 위챗 결제 PEM (서버 파일 배치)
 

@@ -2,7 +2,7 @@
 
 `docker-compose.yml` 은 **레포 루트의 `backend/`·`admin-web/`** 를 빌드하고, **Caddy** 가 `Caddyfile` 의 호스트명으로 TLS(Let’s Encrypt)를 발급한 뒤 **admin-web(nginx)** 로 넘깁니다. nginx 가 `/api`·`/uploads` 를 **backend:3000** 으로 프록시합니다.
 
-현재 `Caddyfile` 의 도메인은 **`hebibingtest.shop`** 입니다. 바꾸려면 `Caddyfile` 과 `backend.env` 의 공개 URL·위챗 알림 URL·DNS 를 함께 맞추세요.
+현재 `Caddyfile` 은 점검용 **`*.sslip.io`** 등으로 열 수 있습니다. 호스트를 바꾸면 `Caddyfile` 과 **`backend/.env`** 의 공개 URL(`PUBLIC_*` / 알림 URL)·DNS 를 함께 맞추세요.
 
 ## 1) EC2 준비
 
@@ -68,16 +68,29 @@ mkdir -p ~/wechat-mini && cd ~/wechat-mini
 git clone <본인_레포_URL> .
 ```
 
-## 4) `backend.env`
+## 4) `backend/.env` (로컬과 동일 파일)
+
+`docker-compose.yml` 은 **`../../backend/.env`** 만 컨테이너에 넘깁니다. `deploy/ec2-al2023/backend.env` 는 쓰지 않습니다.
 
 ```bash
-cd ~/wechat-mini/deploy/ec2-al2023
-cp backend.env.example backend.env
-nano backend.env   # 또는 vi
+cd ~/wechat-mini
+# 템플릿이 없을 때만
+cp deploy/ec2-al2023/backend.env.example backend/.env
+nano backend/.env
 ```
 
-`WECHAT_APPID` 등 `backend/.env.example` 에 있는 항목을 운영 값으로 채웁니다.  
-로컬에서 이미 쓰는 `backend/.env` 가 있으면, **민감 정보 검토 후** 이 디렉터리에 `backend.env` 로 복사해도 됩니다.
+`WECHAT_APPID` 등은 `backend/.env.example` 과 동일 항목을 채웁니다.  
+**관리자 로그인:** `ADMIN_USERNAME`·`ADMIN_PASSWORD` 가 비어 있으면 최초 관리자가 만들어지지 않습니다.  
+기동 시 `admins` 가 비어 있지 않아도 **`.env` 의 사용자명이 DB에 없으면 자동으로 한 명 추가**합니다. 비밀번호만 `.env` 와 맞추려면 `ADMIN_SYNC_ON_START=true` 로 한 번 기동한 뒤 `false` 로 되돌리세요.  
+맥에서 이미 쓰는 `backend/.env` 를 EC2 로 올리려면 (키 기본 `~/keys/ec2.pem`, 호스트 기본 `ec2-user@13.124.255.73`):
+
+```bash
+cd /path/to/微信小程序
+./deploy/ec2-al2023/sync-backend-env.sh
+# 한 번에 재기동까지: SYNC_REMOTE_NOW=1 ./deploy/ec2-al2023/sync-backend-env.sh
+```
+
+환경 변수: `EC2_SSH_KEY`, `EC2_HOST`, `EC2_REPO_DIR`(기본 `~/wechat-mini`).
 
 ## 5) 기동
 
