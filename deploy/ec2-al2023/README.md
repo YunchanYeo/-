@@ -10,7 +10,7 @@
 - 보안 그룹: **22**(SSH), **80**, **443** 인바운드 허용
 - (선택) Elastic IP 부여 후 DNS A 레코드에 고정
 
-## 2) 서버에 Docker 설치
+## 2) 서버에 Docker + Compose v2 설치
 
 ```bash
 sudo dnf update -y
@@ -19,9 +19,45 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker ec2-user
 ```
 
-`docker compose version` 이 없으면 `sudo dnf install -y docker-compose-plugin` 을 시도하거나, [Install Docker Compose](https://docs.docker.com/compose/install/linux/) 를 참고하세요.
+Amazon Linux 2023 기본 저장소에는 **`docker-compose-plugin` RPM 이 없을 수 있어** `dnf install docker-compose-plugin` 이 실패하는 경우가 흔합니다. 그때는 **공식 바이너리**(Docker CLI 플러그인)로 설치합니다.
 
-**로그아웃 후 다시 SSH** 해서 `docker` 그룹이 적용되게 하세요.
+```bash
+# x86_64 / aarch64 공통: GitHub 릴리스 파일명과 uname -m 이 맞아야 함
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64) COMPOSE_ARCH=x86_64 ;;
+  aarch64) COMPOSE_ARCH=aarch64 ;;
+  *) echo "Unsupported arch: $ARCH"; exit 1 ;;
+esac
+sudo curl -fsSL "https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-${COMPOSE_ARCH}" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+docker compose version
+```
+
+`curl: (22) ... 404` 이면 **태그/파일명이 틀린 것**입니다. 존재하는 버전은 [compose releases](https://github.com/docker/compose/releases) 의 **v2.x** 태그를 확인하세요. (예: `v2.40.3`)
+
+**로그아웃 후 다시 SSH** 해서 `docker` 그룹이 적용되게 하세요. 적용 전에는 `sudo docker compose ...` 로 실행해도 됩니다.
+
+### 2b) Docker Buildx (필수에 가깝게 권장)
+
+`docker compose up --build` 시 **`compose build requires buildx 0.17 or later`** 가 나오면, `dnf` 로 깐 Docker 에 포함된 **buildx 가 너무 오래된 것**입니다. 아래로 **Buildx CLI 플러그인**을 설치하세요.
+
+```bash
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64)  BUILDX_URL="https://github.com/docker/buildx/releases/download/v0.34.0/buildx-v0.34.0.linux-amd64" ;;
+  aarch64) BUILDX_URL="https://github.com/docker/buildx/releases/download/v0.34.0/buildx-v0.34.0.linux-arm64" ;;
+  *) echo "Unsupported arch: $ARCH"; exit 1 ;;
+esac
+sudo curl -fsSL "$BUILDX_URL" -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+docker buildx version
+```
+
+그다시 `cd ~/wechat-mini/deploy/ec2-al2023` 후 `docker compose up -d --build` 를 실행합니다.
 
 ## 3) 레포 클론·경로
 

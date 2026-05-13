@@ -130,6 +130,8 @@ cd deploy/ec2-al2023 && docker compose up -d --build
 
 | 증상 | 확인 |
 |------|------|
+| `docker: 'compose' is not a docker command` | AL2023 에서 `dnf install docker-compose-plugin` 가 없을 수 있음 → **`deploy/ec2-al2023/README.md` §2** 의 GitHub 바이너리 설치 |
+| `compose build requires buildx 0.17 or later` | 패키지 Docker 의 buildx 가 구버전 → **`deploy/ec2-al2023/README.md` §2b** Buildx 플러그인 설치 후 다시 `docker compose up -d --build` |
 | `https://hebibingtest.shop` 연결 안 됨 | DNS A, 보안 그룹 443, `docker compose ps` |
 | TLS 발급 실패 | 80 포트 외부에서 열려 있는지, 도메인이 이 서버 IP를 가리키는지 |
 | 小程序 `request:fail` | 合法域名에 `hebibingtest.shop` 등록, `runtime.js` 의 `CLOUD_HTTPS_API_BASE`, 캐시 삭제 후 재빌드 |

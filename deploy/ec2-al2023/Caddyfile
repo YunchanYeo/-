@@ -1,12 +1,21 @@
 # TLS: Let's Encrypt (HTTP-01). EC2 보안 그룹에서 80·443 인바운드 필요.
-# 도메인만 바꿔도 됩니다. www 를 쓰려면 아래 주석 블록 참고.
+# 아래 `server_name` 과 `backend.env` 의 공개 URL(PUBLIC_* / NOTIFY_URL) 은 같은 호스트로 맞추세요.
 
-hebibingtest.shop {
+# 점검용: sslip.io — IP 의 점을 하이픈으로 바꾼 이름.sslip.io 가 그 IP 로 풀립니다.
+# 퍼블릭 IP가 바뀌면 이 호스트명도 같이 바꿔야 합니다.
+13-124-255-73.sslip.io {
 	encode gzip
 	reverse_proxy admin-web:80
 }
 
+# hebibingtest.shop — 이전 알리윤 등 레거시 DNS 와 연결된 경우가 있어 EC2 전용으로는 쓰지 않을 때 아래는 끕니다.
+# 새 도메인을 이 EC2(Caddy)에 붙이면 블록을 복사해 호스트명만 바꾸면 됩니다.
+# hebibingtest.shop {
+# 	encode gzip
+# 	reverse_proxy admin-web:80
+# }
+
 # www → apex (선택)
-# www.hebibingtest.shop {
-# 	redir https://hebibingtest.shop{uri} permanent
+# www.example.com {
+# 	redir https://example.com{uri} permanent
 # }
