@@ -373,7 +373,7 @@ Page({
             await this.syncAddressFromWechat(wechatAddress, {
                 fallbackPhone: finalPhone,
             });
-            this.fetUseriInfoHandle();
+            await this.fetUseriInfoHandle();
             wx.navigateTo({ url: '/pages/user/person-info/index' });
         }
         catch (e) {

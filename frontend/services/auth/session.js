@@ -112,6 +112,8 @@ async function prefetchUserBootstrapData(token) {
             requestAuth('/api/support/messages', { method: 'GET', token }).catch(() => []),
         ]);
         wx.setStorageSync(PREFETCH_ME_KEY, me || null);
+        if (me && typeof me === 'object')
+            setUser(me);
         wx.setStorageSync(PREFETCH_ADDRESSES_KEY, Array.isArray(addresses) ? addresses : []);
         wx.setStorageSync(PREFETCH_ORDERS_KEY, Array.isArray(orders) ? orders : []);
         wx.setStorageSync(PREFETCH_ORDER_COUNTS_KEY, Array.isArray(orderCounts) ? orderCounts : []);

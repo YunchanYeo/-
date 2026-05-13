@@ -1,7 +1,7 @@
 import { config } from '../../config/runtime';
 import { requestJson } from '../_utils/http';
 import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
-import { getToken } from '../auth/session';
+import { getToken, getUser } from '../auth/session';
 import { fetchCouponList } from '../coupon/index';
 import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchUserCenter() {
@@ -33,19 +33,32 @@ export function fetchUserCenter() {
             const hit = rows.find((x) => x.tabType === tabType);
             return Number(hit?.orderNum ?? 0);
         };
+        const stored = getUser() || {};
+        const apiMe = me && typeof me === 'object' ? me : {};
+        const pickStr = (fromApi, fromStore) => {
+            const a = String(fromApi ?? '').trim();
+            if (a)
+                return a;
+            const b = String(fromStore ?? '').trim();
+            return b || '';
+        };
+        const nickNameRaw = pickStr(apiMe.nickName, stored.nickName);
+        const avatarRaw = pickStr(apiMe.avatarUrl, stored.avatarUrl);
+        const phoneNumber = pickStr(apiMe.phoneNumber, stored.phoneNumber);
+        const mergedForProfile = { nickName: nickNameRaw, avatarUrl: avatarRaw };
         /** 与 person-info 一致：相对路径·localhost·旧云地址统一到当前 apiBaseUrl；微信 CDN 由服务端 GET /me 转存为 /api/media/user-avatar/:id */
-        const avatarUrl = normalizeGoodsImageUrl(me.avatarUrl || '');
+        const avatarUrl = normalizeGoodsImageUrl(avatarRaw || '');
         return {
             userInfo: {
                 avatarUrl,
-                nickName: me.nickName || '微信用户',
-                phoneNumber: me.phoneNumber || '',
+                nickName: nickNameRaw || '微信用户',
+                phoneNumber,
             },
-            hasWechatProfile: hasRealWechatProfile(me),
+            hasWechatProfile: hasRealWechatProfile(mergedForProfile),
             countsData: [
                 { type: 'address', num: String(Array.isArray(addressList) ? addressList.length : 0) },
                 { type: 'coupon', num: String(Array.isArray(couponList) ? couponList.length : 0) },
-                { type: 'point', num: String(Number(me.points ?? 0)) },
+                { type: 'point', num: String(Number(apiMe.points ?? stored.points ?? 0)) },
             ],
             orderTagInfos: [
                 { orderNum: numOf(5) },
