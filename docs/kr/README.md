@@ -11,6 +11,7 @@
 - **관리자 세션·이미지·OSS·계정 생성(최근 변경):** `docs/kr/ADMIN_MEDIA_SESSIONS.md`
 - 최적화 보고서: `docs/kr/OPTIMIZATION_REPORT.md`
 - 중국어 문서 인덱스: `docs/cn/README.md`
+- **미니프로그램 페이지 파일 복구·파일명 규칙·최근 변경 요약:** `docs/kr/MINIAPP_FILE_RECOVERY_AND_CHANGELOG.md`
 
 ## 빠른 실행
 
