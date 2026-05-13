@@ -14,7 +14,7 @@
  */
 
 /** true: API·미디어 URL 모두 `LOCAL_API_BASE`（백엔드 `npm run start`）. 云服务器停用時 로컬만 쓸 때 true */
-const USE_LOCAL_API = true;
+const USE_LOCAL_API = false;
 /** 로컬 TLS（backend `npm run gen:dev-tls`）사용 시 https — 위챗 wx-image 는 HTTP URL 차단 */
 const LOCAL_API_BASE = 'https://127.0.0.1:3000';
 
@@ -34,12 +34,14 @@ const DEVTOOLS_USE_CLOUD_HTTPS = true;
  * 主 HTTPS API 根（须与 mp 后台 request 合法域名中的主机一致，无路径无端口）。
  * 로컬 TLS 시 반드시 https — 잘못 쓰면 devtools 가 HTTP 먼저 프로브해 ERR_EMPTY_RESPONSE.
  */
-const CLOUD_HTTPS_API_BASE = 'https://127.0.0.1:3000';
+const CLOUD_HTTPS_API_BASE = 'https://13-124-255-73.sslip.io';
 
 /** 旧公网部署完整 origin；DB·客服消息里的完整 URL 域名을 normalizeGoodsImageUrl 이 현재 apiBaseUrl 로 치환 */
 const CLOUD_LEGACY_API_ORIGINS = /** @type {string[]} */ ([
   'https://hebibingtest.shop',
   'http://hebibingtest.shop',
+  'https://127.0.0.1:3000',
+  'http://127.0.0.1:3000',
 ]);
 
 /** 覆盖主地址（排查时临时指向 sslip 等，须同期在 mp 后台登记该域名） */

@@ -11,7 +11,7 @@
  * ━━━ 자동: 폰=iOS/Android → HTTPS 프로브, 시뮬레이터(devtools) → HTTP:3000 옵션 ━━━
  */
 /** 로컬에서 백엔드만 돌릴 때 true. 클라우드 서버 쓰면 false. runtime.js 와 동일 유지 */
-const USE_LOCAL_API = true;
+const USE_LOCAL_API = false;
 /** backend `npm run gen:dev-tls` 후 HTTPS 리슨 — runtime.js 와 동일 */
 const LOCAL_API_BASE = 'https://127.0.0.1:3000';
 
@@ -23,9 +23,9 @@ const LOCAL_API_BASE = 'https://127.0.0.1:3000';
 const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
 
 /** 主 HTTPS API 根（与 mp 后台 request 合法域名主机一致）。与 runtime.js 保持同步。 */
-const CLOUD_HTTPS_API_BASE = 'https://127.0.0.1:3000';
+const CLOUD_HTTPS_API_BASE = 'https://13-124-255-73.sslip.io';
 /** 旧部署 origin 列表；与 runtime.js 的 CLOUD_LEGACY_API_ORIGINS 保持同步 */
-const CLOUD_LEGACY_API_ORIGINS = ['https://hebibingtest.shop', 'http://hebibingtest.shop'];
+const CLOUD_LEGACY_API_ORIGINS = ['https://hebibingtest.shop', 'http://hebibingtest.shop', 'https://127.0.0.1:3000', 'http://127.0.0.1:3000'];
 /**
  * 비우면 아래 CLOUD_HTTPS_API_BASE 사용. 임시로 다른 HTTPS 루트를 쓸 때만 예: 'https://api.example.com' (끝 슬래시 없음).
  * 설정 후: mp 后台 request合法域名 동일 호스트, 재编译.
