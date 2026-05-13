@@ -1,6 +1,11 @@
 # TLS: Let's Encrypt (HTTP-01). EC2 보안 그룹에서 80·443 인바운드 필요.
 # 아래 `server_name` 과 `backend.env` 의 공개 URL(PUBLIC_* / NOTIFY_URL) 은 같은 호스트로 맞추세요.
 
+{
+	# 브라우저가 신뢰하는 공인 인증서(스테이징 CA 가 아님)
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
 # 점검용: sslip.io — IP 의 점을 하이픈으로 바꾼 이름.sslip.io 가 그 IP 로 풀립니다.
 # 퍼블릭 IP가 바뀌면 이 호스트명도 같이 바꿔야 합니다.
 13-124-255-73.sslip.io {
