@@ -6,7 +6,8 @@
  * 文档：https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html
  *
  * 与本仓库 Caddy 块对应、须在后台登记的主机示例（无 https://）:
- *   hebibingtest.shop, 39-106-213-185.sslip.io, 39.106.213.185.nip.io
+ *   hebibingtest.shop, 39-106-213-185.sslip.io
+ *   （`*.nip.io` 仅当 Caddy 已配且 mp 后台已登记时，再把 runtime.js 里 PHONE_PROBE_INCLUDE_AUTO_NIP 设为 true）
  * 运营核对清单: docs/kr/SERVER_SYNC_AND_PATHS.md §6
  *
  * 开发者工具：可勾选「不校验合法域名」时用 HTTP 直连 ECS:3000 调试（仅本地）。
@@ -39,6 +40,12 @@ const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
  */
 const CLOUD_HTTPS_FALLBACK_BASE = '';
 
+/**
+ * 真机探测/失败切换链是否追加 `*.nip.io`（默认 false）。
+ * mp 未登记 nip 主机时若设为 true，会向未在白名单的域名发请求 → `request:fail` / 合法域名 类错误。
+ */
+const PHONE_PROBE_INCLUDE_AUTO_NIP = false;
+
 /** 直连后端 HTTP（仅开发者工具 + 关闭域名校验；真机预览不可用） */
 const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
 
@@ -46,7 +53,7 @@ const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
  * 运行环境 platform（devtools / ios / android …）
  * 优先 wx.getDeviceInfo，避免 apiBaseUrl getter 等高频路径反复触发 getSystemInfoSync 弃用警告。
  */
-function getMiniProgramPlatform() {
+export function getMiniProgramPlatform() {
     try {
         if (typeof wx !== 'undefined' && typeof wx.getDeviceInfo === 'function') {
             const d = wx.getDeviceInfo();
@@ -112,7 +119,7 @@ export function getDevtoolsProbeBaseUrls() {
   return DEVTOOLS_USE_CLOUD_HTTPS ? [h, p] : [p, h];
 }
 
-/** 真机用于启动探测的 HTTPS 列表（主域名 + 手工备用 + 自动 sslip + 自动 nip） */
+/** 真机用于启动探测的 HTTPS 列表（主域名 + 手工备用 + 自动 sslip；nip 见 PHONE_PROBE_INCLUDE_AUTO_NIP） */
 export function getPhoneHttpsProbeBases() {
   const primary = getCloudHttpsApiBase();
   const list = [primary];
@@ -120,8 +127,10 @@ export function getPhoneHttpsProbeBases() {
   if (fb && fb !== primary && !list.includes(fb)) list.push(fb);
   const autoSslip = getAutoSslipHttpsBase();
   if (autoSslip && !list.includes(autoSslip)) list.push(autoSslip);
-  const autoNip = getAutoNipHttpsBase();
-  if (autoNip && !list.includes(autoNip)) list.push(autoNip);
+  if (PHONE_PROBE_INCLUDE_AUTO_NIP) {
+    const autoNip = getAutoNipHttpsBase();
+    if (autoNip && !list.includes(autoNip)) list.push(autoNip);
+  }
   return list;
 }
 
@@ -159,27 +168,35 @@ function normalizeHttpsOrigin(u) {
 
 const _wxProbeNet = Object.freeze({ enableHttp2: false, enableQuic: false });
 
-function probeApiHealthOnce(baseUrl, timeoutMs) {
+/** 同一 host 对 /api/health 连打多轮，缓解真机 -101 ERR_CONNECTION_RESET（跨境/弱网瞬断） */
+async function probeApiHealthOnce(baseUrl, timeoutMs) {
   const b = String(baseUrl || '').trim().replace(/\/+$/, '');
-  return new Promise((resolve) => {
-    if (!b || typeof wx === 'undefined' || typeof wx.request !== 'function') {
-      resolve(false);
-      return;
-    }
-    wx.request({
-      ..._wxProbeNet,
-      url: `${b}/api/health`,
-      method: 'GET',
-      timeout: timeoutMs,
-      success(res) {
-        const codeOk = res.statusCode >= 200 && res.statusCode < 300;
-        const body = res.data;
-        const jsonOk = body == null || typeof body !== 'object' || body.ok !== false;
-        resolve(Boolean(codeOk && jsonOk));
-      },
-      fail: () => resolve(false),
+  if (!b || typeof wx === 'undefined' || typeof wx.request !== 'function') return false;
+
+  const singleShot = () =>
+    new Promise((/** @type {(v: boolean) => void} */ resolve) => {
+      wx.request({
+        ..._wxProbeNet,
+        url: `${b}/api/health`,
+        method: 'GET',
+        timeout: timeoutMs,
+        success(res) {
+          const codeOk = res.statusCode >= 200 && res.statusCode < 300;
+          const body = res.data;
+          const jsonOk = body == null || typeof body !== 'object' || body.ok !== false;
+          resolve(Boolean(codeOk && jsonOk));
+        },
+        fail: () => resolve(false),
+      });
     });
-  });
+
+  const rounds = 5;
+  const gapMs = 900;
+  for (let i = 0; i < rounds; i++) {
+    if (await singleShot()) return true;
+    if (i < rounds - 1) await new Promise((r) => setTimeout(r, gapMs));
+  }
+  return false;
 }
 
 let _phoneSessionEnsureInFlight = null;

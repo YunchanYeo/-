@@ -151,6 +151,13 @@ export default function ProductFormPage() {
       setErr('库存无效');
       return;
     }
+    if (cats.length > 0) {
+      const cname = category.trim();
+      if (!cname || !cats.some((c) => c.name === cname)) {
+        setErr('请从列表中选择分类');
+        return;
+      }
+    }
 
     const common = {
       title: title.trim(),
@@ -206,7 +213,7 @@ export default function ProductFormPage() {
   }
 
   const categoryInList = cats.some((c) => c.name === category);
-  const categorySelectValue = categoryInList ? category : category ? '__manual__' : '';
+  const categorySelectValue = categoryInList ? category : '';
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
@@ -247,11 +254,7 @@ export default function ProductFormPage() {
               <>
                 <select
                   value={categorySelectValue}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === '__manual__') setCategory('');
-                    else setCategory(v);
-                  }}
+                  onChange={(e) => setCategory(e.target.value)}
                   style={{ maxWidth: '100%', padding: '0.45rem 0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
                 >
                   <option value="">— 请选择分类 —</option>
@@ -260,19 +263,17 @@ export default function ProductFormPage() {
                       {c.name}
                     </option>
                   ))}
-                  <option value="__manual__">手动输入分类名称…</option>
                 </select>
-                {(categorySelectValue === '__manual__' || (category && !categoryInList)) && (
-                  <input
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="输入与小程序一致的分类名称"
-                    style={{ marginTop: '0.25rem' }}
-                  />
-                )}
+                {category && !categoryInList ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--danger, #c00)' }}>
+                    已保存的分类「{category}」不在当前列表中，请重新选择
+                  </span>
+                ) : null}
               </>
             ) : (
-              <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="分类名称" />
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                {category ? `当前：${category}（请先在「分类管理」中添加分类后再选择）` : '请先在「分类管理」中添加分类'}
+              </span>
             )}
             {catsErr ? (
               <span style={{ fontSize: '0.75rem', color: 'var(--danger, #c00)' }}>{catsErr}</span>

@@ -1,6 +1,6 @@
 import updateManager from './common/updateManager';
 import { getErrorMessage } from './services/_utils/errors';
-import { config, setSessionApiBaseUrl, getDevtoolsProbeBaseUrls, getPhoneHttpsProbeBases, getSessionApiBaseUrl, ensurePhoneApiSessionBase } from './config/runtime';
+import { config, setSessionApiBaseUrl, getDevtoolsProbeBaseUrls, getPhoneHttpsProbeBases, getSessionApiBaseUrl, ensurePhoneApiSessionBase, getMiniProgramPlatform } from './config/runtime';
 import { wxRequestTransportOpts } from './services/_utils/wxRequestTransport';
 
 function probeHealthReachable(baseUrl, opts = {}) {
@@ -60,8 +60,7 @@ function bindNetworkApiReprobe() {
     wx.onNetworkStatusChange((res) => {
         try {
             if (!res || !res.isConnected) return;
-            const sys = typeof wx.getSystemInfoSync === 'function' ? wx.getSystemInfoSync() : {};
-            if (String(sys.platform || '') === 'devtools') return;
+            if (getMiniProgramPlatform() === 'devtools') return;
             const phoneBases = getPhoneHttpsProbeBases();
             (async () => {
                 const probeOpts = { attempts: 2, timeout: 12000, gapMs: 500 };
@@ -86,14 +85,12 @@ App({
         bindNetworkApiReprobe();
         const logApiBase = () => {
             try {
-                const sys = typeof wx !== 'undefined' && wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
-                console.info('[apiBase]', config.apiBaseUrl, 'platform=', sys.platform || '');
+                console.info('[apiBase]', config.apiBaseUrl, 'platform=', getMiniProgramPlatform() || '');
             }
             catch (_) {}
         };
         try {
-            const sys = wx.getSystemInfoSync?.() || {};
-            if (sys.platform === 'devtools') {
+            if (getMiniProgramPlatform() === 'devtools') {
                 const bases = getDevtoolsProbeBaseUrls();
                 (async () => {
                     for (const base of bases) {
@@ -112,7 +109,8 @@ App({
             /** 真机预览：仅 HTTPS，依次探测主域名与 CLOUD_HTTPS_FALLBACK_BASE（官方要求见 runtime.js 顶部注释） */
             const phoneBases = getPhoneHttpsProbeBases();
             (async () => {
-                const probeOpts = { attempts: 3, timeout: 15000, gapMs: 600 };
+                /** -101 ERR_CONNECTION_RESET 대비: 동일 URL 다회 + 긴 간격 */
+                const probeOpts = { attempts: 6, timeout: 20000, gapMs: 1200 };
                 for (const base of phoneBases) {
                     if (await probeHealthReachable(base, probeOpts)) {
                         setSessionApiBaseUrl(base);
@@ -122,13 +120,13 @@ App({
                     }
                 }
                 console.warn(
-                    '[apiBase] 真机 HTTPS 均失败：①开发管理→服务器域名→request合法域名须含 hebibingtest.shop 与 sslip 主机(若用) ②同一小程序AppID ③清除缓存重编译预览 ④仍失败多为 TLS/RST 见 ECS/Caddy',
+                    '[apiBase] 真机 HTTPS 均失败：若日志为 -101/ERR_CONNECTION_RESET 多为跨境链路/运营商 RST（非合法域名）；换 4G/其他 Wi‑Fi、ECS 安全组 443、Caddy 443 监听 확인。另：①mp 域名含当前探测主机 ②AppID 一致 ③清缓存重编译',
                 );
                 logApiBase();
                 setTimeout(() => {
                     if (getSessionApiBaseUrl()) return;
                     (async () => {
-                        const retryOpts = { attempts: 2, timeout: 15000, gapMs: 800 };
+                        const retryOpts = { attempts: 5, timeout: 20000, gapMs: 1500 };
                         for (const base of phoneBases) {
                             if (await probeHealthReachable(base, retryOpts)) {
                                 setSessionApiBaseUrl(base);
@@ -149,8 +147,7 @@ App({
     onShow: function () {
         updateManager();
         try {
-            const sys = wx.getSystemInfoSync?.() || {};
-            if (String(sys.platform || '') === 'devtools') return;
+            if (getMiniProgramPlatform() === 'devtools') return;
             if (getSessionApiBaseUrl()) return;
             const now = Date.now();
             if (now - _lastOnShowPhoneEnsureMs < 5000) return;

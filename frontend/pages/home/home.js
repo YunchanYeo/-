@@ -63,9 +63,18 @@ Page({
     },
     resolveViewportClass() {
         try {
-            const info = wx.getSystemInfoSync();
-            const w = Number(info?.windowWidth || 0);
-            const h = Number(info?.windowHeight || 0);
+            let w = 0;
+            let h = 0;
+            if (typeof wx.getWindowInfo === 'function') {
+                const win = wx.getWindowInfo();
+                w = Number(win?.windowWidth || 0);
+                h = Number(win?.windowHeight || 0);
+            }
+            else if (typeof wx.getSystemInfoSync === 'function') {
+                const info = wx.getSystemInfoSync();
+                w = Number(info?.windowWidth || 0);
+                h = Number(info?.windowHeight || 0);
+            }
             const ratio = w > 0 ? h / w : 0;
             const viewportClass = ratio > 0 && ratio < 1.8 ? 'viewport-compact' : 'viewport-normal';
             this.setData({ viewportClass });

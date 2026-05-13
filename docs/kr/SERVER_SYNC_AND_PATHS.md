@@ -106,9 +106,9 @@ docker compose ps
 |-----------------------------------------------|
 | `hebibingtest.shop` |
 | `39-106-213-185.sslip.io` |
-| `39.106.213.185.nip.io` |
+| `39.106.213.185.nip.io`（**可选** — 仅当 Caddy 使用该主机且已在 mp 登记；同时把 `frontend/config/runtime.js` 内 `PHONE_PROBE_INCLUDE_AUTO_NIP` 设为 `true`） |
 
-- 실제로 미니프로그램이 요청하지 않는 호스트는 생략 가능하나, `app.js` **真机**은 `getPhoneHttpsProbeBases()` 로 위 **sslip·nip** 후보까지 순차 프로브하므로 쓰려면 **반드시 등록**한다.
+- 실제로 미니프로그램이 요청하지 않는 호스트는 생략 가능하나, `app.js` **真机**은 `getPhoneHttpsProbeBases()` 로 **主域名·sslip**（및 `PHONE_PROBE_INCLUDE_AUTO_NIP === true` 일 때만 nip）을 순차 프로브한다. **프로브에 넣은 호스트는 request/upload/download 모두 mp 后台와 일치**해야 한다.
 - 상품 이미지 등 **download** 가 동일 호스트면 **download合法域名**에도 동일 호스트 추가 (`docs/kr/DEPLOY_CN_WECHAT.md` §6 참고).
 - **upload合法域名**: `open-type="chooseAvatar"`·客服 등에서 **`wx.uploadFile` → `/api/support/upload-media`** 를 쓰므로, **request合法域名**과 **동일한 API 호스트**를 **upload合法域名**에도 등록한다. 공식상 `wx.uploadFile` 의 `filePath` 는 **로컬 경로만** 허용되므로, 개발자 도구의 `http://tmp/...` 는 앱에서 `wx.getImageInfo` 등으로 **실제 temp 경로**로 바꾼 뒤 업로드한다(그대로내면 빈 파일 → `Invalid upload body`).
 - **微信头像 URL**(`*.qlogo.cn` 등): 서버가 로그인·`PUT /api/me` 시 **동일 API 根域**으로 BLOB 转存 후 `users.avatarUrl` 을 `/api/media/user-avatar/:userId` 로 바꿈 — **download合法域名**에 `qlogo.cn` 을 넣지 않아도 마이페이지 `<image>` 가 뜨게 하려면 **본 백엔드 배포 후** 사용자가 **다시 로그인**하거나 프로필을 한 번 저장하면 된다.
@@ -124,6 +124,7 @@ bash check-mp-https-hosts.sh
 ```
 
 - 기대: 각 호스트마다 `curl` **http_code=200**, 응답 본문에 백엔드 헬스 JSON(예: `ok` 필드)이 보인다. 실패 시 `docker compose logs --tail=80 caddy`·`docker compose ps`·보안그룹 **80·443** 인바운드 확인.
+- **真机 vConsole `request:fail -101` / `ERR_CONNECTION_RESET`**: 合法域名과 무관하게 **TCP/TLS 가 중간에서 끊김**(해외→국내 ECS·일부 运营商·HTTP/2 이슈 등). 클라이언트는 동일 URL **재시도·프로브 다회**로 완화(`app.js` / `runtime.js` / `http.js`). 근본적으로는 **同国/同网段 테스트**、**CDN 前置**、**安全组·Caddy 443** 점검을 권장한다.
 
 ### 6.3 같은 AppID로 미리보기
 

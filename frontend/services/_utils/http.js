@@ -1,4 +1,4 @@
-import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl, ensurePhoneApiSessionBase } from '../../config/runtime';
+import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl, ensurePhoneApiSessionBase, getMiniProgramPlatform } from '../../config/runtime';
 import { createAppError, ErrorCodes } from './errors';
 import { getToken } from '../auth/session';
 import { wxRequestTransportOpts } from './wxRequestTransport';
@@ -29,9 +29,13 @@ const MAX_NET_ALT_HOPS = 6;
 export function requestJson(path, options = {}) {
     const { method = 'GET', data, header = {}, timeoutMs = 15000 } = options;
     const token = getToken();
+    /** 同一 API 根上 -101 RST 时先重试再换备用域名（不计入 MAX_NET_ALT_HOPS） */
+    const rstRetryByBase = new Map();
+
     const run = (base, hop) =>
         new Promise((resolve, reject) => {
             const url = joinUrl(base, path);
+            const baseKey = String(base || '').trim().replace(/\/+$/, '');
             wx.request({
                 ...wxRequestTransportOpts,
                 url,
@@ -65,8 +69,7 @@ export function requestJson(path, options = {}) {
                         return reject(createAppError(ErrorCodes.BACKEND_ERROR, body.message || '服务器返回了错误。', body));
                     }
                     try {
-                        const sys = typeof wx !== 'undefined' && wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
-                        const isDevtools = String(sys.platform || '') === 'devtools';
+                        const isDevtools = getMiniProgramPlatform() === 'devtools';
                         const b = String(base || '').trim().replace(/\/+$/, '');
                         if (!isDevtools && hop === 0 && /^https:\/\//i.test(b))
                             setSessionApiBaseUrl(b);
@@ -84,6 +87,15 @@ export function requestJson(path, options = {}) {
                     if (String(msg).toLowerCase().includes('timeout')) {
                         return reject(createAppError(ErrorCodes.TIMEOUT, `请求超时：${url}`, err));
                     }
+                    const isRst = /-101|CONNECTION_RESET|connection reset/i.test(String(msg));
+                    const rstUsed = rstRetryByBase.get(baseKey) || 0;
+                    if (isRst && rstUsed < 2) {
+                        rstRetryByBase.set(baseKey, rstUsed + 1);
+                        setTimeout(() => {
+                            run(base, hop).then(resolve).catch(reject);
+                        }, 950);
+                        return;
+                    }
                     const alt =
                         hop < MAX_NET_ALT_HOPS
                             ? getAlternateApiBaseForDevtools(base) || getAlternatePhoneHttpsBase(base)
@@ -93,8 +105,8 @@ export function requestJson(path, options = {}) {
                         return;
                     }
                     const m = String(msg);
-                    if (/合法域名|domain|not in domain list|ssl|certificate|TLS|CONNECTION_RESET|connection reset/i.test(m)) {
-                        msg += `（真机须 mp 后台登记 request/upload 域名；开发者工具「不校验」对真机无效；仍失败可换 Wi‑Fi/4G、清小程序缓存、重编译预览；详见 runtime.js 顶部注释）`;
+                    if (/合法域名|domain|not in domain list|ssl|certificate|TLS|-101|CONNECTION_RESET|connection reset/i.test(m)) {
+                        msg += `（-101/RST：多为跨境/运营商瞬断，已自动重试；仍失败请换 4G、查 ECS 443、或 CDN 前置。合法域名类错误才需对 mp 后台）`;
                     }
                     reject(createAppError(ErrorCodes.NETWORK_ERROR, msg, { ...err, url, method }));
                 },
