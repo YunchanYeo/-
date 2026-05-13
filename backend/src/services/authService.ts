@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import type { Db, AuthedAdmin, AuthedUser, RequestContext } from '../types';
 import { isLikelyWeChatAvatarCdnUrl, normalizeUserAvatarForStorage } from '../lib/normalizeUserAvatarForStorage';
+import { avatarUrlForSqlUpdate, nickNameForSqlUpdate } from '../lib/coalesceWechatProfile';
 
 function genSessionToken() {
   return crypto.randomBytes(24).toString('hex');
@@ -177,16 +178,25 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
                    gender = COALESCE(?, gender), updatedAt = datetime('now')
                WHERE id = ?`,
             )
-            .run(unionid || null, token, userInfo?.nickName ?? null, userInfo?.avatarUrl ?? null, userInfo?.gender ?? null, exists.id),
+            .run(
+              unionid || null,
+              token,
+              nickNameForSqlUpdate(userInfo?.nickName),
+              avatarUrlForSqlUpdate(userInfo?.avatarUrl),
+              userInfo?.gender ?? null,
+              exists.id,
+            ),
         );
       } else {
+        const insertNick = String(userInfo?.nickName ?? '').trim();
+        const insertAvatar = String(userInfo?.avatarUrl ?? '').trim();
         await withSqliteRetry(() =>
           db
             .prepare(
               `INSERT INTO users (openid, unionid, sessionToken, nickName, avatarUrl, gender, createdAt, updatedAt)
                VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
             )
-            .run(openid, unionid || null, token, userInfo?.nickName ?? '', userInfo?.avatarUrl ?? '', userInfo?.gender ?? 0),
+            .run(openid, unionid || null, token, insertNick, insertAvatar, userInfo?.gender ?? 0),
         );
       }
 
@@ -287,16 +297,26 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
                    gender = COALESCE(?, gender), updatedAt = datetime('now')
                WHERE id = ?`,
             )
-            .run(unionid || null, token, phoneNumber, userInfo?.nickName ?? null, userInfo?.avatarUrl ?? null, userInfo?.gender ?? null, exists.id),
+            .run(
+              unionid || null,
+              token,
+              phoneNumber,
+              nickNameForSqlUpdate(userInfo?.nickName),
+              avatarUrlForSqlUpdate(userInfo?.avatarUrl),
+              userInfo?.gender ?? null,
+              exists.id,
+            ),
         );
       } else {
+        const insertNick = String(userInfo?.nickName ?? '').trim();
+        const insertAvatar = String(userInfo?.avatarUrl ?? '').trim();
         await withSqliteRetry(() =>
           db
             .prepare(
               `INSERT INTO users (openid, unionid, sessionToken, nickName, avatarUrl, gender, phoneNumber, createdAt, updatedAt)
                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
             )
-            .run(openid, unionid || null, token, userInfo?.nickName ?? '', userInfo?.avatarUrl ?? '', userInfo?.gender ?? 0, phoneNumber),
+            .run(openid, unionid || null, token, insertNick, insertAvatar, userInfo?.gender ?? 0, phoneNumber),
         );
       }
 

@@ -129,7 +129,7 @@ docker compose exec backend sh -lc 'echo "$MEDIA_PROVIDER" "$OSS_REGION"'
 
 ECS 등에서 설정을 바꾼 뒤 **`admin-web` 이미지 재빌드·컨테이너 재생성**이 필요합니다.
 
-일반적인 배포 디렉터리 예: `deploy/china-test/` 에서 `docker compose up -d --build --force-recreate backend admin-web`
+배포 시: 본인이 둔 `docker-compose.yml` 이 있는 디렉터리에서 `docker compose up -d --build --force-recreate backend admin-web` 등으로 재기동합니다.
 
 ---
 

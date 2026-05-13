@@ -3,10 +3,11 @@ import { config, ensurePhoneApiSessionBase } from '../../../../config/runtime';
 import { getToken } from '../../../../services/auth/session';
 import { wxRequestTransportOpts } from '../../../../services/_utils/wxRequestTransport';
 import { resolveLocalUploadPath } from '../../../../services/_utils/resolveLocalUploadPath';
+import { rewriteLegacyDeploymentUrl } from '../../../../services/_utils/normalizeGoodsImageUrl';
 
 export function normalizeChatMediaUrl(url) {
   if (!url) return '';
-  const s = String(url).trim();
+  const s = rewriteLegacyDeploymentUrl(String(url).trim());
   const base = config.apiBaseUrl.replace(/\/+$/, '');
   if (s.startsWith('/')) return `${base}${s}`;
   try {

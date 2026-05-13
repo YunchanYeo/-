@@ -9,6 +9,10 @@ frontend/miniprogram_npm/
 frontend/node_modules/
 backend/node_modules/
 backend/.env
+deploy/ec2-al2023/backend.env
+# EC2 SSH 개인키(backend 루트에 둔 경우) — 절대 커밋 금지
+backend/*.pem
+backend/certs/dev-local/*.pem
 project.private.config.json
 .DS_Store
 admin-web/release/

@@ -1,18 +1,38 @@
 import { z } from 'zod';
 import type { Request, Response } from 'express';
 import type { Db } from '../types';
-import { normalizeUserAvatarForStorage } from '../lib/normalizeUserAvatarForStorage';
+import { isLikelyWeChatAvatarCdnUrl, normalizeUserAvatarForStorage } from '../lib/normalizeUserAvatarForStorage';
+import { avatarUrlForSqlUpdate, nickNameForSqlUpdate } from '../lib/coalesceWechatProfile';
 
 export function createUserService({ db }: { db: Db }) {
   function me(req: Request, res: Response) {
-    const userId = (req as any).user?.id;
-    const user = db
-      .prepare(
-        `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
+    void (async () => {
+      try {
+        const userId = (req as any).user?.id;
+        let user: any = db
+          .prepare(
+            `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
          FROM users WHERE id = ?`,
-      )
-      .get(userId);
-    return res.json({ ok: true, data: user });
+          )
+          .get(userId);
+        if (user?.id && isLikelyWeChatAvatarCdnUrl(String(user.avatarUrl || ''))) {
+          const next = await normalizeUserAvatarForStorage(db, user.id, String(user.avatarUrl || ''));
+          if (next !== user.avatarUrl) {
+            db.prepare(`UPDATE users SET avatarUrl = ?, updatedAt = datetime('now') WHERE id = ?`).run(next, user.id);
+            user = db
+              .prepare(
+                `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points
+         FROM users WHERE id = ?`,
+              )
+              .get(userId);
+          }
+        }
+        res.json({ ok: true, data: user });
+      } catch (e: any) {
+        console.error('[me]', e);
+        res.status(500).json({ ok: false, message: e?.message || 'failed' });
+      }
+    })();
   }
 
   function updateMe(req: Request, res: Response) {
@@ -31,9 +51,14 @@ export function createUserService({ db }: { db: Db }) {
           return;
         }
         const { nickName, avatarUrl, gender, phoneNumber } = parsed.data;
+        const nickForSql = nickName !== undefined ? nickNameForSqlUpdate(nickName) : null;
+        const phoneForSql =
+          phoneNumber !== undefined ? (String(phoneNumber).trim() || null) : null;
         let avatarStored: string | null | undefined;
         if (avatarUrl !== undefined) {
-          avatarStored = await normalizeUserAvatarForStorage(db, userId, avatarUrl);
+          const av = avatarUrlForSqlUpdate(avatarUrl);
+          if (av === null) avatarStored = null;
+          else avatarStored = await normalizeUserAvatarForStorage(db, userId, av);
         }
         db.prepare(
           `UPDATE users
@@ -43,7 +68,7 @@ export function createUserService({ db }: { db: Db }) {
            phoneNumber = COALESCE(?, phoneNumber),
            updatedAt = datetime('now')
        WHERE id = ?`,
-        ).run(nickName ?? null, avatarStored === undefined ? null : avatarStored, gender ?? null, phoneNumber ?? null, userId);
+        ).run(nickForSql, avatarStored === undefined ? null : avatarStored, gender ?? null, phoneForSql, userId);
         const meRow = db
           .prepare(
             `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points

@@ -82,6 +82,10 @@ Component({
         onImageError(e) {
             this.triggerEvent('error', e.detail);
         },
+        /** t-image 部分版本向父组件抛 onLoadError，需同名方法否则控制台告警 */
+        onLoadError(e) {
+            this.triggerEvent('error', e.detail || e);
+        },
         onLoad(e) {
             this.triggerEvent('load', e.detail);
         },

@@ -9,12 +9,12 @@
 
 ## 2) 로컬 개발 실행
 
-- 백엔드: `cd backend && npm install && npm run dev`
+- 백엔드: `cd backend && npm install && npm run dev` — DB는 **`POSTGRES_URL` 비움(또는 미설정)** 시 SQLite `backend/data/app.sqlite` (기본).
 - 관리자 웹: `cd admin-web && npm install && npm run dev`
 - 미니프로그램: WeChat DevTools에서 `frontend` 열기
 - 미니 API 주소: `frontend/config/index.js`의 `apiBaseUrl`
 
-## 2-1) 阿里云 전환(2단계) 실행
+## 2-1) 선택: OSS / PostgreSQL
 
 ### A. 미디어 저장소를 OSS로 전환
 

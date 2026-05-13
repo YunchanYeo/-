@@ -5,6 +5,20 @@ import { buildPrefixedMediaFileName, saveMediaFromBase64, saveMediaFromBuffer } 
 
 const MSG_SELECT = `id, userId, fromRole, msgType, content, metaJson, adminRead, userRead, createdAt`;
 
+/** DB 에 남은 구 클라우드 전체 URL → path+query 만 반환（msgType 오타·NULL 있어도 URL 이면 무조건 치환） */
+function rewriteLegacyChatMediaUrl(content: string): string {
+  const raw = String(content || '').trim();
+  if (!/^https?:\/\//i.test(raw)) return raw;
+  try {
+    const u = new URL(raw);
+    const h = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (h === 'hebibingtest.shop') return `${u.pathname}${u.search}`;
+  } catch {
+    /* ignore */
+  }
+  return raw;
+}
+
 function parseMeta(metaJson: string | null | undefined): Record<string, unknown> | null {
   if (!metaJson) return null;
   try {
@@ -16,7 +30,8 @@ function parseMeta(metaJson: string | null | undefined): Record<string, unknown>
 }
 
 function rowWithParsed(row: Record<string, unknown>) {
-  return { ...row, meta: parseMeta(row.metaJson as string | null | undefined) };
+  const content = rewriteLegacyChatMediaUrl(String(row.content || ''));
+  return { ...row, content, meta: parseMeta(row.metaJson as string | null | undefined) };
 }
 
 export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: string }) {

@@ -1,274 +1,110 @@
-# 중국 ECS + 微信小程序 배포 가이드 (통합본)
+# 微信小程序 · 백엔드 배포 참고 (일반)
 
-한 파일로 정리했습니다. (HTML 앵커·문서 간 링크 최소화)
+레포에 **고정 ECS 경로·`deploy/china-test` 번들은 포함하지 않습니다.** 실제 서버 경로·compose 위치는 본인 인프라에 맞게 잡으면 됩니다.
 
-**공식 위챗 네트워크 규정**: https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html
-
----
-
-## 1. 무엇을 배포하는지
-
-- **backend**: API (Docker에서 보통 3000)
-- **admin-web**: 관리자 SPA + nginx (`/api` 는 백엔드로 프록시)
-- **caddy**: 80/443 에서 HTTPS(Let’s Encrypt) 종료 후 `admin-web` 으로 전달
-- **frontend**(미니프로그램): 위챗 개발자도구에서 이 폴더 열기
-
-외부에서는 **443 HTTPS** 만 쓰면 됩니다. `docker-compose` 기본은 관리자 nginx 를 **`127.0.0.1:8080`** 에만 열어 두어, 공인 IP:8080 으로는 접속되지 않습니다.
+**위챗 네트워크 규정**: https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html
 
 ---
 
-## 2. ECS 보안그룹 / 방화벽
+## 1. 구성 요소
 
-열어둘 포트(예시):
+- **backend**: Express API (기본 포트 3000)
+- **admin-web**: Vite 빌드 정적 파일 + nginx (`/api` → 백엔드 프록시는 nginx 설정에서 구성)
+- **frontend**: 미니프로그램 — 위챗 개발자도구에서 `frontend` 열기
+
+외부 공개 시에는 **HTTPS** 와 위챗 **服务器域名** 등록이 필요합니다.
+
+---
+
+## 2. 방화벽(예시)
+
+VPS·클라우드 방화벽에서 흔히 여는 포트:
 
 - **22** SSH
-- **80** HTTP (Let’s Encrypt 인증용)
-- **443** HTTPS
-- **3000** (선택) 백엔드 직접 점검용. 운영에서는 막아도 됨.
+- **80** / **443** 웹·Let’s Encrypt 등
+- **3000** 백엔드 직접 점검용(운영에서는 막아도 됨)
 
 ---
 
-## 3. 서버에 Docker 설치 (최초 1회)
+## 3. Docker(자체 compose)
 
-```bash
-sudo apt update
-sudo apt install -y git ca-certificates curl
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-```
-
-재로그인 후 `docker compose version` 확인.
-
----
-
-## 4. 레포 클론과 작업 디렉터리
-
-클론 예시:
-
-```bash
-git clone <저장소-URL>
-cd <클론-폴더-이름>
-```
-
-Docker 를 돌리는 디렉터리는 항상 **`deploy/china-test`** 입니다.
-
-**ECS에서 자주 쓰는 경로 예시** (본인 서버에 맞게 바꿈):
-
-```bash
-cd /root/wechat-app-live/deploy/china-test
-```
-
-**Git 없이 복사본만 두는 운영 트리**와 **별도 `git clone` 트리**를 같이 쓰는 경우의 경로·`rsync`·`docker compose` 순서는 **`docs/kr/SERVER_SYNC_AND_PATHS.md`** 에 정리해 두었다 (에이전트·운영 공용).
-
-위치를 모를 때 (`deploy/china-test`만 좁혀 찾기):
-
-```bash
-find /root /home -maxdepth 6 -path "*/deploy/china-test" -type d 2>/dev/null
-```
-
-또는:
-
-```bash
-find /root -name "docker-compose.yml" 2>/dev/null | grep china-test
-```
-
-**여러 개** 나오면(예: `wechat-app-live`, `wechat-app`, `*.backup-*`) **지금 떠 있는 백엔드가 어느 compose 로 올라갔는지** 확인:
-
-```bash
-docker inspect wechat-backend --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
-```
-
-출력 경로의 `docker-compose.yml` 이 있는 디렉터리가 **`cd` 해야 할 `deploy/china-test`** 입니다. 잘못된 트리의 `.env` 를 고치면 반영되지 않습니다.
-
-**셸 한 줄에 명령 하나만** 입력합니다. `docker compose up -d 또는 restart` 처럼 한글까지 붙이면 실패합니다.
-
----
-
-## 5. 환경 변수와 기동
-
-1. `backend/.env` 설정 (WeChat, 관리자, OSS 등). **비밀값은 Git 에 올리지 않기.**
-
-2. 기동:
-
-```bash
-cd <레포>/deploy/china-test
-docker compose up -d --build
-docker compose ps
-docker compose logs --tail=50 caddy
-```
-
-3. 확인:
-   - 브라우저: `https://<sslip-호스트>/api/health`  
-     sslip 형식: IP `39.106.213.185` → 호스트 `39-106-213-185.sslip.io`
-   - ECS 안에서 관리 UI 점검: `curl -sS http://127.0.0.1:8080/`
-
-### 5.1 `backend/.env` 만 수정한 뒤 반영
-
-Compose 의 `env_file` 은 컨테이너 **재생성** 시 안전하게 다시 읽힙니다. 서버에서 `backend/.env` 저장 후, **실제 운영 중인** `deploy/china-test` 로 이동해:
+1. 서버에 Docker 설치 후, 레포의 `backend/`·`admin-web/` 를 **build context** 로 하는 `docker-compose.yml` 을 **직접 작성**합니다.
+2. `backend/.env` 는 Git 에 올리지 말고, 컨테이너에는 `env_file` 또는 환경 변수로 주입합니다.
+3. `.env` 만 바꾼 뒤 반영하려면 백엔드 컨테이너를 **재생성**하는 편이 안전합니다.
 
 ```bash
 docker compose up -d --no-deps --force-recreate backend
 ```
 
-`docker compose restart backend` 만으로는 환경 변수가 남는 경우가 있어, **위 한 줄**을 권장합니다. 맥에서 `.env` 까지 올리고 기동까지 한 번에: 레포 루트에서 `bash deploy/china-test/push-from-mac.sh`.
-
-로컬에서 `node` 직접 실행 시에는 프로세스를 **다시 시작**하면 됩니다.
-
-### 5.2 微信支付 등 인증서·私钥
-
-- **권장**: `backend/certs/wechat-pay/apiclient_key.pem` 등 파일 배치,`.env` 의 `WECHAT_PAY_PRIVATE_KEY` 는 비움. PEM 전문·`BEGIN`/`END` 줄 포함 여부·Docker 반영 절차는 **`backend/certs/wechat-pay/README.md`** 참고.
-
-### 5.3 서버에서 SSL 빠르게 확인 (선택, 맥 LibreSSL 은 `-brief` 없음)
-
-```bash
-echo | openssl s_client -connect 39-106-213-185.sslip.io:443 -servername 39-106-213-185.sslip.io 2>&1 | head -50
-```
-
-스크립트: `deploy/china-test/check-ssl.sh` (레포에 있으면 같은 디렉터리에서 `bash check-ssl.sh`)
+`restart` 만으로는 환경 변수가 남는 경우가 있어, 위와 같이 **재생성**을 권장합니다.
 
 ---
 
-## 6. 微信小程序 (미니프로그램) 연결
+## 4. 微信支付 인증서
 
-### 6.1 위챗 백오피스
-
-1. https://mp.weixin.qq.com 로그인  
-2. **开发 → 开发管理 → 开发设置 → 服务器域名**  
-3. **request合法域名**: 호스트만 (예: `39-106-213-185.sslip.io`). `https://` 붙이지 않음.  
-4. 이미지·다운로드가 같은 도메인이면 **download合法域名** 도 추가.
-
-### 6.2 이 프로젝트 API 베이스 (`frontend/config/runtime.js`)
-
-- **`CLOUD_HTTPS_API_BASE`**: 정식 도메인 또는 sslip 전 URL (`https://hebibingtest.shop` 등). IP 바뀌면 sslip·nip 호스트·`Caddyfile` 도 같이 수정.  
-- **`CLOUD_HTTPS_API_BASE_OVERRIDE`**: 임시로 다른 HTTPS 루트를 쓸 때만. 비우면 위 기본값 사용.  
-- **`CLOUD_HTTP_API_BASE`**: `http://<ECS_IP>:3000` — 폰 프로브에서 sslip/nip 자동 후보를 만들 때도 사용.  
-- 시뮬레이터는 설정에 따라 HTTP:3000 또는 HTTPS. 폰은 HTTPS + **合法域名**.  
-- **`project.config.json` 의 `appid`** 와 백엔드 `.env` 의 WeChat AppID 가 같은小程序 인지 확인.  
-- **일괄 TLS·`/api/health` 점검**: `deploy/china-test/check-mp-https-hosts.sh` — 절차 요약은 `docs/kr/SERVER_SYNC_AND_PATHS.md` §6.
-
-### 6.3 개발자도구
-
-**清缓存 → 编译 → 预览** 로 QR 을 새로 찍기.
-
-`wx.request` 에는 저장소에서 **`enableHttp2: false`, `enableQuic: false`** 를 넣어 두었음 (`frontend/services/_utils/wxRequestTransport.js`).
+`backend/certs/wechat-pay/README.md` 참고.
 
 ---
 
-## 7. Caddy / HTTP3
+## 5. 微信小程序 — API 주소 (`frontend/config/runtime.js` / `index.js`)
 
-`deploy/china-test/Caddyfile` 상단에 **HTTP/3(QUIC) 비활성** global 블록이 있을 수 있습니다. 위챗·일부 회선 이슈 완화용입니다.
+- **`CLOUD_HTTPS_API_BASE`**: 실제 API HTTPS 루트(끝 `/` 없음). **微信公众平台 → 服务器域名 → request合法域名** 에 넣은 **호스트**와 일치해야 합니다.
+- **`CLOUD_HTTPS_API_BASE_OVERRIDE`**: 임시로 다른 HTTPS 루트를 쓸 때만. 비우면 기본값 사용.
+- **`CLOUD_HTTP_API_BASE`**: 개발자도구에서 **不校验合法域名** 사용 시 HTTP로 붙는 백엔드 주소. 기본값은 `http://127.0.0.1:3000` 입니다. **공인 IP:3000** 을 쓰면, 같은 IP로부터 **sslip** 후보 URL(`https://x-x-x-x.sslip.io` 형태)을 자동으로 프로브 체인에 넣을 수 있습니다(해당 호스트도 mp 백오피스에 등록).
+- **`project.config.json` 의 `appid`** 와 `backend/.env` 의 WeChat AppID 가 동일한小程序 인지 확인합니다.
 
-정식 도메인 블록 예시는 **`deploy/china-test/caddy-snippet-custom-domain.txt`** 를 복사해 `Caddyfile` 맨 아래에 붙이면 됩니다.
-
----
-
-## 8. 정식 도메인 (sslip 대신)
-
-**당신이 할 일**
-
-1. 도메인 구매 (阿里云·DNSPod·Cloudflare·해외 등록사 등).  
-2. DNS **A 레코드** (예: `api.你的域名.com`) → ECS 공인 IP. `dig +short api.你的域名.com` 으로 전파 확인.  
-3. **微信公众平台 → 服务器域名** 에 동일 호스트 등록 (`https://` 없이). web-view(支付宝 등) 쓰면 **业务域名** 도.  
-4. (중국 본토 대외 서비스 시) **ICP备案** 요구 여부는 호스팅·정책 문서로 확인.
-
-**레포에서 할 일 (권장: 스크립트)**
-
-1. ECS 에서 (DNS 가 IP 를 가리킨 **후**):
-
-```bash
-cd /root/wechat-app-live   # 실제 레포 경로
-CUSTOM_DOMAIN=api.你的域名.com bash deploy/china-test/enable-public-domain.sh
-cd deploy/china-test && docker compose restart caddy && docker compose logs --tail=40 caddy
-```
-
-2. `backend/.env`: `API_PUBLIC_BASE_URL=https://api.你的域名.com` (끝 `/` 없음).  
-3. `frontend/config/index.js`: `CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://api.你的域名.com'`.  
-4. 미니프로그램 **清缓存 → 编译 → 新预览 QR**.
-
-**수동으로 Caddy 만 넣을 때**: `caddy-snippet-custom-domain.txt` 의 호스트를 바꿔 `Caddyfile` 맨 아래에 붙이고 위와 동일하게 `restart caddy`·`.env`·`OVERRIDE`·公众平台.
+`wx.request` 용도로 `frontend/services/_utils/wxRequestTransport.js` 에 **HTTP/2·QUIC 비활성** 옵션이 들어 있을 수 있습니다.
 
 ---
 
-## 9. git pull 이 서버에서 막힐 때
+## 6. Caddy / nginx
 
-서버에서 직접 수정한 파일이 있으면 `git pull` 이 거부됩니다.
-
-- `backend/.env`, `backend/data/` 는 먼저 **백업**.  
-- 팀 방침에 따라 `stash` / 정리 후 `pull`, 또는 **맥에서 필요한 파일만 `scp`** 로 서버에 복사.
+- TLS 종료는 **Caddy·nginx·클라우드 로드밸런서** 등 본인 스택에 맞게 구성합니다.
+- 위챗 일부 단말에서 QUIC 이슈가 있으면, **HTTP/3 비활성**·**TLS 1.2** 등을 검토합니다(과거 `china-test` Caddyfile 에 있던 완화와 유사).
 
 ---
 
-## 10. 문제 요약
+## 7. 정식 도메인
+
+1. DNS **A 레코드**를 API 서버 공인 IP 로 맞춥니다.  
+2. **微信公众平台 → 服务器域名** 에 호스트 등록(`https://` 없이). web-view(支付宝 등) 쓰면 **业务域名** 도 필요할 수 있습니다.  
+3. (중국 본토 대외 서비스 시) **ICP备案** 등은 호스팅·정책에 따라 별도 확인합니다.
+
+**AWS EC2 + Caddy + 예시 도메인 `hebibingtest.shop`:** 단계별 절차는 **`docs/kr/DEPLOY_EC2_HEBIBINGTEST.md`** · `deploy/ec2-al2023/README.md` 를 참고하세요.
+
+`CUSTOM_DOMAIN_CHINA.md` 는 본 문서와 중복 안내용 링크만 유지합니다.
+
+---
+
+## 8. 무료/임시 호스트 (DuckDNS·sslip 등)
+
+- **DuckDNS** 등: A 레코드를 공인 IP에 맞춘 뒤, 같은 호스트로 TLS 인증서를 발급·`CLOUD_HTTPS_API_BASE`·公众平台를 맞춥니다.  
+- **sslip.io**: IP 옥텟을 하이픈으로 바꾼 호스트가 DNS로 IP에 해석됩니다. 위챗이 해당 호스트를 허용하는지는 정책·시기에 따라 다릅니다.
+
+---
+
+## 9. Cloudflare Quick Tunnel (임시)
+
+`cloudflared tunnel --url http://127.0.0.1:8080` 등으로 나온 `https://....trycloudflare.com` 을 公众平台 + `CLOUD_HTTPS_API_BASE_OVERRIDE` 에 넣을 수 있습니다. 주소는 세션마다 바뀔 수 있습니다.
+
+---
+
+## 10. OSS / PostgreSQL
+
+- OSS·`migrate:oss`·PostgreSQL: **`docs/kr/ADMIN_MEDIA_SESSIONS.md`**, **`docs/kr/DEV_GUIDE.md`** §2-1.
+
+---
+
+## 11. 문제 요약
 
 | 증상 | 조치 |
 |------|------|
-| Caddy가 Restarting | `docker compose logs caddy` — 보통 호스트 **80** 포트 충돌 |
-| 폰만 요청 실패 | 公众平台 호스트 = `apiBaseUrl` 호스트, AppID, **재编译·새 QR** |
-| 맥 curl 만 RST | VPN/프록시 끄기. 서버 `curl` 로 판단 |
-| sslip 로도 위챗만 안 됨 | **정식 도메인** 전환 권장 |
-| **관리자 웹에서 이미지 업로드 후 미리보기 안 됨** | 상품 이미지는 **SQLite `product_media` BLOB** + 공개 **`GET /api/media/product/:id`**. `PUBLIC_UPLOAD_BASE_URL=https://공인호스트` 필수에 가깝게 설정. **微信小程序** 은 **download合法域名** 에도 동일 호스트. **`docker compose up -d --build backend`**. |
+| 폰만 `request:fail` | 合法域名·`apiBaseUrl` 호스트·AppID·**清缓存 → 编译 → 新预览 QR** |
+| TLS/인증서 오류 | 서버에서 `openssl s_client` 또는 브라우저로 해당 호스트:443 확인 |
+| 관리자 이미지 미리보기 실패 | `PUBLIC_UPLOAD_BASE_URL`·**download合法域名**·`GET /api/media/product/:id` 배포 여부 확인 |
 
 ---
 
-## 11. 무료 서브도메인 쓰는 법 (유료 도메인 없이)
+## 12. git pull 이 서버에서 막힐 때
 
-**개념**: 본인이 산 `example.com` 대신, **무료 DNS 서비스가 주는** `이름.duckdns.org` 같은 호스트를 만들고, **A 레코드를 ECS 공인 IP**로 맞춘 뒤, 지금과 같이 **Caddy + Let’s Encrypt + 公众平台**에 그 호스트만 등록하면 됩니다.
-
-### 11.1 DuckDNS (가장 단순한 편)
-
-1. https://www.duckdns.org 에 GitHub 등으로 로그인.  
-2. **Subdomain** 하나 정해서 생성 (예: `myshop` → **`myshop.duckdns.org`**).  
-3. **IP**를 ECS 공인 IP로 설정하고 **update** 저장.  
-4. 서버에서 (DNS 전파 후):
-
-```bash
-CUSTOM_DOMAIN=myshop.duckdns.org bash deploy/china-test/enable-public-domain.sh
-cd deploy/china-test && docker compose restart caddy
-```
-
-5. `backend/.env`: `API_PUBLIC_BASE_URL=https://myshop.duckdns.org`  
-6. `frontend/config/index.js`: `CLOUD_HTTPS_API_BASE_OVERRIDE = 'https://myshop.duckdns.org'`  
-7. **微信公众平台 → 服务器域名**에 `myshop.duckdns.org` (스킴 없이).  
-8. 小程序 **清缓存 → 编译 → 新预览**.
-
-### 11.2 FreeDNS (afraid.org) 등
-
-- https://freedns.afraid.org 등에서 **다른 사람 도메인 아래 무료 서브도메인**을 받는 방식도 있음.  
-- 절차는 동일: **A 레코드 → 공인 IP → Caddy 사이트 블록 → .env / OVERRIDE / 公众平台**.
-
-### 11.3 주의 (위챗·운영)
-
-- **무료 호스트도** 公众平台에 **등록 가능 여부·ICP 요구**는 계정·정책에 따라 다름. 막히면 **유료 1차 도메인**이 더 잘 통과하는 경우가 많음.  
-- DuckDNS는 **토큰으로 IP 자동 갱신**을 써 두는 것이 좋음(집 회선처럼 IP가 바뀌면 끊김). **ECS 고정 IP**면 거의 문제 없음.  
-- **sslip.io**도 “돈 안 내는 호스트”이지만 **등록사 서브도메인이 아님**; WeChat이 거부하면 **DuckDNS 같은 등록 가능한 호스트**를 시도.
-
----
-
-## 12. Cloudflare Quick Tunnel (대안)
-
-공인 80/443 이 어려울 때 서버에서:
-
-```bash
-cloudflared tunnel --url http://127.0.0.1:8080
-```
-
-출력된 `https://....trycloudflare.com` 을 公众平台 + `CLOUD_HTTPS_API_BASE_OVERRIDE` 에 넣음. 주소는 재시작 시 바뀔 수 있음.
-
----
-
-## 13. 그 외 (OSS / PostgreSQL)
-
-- OSS·`migrate:oss`·PostgreSQL·기능 체크리스트 등 **예전 긴 배포 문서**는 같은 폴더의 **`CHINA_DEPLOY_GUIDE.archive.md`** (백업본)을 연다.  
-- 일상 개발은 **`DEV_GUIDE.md`**.
-
----
-
-## 14. 재배포 스크립트
-
-레포 루트에서:
-
-```bash
-bash deploy/china-test/redeploy.sh
-```
-
-끝.
+서버에서 직접 수정한 추적 파일이 있으면 `git pull` 이 거부될 수 있습니다. `stash` / 정리 후 `pull`, 또는 필요한 파일만 `scp` 등으로 반영합니다.

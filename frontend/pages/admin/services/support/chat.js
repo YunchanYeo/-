@@ -3,6 +3,7 @@ import { wxRequestTransportOpts } from '../../../../services/_utils/wxRequestTra
 import { requestJson } from '../../../../services/_utils/http';
 import { getAdminToken } from '../session';
 import { resolveLocalUploadPath } from '../../../../services/_utils/resolveLocalUploadPath';
+import { rewriteLegacyDeploymentUrl } from '../../../../services/_utils/normalizeGoodsImageUrl';
 
 function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) {
   const token = getAdminToken();
@@ -31,7 +32,7 @@ function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) 
 
 export function normalizeChatMediaUrl(url) {
   if (!url) return '';
-  const s = String(url).trim();
+  const s = rewriteLegacyDeploymentUrl(String(url).trim());
   const base = config.apiBaseUrl.replace(/\/+$/, '');
   if (s.startsWith('/')) return `${base}${s}`;
   try {

@@ -1,37 +1,38 @@
 /**
  * ━━━ 배포·정식 도메인: docs/kr/DEPLOY_CN_WECHAT.md ━━━
- * ━━━ 폰 연결 체크리스트(복붙): docs/kr/SERVER_SYNC_AND_PATHS.md §6 ━━━
  * ━━━ 폰에서 서버 연결 — 직접 할 일(코드만으로 불가) ━━━
  * 1) https://mp.weixin.qq.com → 지금 쓰는小程序(아래 AppID와 반드시 동일) → 开发 → 开发设置 → 服务器域名
- *    → request合法域名에 호스트만(스킴 없이): hebibingtest.shop, 39-106-213-185.sslip.io, 39.106.213.185.nip.io
- *      (sslip/nip 은 폰 프로브 후보라 쓰면 반드시 등록; 미사용이면 생략 가능)
+ *    → request合法域名에 호스트만(스킴 없이): runtime.js 의 CLOUD_HTTPS_API_BASE 와 동일 호스트
  *    → 이미지 로드 실패 시 download合法域名에도 동일 호스트
  * 2) project.config.json 의 appid = 그小程序의 AppID (= backend/.env 의 WECHAT_APPID). 다르면 폰만 실패함.
  * 3) API 베이스는 config/runtime.js 가 단일 소스; 본 파일은 주로 areaData 등 대용량 포함
- * 4) 공인 IP 바뀌면 Caddyfile·runtime.js(CLOUD_*)·微信公众平台 도메인 모두 같이 수정
+ * 4) 공인 IP·도메인 바뀌면 TLS·runtime.js(CLOUD_*)·微信公众平台 도메인 모두 같이 수정
  * 5) 微信开发者工具: 清缓存 → 编译 → 预览 QR 새로 찍기
  * ━━━ 자동: 폰=iOS/Android → HTTPS 프로브, 시뮬레이터(devtools) → HTTP:3000 옵션 ━━━
  */
-/** 로컬에서 백엔드만 돌릴 때 true. 클라우드 서버 쓰면 false. */
-const USE_LOCAL_API = false;
-const LOCAL_API_BASE = 'http://127.0.0.1:3000';
+/** 로컬에서 백엔드만 돌릴 때 true. 클라우드 서버 쓰면 false. runtime.js 와 동일 유지 */
+const USE_LOCAL_API = true;
+/** backend `npm run gen:dev-tls` 후 HTTPS 리슨 — runtime.js 와 동일 */
+const LOCAL_API_BASE = 'https://127.0.0.1:3000';
 
 /**
- * null = 자동: 개발자도구(platform===devtools)는 HTTP:3000(sslip TLS 끊김 회피), 폰(ios/android 등)은 HTTPS sslip.
+ * null = 자동: 개발자도구(platform===devtools)는 HTTP:3000(本机), 폰(ios/android 등)은 HTTPS.
  * true/false 로 고정하고 싶으면 여기만 바꿈.
  */
 /** null: 개발자도구는 HTTP:3000, 실기는 HTTPS — runtime.js 와 동일 권장 */
 const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
 
-/** IP 각 옥텟을 하이픈으로: 39.106.213.185 → 39-106-213-185.sslip.io (Caddyfile·微信公众平台 과 동일) */
-const CLOUD_HTTPS_API_BASE = 'https://hebibingtest.shop';
+/** 主 HTTPS API 根（与 mp 后台 request 合法域名主机一致）。与 runtime.js 保持同步。 */
+const CLOUD_HTTPS_API_BASE = 'https://127.0.0.1:3000';
+/** 旧部署 origin 列表；与 runtime.js 的 CLOUD_LEGACY_API_ORIGINS 保持同步 */
+const CLOUD_LEGACY_API_ORIGINS = ['https://hebibingtest.shop', 'http://hebibingtest.shop'];
 /**
- * 비우면 위 sslip 주소 사용. 정식 도메인 전환 시 예: 'https://api.example.com' (끝 슬래시 없음).
- * 설정 후: Caddyfile에 해당 호스트 블록 추가·LE 인증서 발급,微信公众平台 request合法域名 동일 호스트, 재编译.
+ * 비우면 아래 CLOUD_HTTPS_API_BASE 사용. 임시로 다른 HTTPS 루트를 쓸 때만 예: 'https://api.example.com' (끝 슬래시 없음).
+ * 설정 후: mp 后台 request合法域名 동일 호스트, 재编译.
  */
 const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
 /** 백엔드 직접 URL(DB·업로드 경로에 남는 경우). 폰이 HTTPS 쓸 때 이미지 URL 치환에 사용 */
-const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
+const CLOUD_HTTP_API_BASE = 'http://127.0.0.1:3000';
 
 function getMiniProgramPlatform() {
     try {
@@ -97,6 +98,7 @@ export const config = {
     },
     /** 로컬 모드가 아니면 공인 HTTP 원점(항상 CLOUD_HTTP_API_BASE). 이미지·채팅 미디어 URL 리라이트용 */
     cloudServerHttpOrigin: USE_LOCAL_API ? '' : CLOUD_HTTP_API_BASE.replace(/\/+$/, ''),
+    legacyApiOrigins: CLOUD_LEGACY_API_ORIGINS,
     /**
      * 小程序「我的」客服热线等兜底：后端 `CUSTOMER_SERVICE_PHONE`（/api/app-config）未配置或请求失败时使用
      */

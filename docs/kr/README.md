@@ -6,9 +6,9 @@
 
 - 운영 가이드: `docs/kr/USER_GUIDE.md`
 - 개발 가이드: `docs/kr/DEV_GUIDE.md`
-- 중국·微信 ECS 배포(통합): **`docs/kr/DEPLOY_CN_WECHAT.md`**
+- 배포·微信 도메인 참고: **`docs/kr/DEPLOY_CN_WECHAT.md`**
+- **EC2 + 도메인 `hebibingtest.shop`:** **`docs/kr/DEPLOY_EC2_HEBIBINGTEST.md`** · 스택 파일 `deploy/ec2-al2023/`
 - **관리자 세션·이미지·OSS·계정 생성(최근 변경):** `docs/kr/ADMIN_MEDIA_SESSIONS.md`
-- (구) 긴 배포 백업: `docs/kr/CHINA_DEPLOY_GUIDE.archive.md`
 - 최적화 보고서: `docs/kr/OPTIMIZATION_REPORT.md`
 - 중국어 문서 인덱스: `docs/cn/README.md`
 
@@ -51,6 +51,7 @@
 frontend/   # 미니프로그램 (사용자/관리자 페이지)
 admin-web/  # React 관리자 웹
 backend/    # Express + SQLite API 서버
+deploy/     # 배포 안내 README (ECS 전용 compose 제거됨)
 docs/kr/    # 한국어 문서
 docs/cn/    # 중국어 문서
 ```

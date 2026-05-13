@@ -1,7 +1,7 @@
-# 정식 도메인(중국·微信) — 이 파일은 통합 문서로 옮겼습니다
+# 정식 도메인(중국·微信)
 
 **같은 내용이 아래에 포함되어 있습니다.**
 
-**[DEPLOY_CN_WECHAT.md](./DEPLOY_CN_WECHAT.md)** 의 **8. 정식 도메인** 절을 본다.
+**[DEPLOY_CN_WECHAT.md](./DEPLOY_CN_WECHAT.md)** 의 **7. 정식 도메인** 절을 참고하세요.
 
-Caddy 붙여 넣기용 파일: `deploy/china-test/caddy-snippet-custom-domain.txt`
+Caddy·nginx 등에 붙일 **사이트 블록**은 본인 서버 설정에 맞게 작성하면 됩니다(레포에 고정 스니펫은 두지 않음).

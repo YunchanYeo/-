@@ -3,6 +3,7 @@ import { requestJson } from '../_utils/http';
 import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
 import { getToken } from '../auth/session';
 import { fetchCouponList } from '../coupon/index';
+import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 function mockFetchUserCenter() {
     const { delay } = require('../_utils/delay');
     const { genUsercenter } = require('../../model/usercenter');
@@ -32,13 +33,8 @@ export function fetchUserCenter() {
             const hit = rows.find((x) => x.tabType === tabType);
             return Number(hit?.orderNum ?? 0);
         };
-        let avatarUrl = String(me.avatarUrl || '').trim();
-        if (avatarUrl.startsWith('http://'))
-            avatarUrl = `https://${avatarUrl.slice(7)}`;
-        if (avatarUrl.startsWith('/')) {
-            const base = config.apiBaseUrl.replace(/\/+$/, '');
-            avatarUrl = `${base}${avatarUrl}`;
-        }
+        /** 与 person-info 一致：相对路径·localhost·旧云地址统一到当前 apiBaseUrl；微信 CDN 由服务端 GET /me 转存为 /api/media/user-avatar/:id */
+        const avatarUrl = normalizeGoodsImageUrl(me.avatarUrl || '');
         return {
             userInfo: {
                 avatarUrl,

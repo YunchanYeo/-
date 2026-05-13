@@ -5,16 +5,18 @@
  * 微信公众平台 → 开发 → 开发管理 → 服务器域名 → request 合法域名 中配置（须备案域名，不能填裸 IP）。
  * 文档：https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html
  *
- * 与本仓库 Caddy 块对应、须在后台登记的主机示例（无 https://）:
- *   hebibingtest.shop, 39-106-213-185.sslip.io
- *   （`*.nip.io` 仅当 Caddy 已配且 mp 后台已登记时，再把 runtime.js 里 PHONE_PROBE_INCLUDE_AUTO_NIP 设为 true）
- * 运营核对清单: docs/kr/SERVER_SYNC_AND_PATHS.md §6
+ * 与本仓库 HTTPS 根对应、须在后台登记的主机示例（无 https://）:
+ *   备案域名等（sslip/nip 仅当已配 TLS 且 mp 后台已登记时使用）
+ *   （`*.nip.io` 仅当已配且 mp 后台已登记时，再把 runtime.js 里 PHONE_PROBE_INCLUDE_AUTO_NIP 设为 true）
+ * 运营核对: docs/kr/DEPLOY_CN_WECHAT.md
  *
- * 开发者工具：可勾选「不校验合法域名」时用 HTTP 直连 ECS:3000 调试（仅本地）。
+ * 开发者工具：可勾选「不校验合法域名」时用 HTTP 直连 CLOUD_HTTP_API_BASE 调试（仅本地）。
  */
 
-const USE_LOCAL_API = false;
-const LOCAL_API_BASE = 'http://127.0.0.1:3000';
+/** true: API·미디어 URL 모두 `LOCAL_API_BASE`（백엔드 `npm run start`）. 云服务器停用時 로컬만 쓸 때 true */
+const USE_LOCAL_API = true;
+/** 로컬 TLS（backend `npm run gen:dev-tls`）사용 시 https — 위챗 wx-image 는 HTTP URL 차단 */
+const LOCAL_API_BASE = 'https://127.0.0.1:3000';
 
 /**
  * null: 按平台规则。
@@ -23,13 +25,22 @@ const LOCAL_API_BASE = 'http://127.0.0.1:3000';
 const CLOUD_USE_HTTPS_OVERRIDE = /** @type {boolean | null} */ (null);
 
 /**
- * true: 开发者工具优先走 HTTPS（海外网络常连不上国内 ECS 公网 3000）。
+ * true: 开发者工具优先走 HTTPS（本机 HTTP:3000 不可达时可试）。
  * false: 开发者工具走 CLOUD_HTTP_API_BASE（须关闭域名校验且本机能访问 3000）。
  */
 const DEVTOOLS_USE_CLOUD_HTTPS = true;
 
-/** 主 HTTPS API 根（须与 mp 后台 request 合法域名中的主机一致，无路径无端口） */
-const CLOUD_HTTPS_API_BASE = 'https://hebibingtest.shop';
+/**
+ * 主 HTTPS API 根（须与 mp 后台 request 合法域名中的主机一致，无路径无端口）。
+ * 로컬 TLS 시 반드시 https — 잘못 쓰면 devtools 가 HTTP 먼저 프로브해 ERR_EMPTY_RESPONSE.
+ */
+const CLOUD_HTTPS_API_BASE = 'https://127.0.0.1:3000';
+
+/** 旧公网部署完整 origin；DB·客服消息里的完整 URL 域名을 normalizeGoodsImageUrl 이 현재 apiBaseUrl 로 치환 */
+const CLOUD_LEGACY_API_ORIGINS = /** @type {string[]} */ ([
+  'https://hebibingtest.shop',
+  'http://hebibingtest.shop',
+]);
 
 /** 覆盖主地址（排查时临时指向 sslip 等，须同期在 mp 后台登记该域名） */
 const CLOUD_HTTPS_API_BASE_OVERRIDE = '';
@@ -46,8 +57,8 @@ const CLOUD_HTTPS_FALLBACK_BASE = '';
  */
 const PHONE_PROBE_INCLUDE_AUTO_NIP = false;
 
-/** 直连后端 HTTP（仅开发者工具 + 关闭域名校验；真机预览不可用） */
-const CLOUD_HTTP_API_BASE = 'http://39.106.213.185:3000';
+/** 直连后端 HTTP（仅开发者工具 + 关闭域名校验；真机预览不可用）。公网 IP:3000 填此处时可推导 sslip 探测链。 */
+const CLOUD_HTTP_API_BASE = 'http://127.0.0.1:3000';
 
 /**
  * 运行环境 platform（devtools / ios / android …）
@@ -70,15 +81,17 @@ export function getMiniProgramPlatform() {
     return '';
 }
 
-function parseEcsPublicIpFromHttpBase() {
+function parsePublicIpFromHttpBase() {
   const raw = String(CLOUD_HTTP_API_BASE || '');
   const m = raw.match(/^https?:\/\/([\d.]+)(?::\d+)?/);
-  return m ? m[1] : '';
+  const ip = m ? m[1] : '';
+  if (!ip || ip === '127.0.0.1' || ip === '0.0.0.0') return '';
+  return ip;
 }
 
-/** 由 ECS 公网 IP 推导 sslip HTTPS（须在 mp 登记 request 域名） */
+/** 由 CLOUD_HTTP_API_BASE 中的公网 IPv4 推导 sslip HTTPS（须在 mp 登记 request 域名） */
 function getAutoSslipHttpsBase() {
-  const ip = parseEcsPublicIpFromHttpBase();
+  const ip = parsePublicIpFromHttpBase();
   if (!ip) return '';
   const octets = ip.split('.');
   if (octets.length !== 4) return '';
@@ -87,7 +100,7 @@ function getAutoSslipHttpsBase() {
 
 /** 由同一 IP 推导 nip.io HTTPS（DNS·后台均须可用时再作为候选） */
 function getAutoNipHttpsBase() {
-  const ip = parseEcsPublicIpFromHttpBase();
+  const ip = parsePublicIpFromHttpBase();
   if (!ip) return '';
   return `https://${ip}.nip.io`.replace(/\/+$/, '');
 }
@@ -114,6 +127,10 @@ export function setSessionApiBaseUrl(url) {
 }
 
 export function getDevtoolsProbeBaseUrls() {
+  /** 로컬 HTTPS 전용 백엔드：HTTP 프로브는 무의미·로그만 오염 → HTTPS 만 시도 */
+  if (USE_LOCAL_API && /^https:\/\//i.test(String(LOCAL_API_BASE || '').trim())) {
+    return [String(LOCAL_API_BASE || '').trim().replace(/\/+$/, '')];
+  }
   const h = getCloudHttpsApiBase();
   const p = CLOUD_HTTP_API_BASE.replace(/\/+$/, '');
   return DEVTOOLS_USE_CLOUD_HTTPS ? [h, p] : [p, h];
@@ -143,6 +160,8 @@ export function getAlternateApiBaseForDevtools(currentBase) {
   } catch (_) {
     return '';
   }
+  /** 로컬 TLS：백엔드가 HTTPS 만 리슨 → HTTP 로 폴백 금지 */
+  if (USE_LOCAL_API && /^https:\/\//i.test(String(LOCAL_API_BASE || '').trim())) return '';
   const cur = String(currentBase || '').trim().replace(/\/+$/, '');
   const h = getCloudHttpsApiBase();
   const p = CLOUD_HTTP_API_BASE.replace(/\/+$/, '');
@@ -284,6 +303,8 @@ export const config = {
     return resolveCloudUseHttpsNip() ? getCloudHttpsApiBase() : CLOUD_HTTP_API_BASE;
   },
   cloudServerHttpOrigin: USE_LOCAL_API ? '' : CLOUD_HTTP_API_BASE.replace(/\/+$/, ''),
+  /** @type {string[]} 弃用域名列表：normalizeGoodsImageUrl / normalizeChatMediaUrl 会把同路径挂到当前 apiBaseUrl */
+  legacyApiOrigins: CLOUD_LEGACY_API_ORIGINS,
   customerServicePhone: '13331637172',
 };
 

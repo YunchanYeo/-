@@ -1,7 +1,7 @@
-# 중국(阿里云) 배포 가이드 — 이 파일은 통합 문서로 옮겼습니다
+# 중국·微信 배포 안내 — 통합 문서
 
-**여기를 여세요 (한 파일 통합본):**
+**한 파일로 정리된 배포·도메인 참고:**
 
 **[DEPLOY_CN_WECHAT.md](./DEPLOY_CN_WECHAT.md)**
 
-예전 긴 버전(백업): [CHINA_DEPLOY_GUIDE.archive.md](./CHINA_DEPLOY_GUIDE.archive.md)
+(과거 ECS 전용 `deploy/china-test`·경로 문서는 저장소에서 제거되었습니다.)

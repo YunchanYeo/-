@@ -27,16 +27,14 @@
 
 ### 修改 `.env` 后让线上后端生效（Docker Compose）
 
-`deploy/china-test/docker-compose.yml` 使用 **`env_file: ../../backend/.env`**，变量在**容器创建时**注入；改完服务器上的 `backend/.env` 后请重建后端容器，例如：
+若使用 Docker：在自行编写的 `docker-compose.yml` 中为 backend 配置 **`env_file: ../../backend/.env`**（路径按实际 compose 文件位置调整），变量在**创建容器时**注入；修改服务器上的 `backend/.env` 后请重建后端容器，例如：
 
 ```bash
-cd <레포>/deploy/china-test
+cd <compose 所在目录>
 docker compose up -d --no-deps --force-recreate backend
 ```
 
-从本机同步：可用 `bash deploy/china-test/push-from-mac.sh`（上传 `.env` 并 compose）。
-
-运维说明（含「多个 `china-test` 目录时如何确认」）：`docs/kr/DEPLOY_CN_WECHAT.md` 第 5 节补充小节。
+运维与微信域名说明见 **`docs/kr/DEPLOY_CN_WECHAT.md`**。
 
 ### 自检：商户签名是否被微信支付接受（不下单）
 

@@ -61,6 +61,26 @@ function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
         });
     return run(config.apiBaseUrl, 0);
 }
+/**
+ * 로그인 직후 getUserProfile 으로 받은 닉·아바타를 PUT /api/me 로 반영（code2session 직후 COALESCE 만으로 닉이 비는 경우 보완）
+ * @param {string} token
+ * @param {{ nickName?: string; avatarUrl?: string; gender?: number }} profile
+ */
+async function syncProfileToMeAfterLogin(token, profile) {
+    if (!token || !profile)
+        return;
+    const nk = String(profile.nickName ?? '').trim();
+    const av = String(profile.avatarUrl ?? '').trim();
+    if (!nk && !av)
+        return;
+    const data = { gender: Number(profile.gender || 0) };
+    if (nk)
+        data.nickName = nk;
+    if (av)
+        data.avatarUrl = av;
+    const me = await requestAuth('/api/me', { method: 'PUT', data, token });
+    setUser(me);
+}
 async function trySyncWeChatProfileSilently(token) {
     if (!token)
         return;
@@ -168,6 +188,12 @@ export async function loginWithWeChat(userInfo = null) {
     }
     setToken(data.token);
     setUser(data.user);
+    if (userInfo && (String(userInfo.nickName || '').trim() || String(userInfo.avatarUrl || '').trim())) {
+        try {
+            await syncProfileToMeAfterLogin(data.token, userInfo);
+        }
+        catch (_) { /* 登录已成功 */ }
+    }
     await trySyncWeChatProfileSilently(data.token);
     await prefetchUserBootstrapData(data.token);
     return data;
@@ -191,10 +217,34 @@ export async function bindPhoneByWeChatCode(phoneCode) {
     return data?.user || null;
 }
 
-export async function oneClickLoginByWeChatPhoneCode(phoneCode) {
+/**
+ * 一键登录：须在同一用户手势栈内先发起 `getUserProfile`（由页面同步 `new Promise` 创建），再传入 `profilePromise`。
+ * 若先 `await wx.login` 再调 `getUserProfile`，真机上常因非直接触摸导致头像昵称授权失败。
+ * @param {string} phoneCode getPhoneNumber 返回的 code
+ * @param {{ profilePromise?: Promise<{ userInfo?: { nickName?: string; avatarUrl?: string; gender?: number } }> }} [opts]
+ */
+export async function oneClickLoginByWeChatPhoneCode(phoneCode, opts = {}) {
     const code = String(phoneCode || '').trim();
     if (!code)
         throw new Error('missing phone code');
+    let userInfo;
+    const profilePromise = opts.profilePromise;
+    if (profilePromise) {
+        try {
+            const profileRes = await profilePromise;
+            const u = profileRes?.userInfo || {};
+            if (u.nickName || u.avatarUrl) {
+                userInfo = {
+                    nickName: String(u.nickName || ''),
+                    avatarUrl: String(u.avatarUrl || ''),
+                    gender: Number(u.gender || 0),
+                };
+            }
+        }
+        catch (_) {
+            /* 用户拒绝头像昵称：仍完成手机号一键登录 */
+        }
+    }
     const loginRes = await new Promise((resolve, reject) => {
         wx.login({ timeout: 8000, success: resolve, fail: (err) => reject(new Error(err?.errMsg || 'wx.login failed')) });
     });
@@ -212,6 +262,7 @@ export async function oneClickLoginByWeChatPhoneCode(phoneCode) {
         data: {
             loginCode: loginRes.code,
             phoneCode: code,
+            ...(userInfo ? { userInfo } : {}),
             miniProgramInfo: accountInfo
                 ? { appId: accountInfo?.miniProgram?.appId || '', envVersion: accountInfo?.miniProgram?.envVersion || '', version: accountInfo?.miniProgram?.version || '' }
                 : undefined,
@@ -219,6 +270,12 @@ export async function oneClickLoginByWeChatPhoneCode(phoneCode) {
     });
     setToken(data.token);
     setUser(data.user);
+    if (userInfo && (String(userInfo.nickName || '').trim() || String(userInfo.avatarUrl || '').trim())) {
+        try {
+            await syncProfileToMeAfterLogin(data.token, userInfo);
+        }
+        catch (_) { /* 一键登录已成功 */ }
+    }
     await trySyncWeChatProfileSilently(data.token);
     await prefetchUserBootstrapData(data.token);
     return data;

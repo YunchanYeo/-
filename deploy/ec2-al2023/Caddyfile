@@ -1,0 +1,12 @@
+# TLS: Let's Encrypt (HTTP-01). EC2 보안 그룹에서 80·443 인바운드 필요.
+# 도메인만 바꿔도 됩니다. www 를 쓰려면 아래 주석 블록 참고.
+
+hebibingtest.shop {
+	encode gzip
+	reverse_proxy admin-web:80
+}
+
+# www → apex (선택)
+# www.hebibingtest.shop {
+# 	redir https://hebibingtest.shop{uri} permanent
+# }

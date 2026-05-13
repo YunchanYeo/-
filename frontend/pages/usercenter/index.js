@@ -97,6 +97,23 @@ function hasRealProfile(userInfo) {
     const hasAvatar = !!avatar && !/icon-user-center-avatar/i.test(avatar);
     return hasRealNick || hasAvatar;
 }
+/** wx.chooseAddress 成功回调统一为「微信通讯地址」字段（勿用头像昵称兜底收件人） */
+function normalizeChooseAddressPayload(res) {
+    if (!res || typeof res !== 'object')
+        return null;
+    const r = res.detail && typeof res.detail === 'object' ? res.detail : res;
+    const userName = String(r.userName ?? r.username ?? r.name ?? '').trim();
+    const telNumber = String(r.telNumber ?? r.phoneNumber ?? r.mobile ?? '').replace(/\s/g, '');
+    return {
+        userName,
+        telNumber,
+        provinceName: String(r.provinceName ?? '').trim(),
+        cityName: String(r.cityName ?? '').trim(),
+        countyName: String(r.countyName ?? r.countryName ?? '').trim(),
+        detailInfo: String(r.detailInfo ?? r.detailAddress ?? '').trim(),
+        nationalCode: String(r.nationalCode ?? '').trim(),
+    };
+}
 Page({
     data: getDefaultData(),
     onLoad() {
@@ -292,24 +309,15 @@ Page({
             return;
         }
         try {
-            // 单次请求完成：wx.login(code2session) + getPhoneNumber(手机号) + token 下发
-            await oneClickLoginByWeChatPhoneCode(phoneCode);
-            // 一键登录 완료 후 곧바로 프로필(닉네임/아바타) 동의까지 같이 진행
-            try {
-                const profileRes = await new Promise((resolve, reject) => {
-                    wx.getUserProfile({ desc: '用于完善会员资料（头像昵称）', success: resolve, fail: reject });
+            // 必须在 getPhoneNumber 回调内**同步**发起 getUserProfile，再 await 网络；否则真机常报「非用户触摸」导致头像昵称为空。
+            const profilePromise = new Promise((resolve, reject) => {
+                wx.getUserProfile({
+                    desc: '一键登录：同步授权手机号与头像昵称',
+                    success: resolve,
+                    fail: reject,
                 });
-                const userInfo = profileRes?.userInfo || {};
-                if (userInfo?.nickName || userInfo?.avatarUrl) {
-                    await requestJson('/api/me', {
-                        method: 'PUT',
-                        data: { nickName: userInfo.nickName || '', avatarUrl: userInfo.avatarUrl || '', gender: Number(userInfo.gender || 0) },
-                    });
-                }
-            }
-            catch (_) {
-                // 用户拒绝头像昵称授权也允许继续完成手机号登录
-            }
+            });
+            await oneClickLoginByWeChatPhoneCode(phoneCode, { profilePromise });
             await this.fetUseriInfoHandle();
             Toast({
                 context: this,
@@ -363,7 +371,6 @@ Page({
                 await requestJson('/api/me', { method: 'PUT', data: { phoneNumber: finalPhone } });
             }
             await this.syncAddressFromWechat(wechatAddress, {
-                fallbackName: userInfo.nickName || '微信用户',
                 fallbackPhone: finalPhone,
             });
             this.fetUseriInfoHandle();
@@ -390,19 +397,33 @@ Page({
             });
         }
     },
-    pickWechatAddress() {
+    async pickWechatAddress() {
+        const { getPermission } = require('../user/components/utils/getPermission');
+        await getPermission({ code: 'scope.address', name: '通讯地址' });
         return new Promise((resolve, reject) => {
             wx.chooseAddress({
-                success: resolve,
+                success(res) {
+                    const msg = String(res.errMsg || '');
+                    if (msg && !msg.includes(':ok')) {
+                        reject(new Error(msg));
+                        return;
+                    }
+                    const out = normalizeChooseAddressPayload(res);
+                    if (out && (out.userName || out.telNumber))
+                        resolve(out);
+                    else
+                        reject(new Error('empty address'));
+                },
                 fail: reject,
             });
         });
     },
-    async syncAddressFromWechat(address, { fallbackName = '', fallbackPhone = '' } = {}) {
+    /** 收件人·手机仅来自微信通讯地址；手机号绑定可用 fallbackPhone 补全 */
+    async syncAddressFromWechat(address, { fallbackPhone = '' } = {}) {
         if (!address)
             return;
-        const name = String(address.userName || fallbackName || '').trim();
-        const phone = String(address.telNumber || fallbackPhone || '').trim();
+        const name = String(address.userName || '').trim();
+        const phone = String(address.telNumber || fallbackPhone || '').replace(/\s/g, '');
         if (!name || !phone)
             return;
         const existing = await requestJson('/api/addresses', { method: 'GET' }).catch(() => []);

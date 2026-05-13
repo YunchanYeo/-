@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bootstrapAdminIfDbEmpty, syncAdminPasswordFromEnvOnStart } from './adminBootstrap';
@@ -86,7 +88,35 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 const listenHost = process.env.LISTEN_HOST || '0.0.0.0';
-app.listen(port, listenHost, () => {
-  console.log(`[backend] listening on http://${listenHost}:${port}`);
-});
+
+const defaultTlsKey = path.join(__dirname, '..', 'certs', 'dev-local', 'key.pem');
+const defaultTlsCert = path.join(__dirname, '..', 'certs', 'dev-local', 'cert.pem');
+const tlsKeyPath = String(process.env.TLS_KEY_FILE || '').trim() || defaultTlsKey;
+const tlsCertPath = String(process.env.TLS_CERT_FILE || '').trim() || defaultTlsCert;
+
+function startHttpFallback() {
+  http.createServer(app).listen(port, listenHost, () => {
+    console.log(`[backend] listening on http://${listenHost}:${port}`);
+    console.warn(
+      '[backend] 小程序组件图若报「不支持 HTTP」：npm run gen:dev-tls 生成 certs/dev-local/*.pem 后重启（README 同目录）',
+    );
+  });
+}
+
+if (fs.existsSync(tlsKeyPath) && fs.existsSync(tlsCertPath)) {
+  try {
+    const tlsOpts = {
+      key: fs.readFileSync(tlsKeyPath),
+      cert: fs.readFileSync(tlsCertPath),
+    };
+    https.createServer(tlsOpts, app).listen(port, listenHost, () => {
+      console.log(`[backend] listening on https://${listenHost}:${port} (TLS cert: ${tlsCertPath})`);
+    });
+  } catch (e) {
+    console.error('[backend] TLS load failed, falling back to HTTP:', e);
+    startHttpFallback();
+  }
+} else {
+  startHttpFallback();
+}
 

@@ -15,7 +15,9 @@
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
     "probe:wechat-pay": "tsx src/scripts/probeWechatPay.ts",
     "migrate:pg": "tsx src/scripts/migrateSqliteToPostgres.ts",
-    "migrate:oss": "tsx src/scripts/migrateUploadsToOss.ts"
+    "migrate:oss": "tsx src/scripts/migrateUploadsToOss.ts",
+    "gen:dev-tls": "bash scripts/gen-dev-local-tls.sh",
+    "db:strip-legacy-host": "tsx src/scripts/stripLegacyChatUrls.ts"
   },
   "dependencies": {
     "ali-oss": "^6.23.0",
