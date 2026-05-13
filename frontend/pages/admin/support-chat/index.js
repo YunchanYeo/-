@@ -9,6 +9,7 @@ import {
   enrichSupportMessages,
   normalizeChatMediaUrl,
 } from '../services/support/chat';
+import { getAdminToken } from '../../../services/admin/session';
 import {
   initRecorderRuntime,
   stopAudioRuntime,
@@ -52,6 +53,13 @@ Page({
   noop() {},
 
   onLoad() {
+    if (!getAdminToken()) {
+      wx.showToast({ title: '请先登录管理账号', icon: 'none', duration: 1800 });
+      setTimeout(() => {
+        wx.redirectTo({ url: '/pages/admin/login/index' });
+      }, 600);
+      return;
+    }
     initRecorderRuntime(this, {
       onValidStop: (tempFilePath, durationMs) => {
         const uid = this.data.activeUserId;
@@ -62,6 +70,9 @@ Page({
   },
 
   onShow() {
+    if (!getAdminToken()) {
+      return;
+    }
     if (this._timer) {
       clearInterval(this._timer);
       this._timer = null;
@@ -115,6 +126,9 @@ Page({
   },
 
   async refresh() {
+    if (!getAdminToken()) {
+      return;
+    }
     try {
       const rows = await listAdminSupportConversations();
       const conversations = Array.isArray(rows) ? rows : [];
@@ -136,7 +150,11 @@ Page({
           wx.nextTick(() => this.scrollToBottom([]));
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      const raw = e?.message || e?.errMsg || String(e || '');
+      const msg = raw && raw.length > 56 ? `${raw.slice(0, 56)}…` : (raw || '客服列表加载失败');
+      Toast({ context: this, selector: '#t-toast', message: msg, icon: '', duration: 2600 });
+    }
   },
 
   async onSelectConversation(e) {

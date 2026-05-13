@@ -2,6 +2,7 @@ import { config } from '../../../config/runtime';
 import { requestJson } from '../../../services/_utils/http';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 import { getUser } from '../../../services/auth/session';
+import { displayNameForUserCenter } from '../../../services/usercenter/displayNameForUserCenter';
 function mockFetchPerson() {
     const { delay } = require('../../../services/_utils/delay');
     const { genSimpleUserInfo } = require('../../../model/usercenter');
@@ -30,7 +31,9 @@ export function fetchPerson() {
             const b = String(fromStore ?? '').trim();
             return b || '';
         };
-        const nickName = pickStr(apiMe.nickName, stored.nickName) || '微信用户';
+        const nickRaw = pickStr(apiMe.nickName, stored.nickName);
+        const phoneRaw = pickStr(apiMe.phoneNumber, stored.phoneNumber);
+        const nickName = displayNameForUserCenter(nickRaw, phoneRaw);
         const avatarUrl = normalizeGoodsImageUrl(pickStr(apiMe.avatarUrl, stored.avatarUrl) || '');
         return {
             avatarUrl,

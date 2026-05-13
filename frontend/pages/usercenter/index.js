@@ -1,7 +1,9 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { getToken, oneClickLoginByWeChatPhoneCode, loginWithWeChat } from '../../services/auth/session';
+import { getToken, getUser, oneClickLoginByWeChatPhoneCode, loginWithWeChat } from '../../services/auth/session';
 import { requestJson } from '../../services/_utils/http';
+import { normalizeGoodsImageUrl } from '../../services/_utils/normalizeGoodsImageUrl';
+import { displayNameForUserCenter } from '../../services/usercenter/displayNameForUserCenter';
 const menuData = [
     [
         {
@@ -93,9 +95,10 @@ const getDefaultData = () => ({
 function hasRealProfile(userInfo) {
     const nick = String(userInfo?.nickName || '').trim();
     const avatar = String(userInfo?.avatarUrl || '').trim();
+    const phone = String(userInfo?.phoneNumber || '').trim();
     const hasRealNick = !!nick && nick !== '微信用户';
     const hasAvatar = !!avatar && !/icon-user-center-avatar/i.test(avatar);
-    return hasRealNick || hasAvatar;
+    return hasRealNick || hasAvatar || /^1\d{10}$/.test(phone);
 }
 /** wx.chooseAddress 成功回调统一为「微信通讯地址」字段（勿用头像昵称兜底收件人） */
 function normalizeChooseAddressPayload(res) {
@@ -129,6 +132,23 @@ Page({
     onPullDownRefresh() {
         this.init();
     },
+    /** 个人中心顶部：从 auth.user（刚登录写入）立刻铺到界面，再等服务端 fetchUserCenter */
+    applyHeaderFromStoredUser() {
+        const me = getUser();
+        if (!me || typeof me !== 'object' || !getToken()) {
+            return;
+        }
+        const phone = String(me.phoneNumber || '').replace(/\s/g, '').trim();
+        const nick = String(me.nickName || '').trim();
+        this.setData({
+            userInfo: {
+                avatarUrl: normalizeGoodsImageUrl(String(me.avatarUrl || '')),
+                nickName: displayNameForUserCenter(nick, phone),
+                phoneNumber: phone,
+            },
+            currAuthStep: 3,
+        });
+    },
     init() {
         this.fetUseriInfoHandle();
     },
@@ -154,9 +174,9 @@ Page({
                     ...v,
                     ...orderInfo[index],
                 }));
-                /** 已登录但 DB 에 아바타·닉네임 없음 → 2(资料待完善). 무토큰만 1(请登录). 잘못 1로 두면 로그인 후에도 상단이 미로그인 UI 로 남음 */
+                /** 已登录：个人中心统一用「已登录」资料卡（头像昵称以 DB+GET/me 为准，避免 step2 空白感） */
                 const loggedIn = !!getToken();
-                const currAuthStep = !loggedIn ? 1 : (hasWechatProfile ? 3 : 2);
+                const currAuthStep = !loggedIn ? 1 : 3;
                 this.setData({
                     userInfo,
                     menuData: nextMenu,
@@ -166,6 +186,10 @@ Page({
                 });
             })
             .catch(() => {
+                if (getToken()) {
+                    this.applyHeaderFromStoredUser();
+                    return;
+                }
                 const resetData = getDefaultData();
                 resetData.userInfo = { avatarUrl: '', nickName: '', phoneNumber: '' };
                 resetData.currAuthStep = 1;
@@ -352,6 +376,7 @@ Page({
                 avatarUrl: userInfo.avatarUrl || '',
                 gender: Number(userInfo.gender || 0),
             });
+            this.applyHeaderFromStoredUser();
             if (!hasRealProfile(userInfo) && !hasRealProfile(loginData?.user || {})) {
                 Toast({
                     context: this,

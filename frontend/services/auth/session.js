@@ -100,6 +100,26 @@ async function trySyncWeChatProfileSilently(token) {
     }
     catch (e) { }
 }
+/**
+ * 로그인·PUT /api/me 직후 DB와 동일한 프로필을 스토리지에 맞춤（个人中心 즉시 반영용）
+ * @returns {Promise<Record<string, unknown>|null>}
+ */
+export async function refreshSessionProfileFromServer() {
+    const token = getToken();
+    if (!token)
+        return null;
+    try {
+        const me = await requestAuth('/api/me', { method: 'GET', token });
+        if (me && typeof me === 'object') {
+            setUser(me);
+            return me;
+        }
+    }
+    catch (e) {
+        console.warn('[refreshSessionProfileFromServer]', e);
+    }
+    return null;
+}
 async function prefetchUserBootstrapData(token) {
     if (!token)
         return;
@@ -198,6 +218,7 @@ export async function loginWithWeChat(userInfo = null) {
     }
     await trySyncWeChatProfileSilently(data.token);
     await prefetchUserBootstrapData(data.token);
+    await refreshSessionProfileFromServer();
     return data;
 }
 export async function bindPhoneByWeChatCode(phoneCode) {
@@ -216,6 +237,7 @@ export async function bindPhoneByWeChatCode(phoneCode) {
         setUser(data.user);
     }
     await prefetchUserBootstrapData(token);
+    await refreshSessionProfileFromServer();
     return data?.user || null;
 }
 
@@ -280,6 +302,7 @@ export async function oneClickLoginByWeChatPhoneCode(phoneCode, opts = {}) {
     }
     await trySyncWeChatProfileSilently(data.token);
     await prefetchUserBootstrapData(data.token);
+    await refreshSessionProfileFromServer();
     return data;
 }
 export async function ensureAuthSession(options = {}) {
@@ -296,6 +319,7 @@ export async function ensureAuthSession(options = {}) {
             setUser(me);
             await trySyncWeChatProfileSilently(token);
             await prefetchUserBootstrapData(token);
+            await refreshSessionProfileFromServer();
             return me;
         }
         catch (e) {
@@ -320,5 +344,6 @@ export async function syncUserProfileByWeChat() {
     });
     setUser(me);
     await prefetchUserBootstrapData(getToken());
+    await refreshSessionProfileFromServer();
     return me;
 }

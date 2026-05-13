@@ -883,6 +883,27 @@ Page({
         wx.navigateTo({ url: '/pages/admin/point-settings/index' });
     },
     gotoSupportChat() {
-        wx.navigateTo({ url: '/pages/admin/support-chat/index' });
+        const go = () => {
+            wx.navigateTo({
+                url: '/pages/admin/support-chat/index',
+                fail: (err) => {
+                    wx.showToast({
+                        title: String(err?.errMsg || '无法打开客服页'),
+                        icon: 'none',
+                        duration: 2500,
+                    });
+                },
+            });
+        };
+        if (typeof wx.loadSubpackage === 'function') {
+            wx.loadSubpackage({
+                name: 'admin',
+                success: go,
+                fail: go,
+            });
+        }
+        else {
+            go();
+        }
     },
 });

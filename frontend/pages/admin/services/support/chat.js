@@ -1,33 +1,39 @@
 import { config, ensurePhoneApiSessionBase } from '../../../../config/runtime';
 import { wxRequestTransportOpts } from '../../../../services/_utils/wxRequestTransport';
 import { requestJson } from '../../../../services/_utils/http';
-import { getAdminToken } from '../session';
+import { getAdminToken } from '../../../../services/admin/session';
 import { resolveLocalUploadPath } from '../../../../services/_utils/resolveLocalUploadPath';
 import { rewriteLegacyDeploymentUrl } from '../../../../services/_utils/normalizeGoodsImageUrl';
 
 function requestAdminJson(path, { method = 'GET', data, timeout = 10000 } = {}) {
   const token = getAdminToken();
-  return new Promise((resolve, reject) => {
-    wx.request({
-      ...wxRequestTransportOpts,
-      url: `${config.apiBaseUrl}${path}`,
-      method,
-      data,
-      timeout,
-      header: {
-        'content-type': 'application/json',
-        ...(token ? { 'x-admin-token': token } : {}),
-      },
-      success(res) {
-        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(res.data?.message || `HTTP ${res.statusCode}`));
-        if (!res.data?.ok) return reject(new Error(res.data?.message || 'Admin API failed'));
-        return resolve(res.data.data);
-      },
-      fail(err) {
-        reject(err);
-      },
-    });
-  });
+  return ensurePhoneApiSessionBase({ timeoutMs: Math.min(12000, timeout) })
+    .catch(() => {})
+    .then(
+      () =>
+        new Promise((resolve, reject) => {
+          wx.request({
+            ...wxRequestTransportOpts,
+            url: `${config.apiBaseUrl}${path}`,
+            method,
+            data,
+            timeout,
+            header: {
+              'content-type': 'application/json',
+              ...(token ? { 'x-admin-token': token } : {}),
+            },
+            success(res) {
+              if (res.statusCode < 200 || res.statusCode >= 300)
+                return reject(new Error(res.data?.message || `HTTP ${res.statusCode}`));
+              if (!res.data?.ok) return reject(new Error(res.data?.message || 'Admin API failed'));
+              return resolve(res.data.data);
+            },
+            fail(err) {
+              reject(err);
+            },
+          });
+        }),
+    );
 }
 
 export function normalizeChatMediaUrl(url) {
