@@ -52,7 +52,7 @@ Page({
         }
         const currentVersion = getProductDataVersion();
         if (this._lastProductVersion && this._lastProductVersion !== currentVersion) {
-            this.loadGoodsList(true);
+            void this.loadGoodsList(true, { softRefresh: true });
         }
         this._lastProductVersion = currentVersion;
     },
@@ -101,31 +101,49 @@ Page({
         this.setData({ scrollTop: Number(e?.scrollTop || 0) });
     },
     onPullDownRefresh() {
-        this.init();
+        void this.loadHomePage();
     },
     init() {
-        this.loadHomePage();
+        void this.loadHomePage();
     },
     async loadHomePage() {
-        wx.stopPullDownRefresh();
+        if (this._homeReloadLock) {
+            wx.stopPullDownRefresh();
+            return;
+        }
+        this._homeReloadLock = true;
+        const savedTabKey = this.privateData.tabKey;
+        const savedTabIndex = this.privateData.tabIndex;
+        let tabsSnapshot = this.data.tabList || [];
+        let tabKeySnapshot = savedTabKey;
         this.setData({
             pageLoading: true,
         });
         try {
             const { swiper, tabList, hotProducts = [] } = await fetchHome();
             const hotTitle = hotProducts[0]?.title || '';
+            tabsSnapshot = tabList || [];
+            let chosenTab = tabsSnapshot.find((t) => t?.key === savedTabKey);
+            if (!chosenTab && Number.isInteger(savedTabIndex) && savedTabIndex >= 0 && savedTabIndex < tabsSnapshot.length)
+                chosenTab = tabsSnapshot[savedTabIndex];
+            if (!chosenTab)
+                chosenTab = tabsSnapshot[0] || null;
+            tabKeySnapshot = chosenTab?.key ?? 0;
+            const chosenIdx = chosenTab ? Math.max(0, tabsSnapshot.indexOf(chosenTab)) : 0;
+            this.privateData.tabIndex = chosenIdx;
+            this.privateData.tabKey = tabKeySnapshot;
             this.setData({
-                tabList,
+                tabList: tabsSnapshot,
                 imgSrcs: swiper,
                 hotProducts,
                 searchPlaceholder: hotTitle ? `热销：${hotTitle}` : '搜索',
             });
-            const firstTab = (tabList || [])[0] || null;
-            this.privateData.tabIndex = 0;
-            this.privateData.tabKey = firstTab?.key ?? 0;
         }
         catch (err) {
             // 홈 상단 데이터가 실패해도 상품 목록 로딩은 계속 진행합니다.
+            tabsSnapshot = [];
+            tabKeySnapshot = savedTabKey;
+            this.privateData.tabKey = tabKeySnapshot;
             this.setData({
                 tabList: [],
                 imgSrcs: [],
@@ -137,15 +155,36 @@ Page({
             this.setData({
                 pageLoading: false,
             });
-            this.loadGoodsList(true);
+        }
+        try {
+            // 당겨 새로고침: tabList setData 직후 this.data 가 아직 옛값일 수 있어 스냅샷 사용.
+            // t-tabs 가 tabList 갱신 시 change 를 쏴도 _homeReloadLock 으로 tabChangeHandle 이 목록을 비우지 않음.
+            await this.loadGoodsList(true, {
+                softRefresh: true,
+                tabsSnapshot,
+                tabKeySnapshot,
+            });
+        }
+        finally {
+            this._homeReloadLock = false;
+            wx.stopPullDownRefresh();
         }
     },
     tabChangeHandle(e) {
-        const selected = this.resolveSelectedTab(e?.detail);
+        if (this._homeReloadLock)
+            return;
         const tabs = this.data.tabList || [];
+        if (!tabs.length)
+            return;
+        const selected = this.resolveSelectedTab(e?.detail);
+        if (!selected)
+            return;
         const selectedIndex = Math.max(0, tabs.findIndex((t) => t?.key === selected?.key));
+        if (selected.key === this.privateData.tabKey && selectedIndex === this.privateData.tabIndex) {
+            return;
+        }
         this.privateData.tabIndex = selectedIndex;
-        this.privateData.tabKey = selected?.key;
+        this.privateData.tabKey = selected.key;
         // 탭 변경 시 빈 상태/없음 안내가 남지 않게 리스트와 상태를 즉시 리셋
         this.setData({ goodsList: [], goodsListLoadStatus: 0 });
         this.goodListPagination.index = 0;
@@ -154,29 +193,35 @@ Page({
     onReTry() {
         this.loadGoodsList();
     },
-    async loadGoodsList(fresh = false) {
+    async loadGoodsList(fresh = false, options = {}) {
+        const { softRefresh = false, tabsSnapshot = null, tabKeySnapshot = null } = options;
         if (fresh) {
             wx.pageScrollTo({
                 scrollTop: 0,
             });
         }
-        this.setData({ goodsListLoadStatus: 1, ...(fresh ? { goodsList: [] } : {}) });
+        const clearNow = fresh && !softRefresh;
+        const prevGoods = fresh && softRefresh ? (this.data.goodsList || []).slice() : null;
+        this.setData({ goodsListLoadStatus: 1, ...(clearNow ? { goodsList: [] } : {}) });
         const pageSize = this.goodListPagination.num;
         const pageIndex = fresh ? 0 : this.goodListPagination.index + 1;
         try {
-            const tabs = this.data.tabList || [];
-            const tab = tabs.find((t) => t?.key === this.privateData.tabKey) || tabs[this.privateData.tabIndex] || null;
+            const tabs = Array.isArray(tabsSnapshot) ? tabsSnapshot : (this.data.tabList || []);
+            const tabKey = tabKeySnapshot != null ? tabKeySnapshot : this.privateData.tabKey;
+            const tabIndex = fresh && tabsSnapshot != null ? 0 : this.privateData.tabIndex;
+            const tab = tabs.find((t) => t?.key === tabKey) || tabs[tabIndex] || null;
             const nextList = await fetchGoodsList(pageIndex, pageSize, {
                 categoryId: tab?.categoryId ?? null,
                 categoryName: String(tab?.categoryName || '').trim(),
             });
             const merged = fresh ? nextList : this.data.goodsList.concat(nextList);
-            // 防御性去重：避免后端/缓存返回重复商品
+            // 防御性去重：避免后端/缓存返回重复商品（spuId 없으면 id·행 인덱스로 구분）
             const uniq = [];
             const seen = new Set();
-            for (const it of merged) {
-                const k = String(it?.spuId ?? '');
-                if (!k || seen.has(k))
+            for (let i = 0; i < merged.length; i++) {
+                const it = merged[i];
+                const k = String(it?.spuId ?? it?.id ?? '').trim() || `_row_${i}`;
+                if (seen.has(k))
                     continue;
                 seen.add(k);
                 uniq.push(it);
@@ -195,7 +240,12 @@ Page({
             this.goodListPagination.num = pageSize;
         }
         catch (err) {
-            this.setData({ goodsListLoadStatus: 3 });
+            // 당겨 새로고침: 네트워크 일시 실패여도 목록 유지 + 「加载失败」배너 숨김(탭 전환 등 하드 리프레시는 기존처럼 3)
+            const keepQuiet = softRefresh && prevGoods && prevGoods.length;
+            this.setData({
+                goodsListLoadStatus: keepQuiet ? 0 : 3,
+                ...(prevGoods && prevGoods.length ? { goodsList: prevGoods } : {}),
+            });
         }
     },
     goodListClickHandle(e) {

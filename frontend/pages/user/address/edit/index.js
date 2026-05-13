@@ -445,15 +445,45 @@ Page({
     },
     getWeixinAddress(e) {
         const { locationState } = this.data;
-        const weixinAddress = e.detail;
+        const weixinAddress = e.detail || {};
+        const regionHint = [
+            weixinAddress.provinceName,
+            weixinAddress.cityName,
+            weixinAddress.districtName,
+        ].filter(Boolean).join('');
+        const parsed = regionHint ? this.parseRegionFromText(regionHint) : {};
+        const merged = {
+            ...locationState,
+            ...weixinAddress,
+            provinceCode: weixinAddress.provinceCode || parsed.provinceCode || locationState.provinceCode || '',
+            cityCode: weixinAddress.cityCode || parsed.cityCode || locationState.cityCode || '',
+            districtCode: weixinAddress.districtCode || parsed.districtCode || locationState.districtCode || '',
+            provinceName: weixinAddress.provinceName || parsed.provinceName || locationState.provinceName,
+            cityName: weixinAddress.cityName || parsed.cityName || locationState.cityName,
+            districtName: weixinAddress.districtName || parsed.districtName || locationState.districtName,
+        };
+        if (!merged.addressTag?.trim() && !merged.addressId) {
+            merged.addressTag = '微信导入';
+        }
         this.setData({
-            locationState: { ...locationState, ...weixinAddress },
+            locationState: merged,
         }, () => {
             const { isLegal, tips } = this.onVerifyInputLegal();
-            this.setData({
-                submitActive: isLegal,
-            });
             this.privateData.verifyTips = tips;
+            this.setData({ submitActive: isLegal }, async () => {
+                if (isLegal) {
+                    await this.formSubmit();
+                }
+                else if (tips) {
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: tips,
+                        icon: '',
+                        duration: 2000,
+                    });
+                }
+            });
         });
     },
 });

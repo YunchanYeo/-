@@ -81,7 +81,32 @@ Component({
                             }
                         }
                         catch (error) {
-                            wx.showToast({ title: '地址解析出错，请稍后再试', icon: 'none' });
+                            const params = Object.assign(target, {
+                                provinceCode: '',
+                                cityCode: '',
+                                districtCode: '',
+                            });
+                            if (this.properties.isOrderSure) {
+                                this.onHandleSubmit(params);
+                            }
+                            else if (this.properties.navigateUrl != '') {
+                                const { navigateEvent } = this.properties;
+                                this.triggerEvent('navigate');
+                                wx.navigateTo({
+                                    url: this.properties.navigateUrl,
+                                    success: function (res) {
+                                        res.eventChannel.emit(navigateEvent, params);
+                                    },
+                                });
+                            }
+                            else {
+                                this.triggerEvent('change', params);
+                            }
+                            wx.showToast({
+                                title: '省市区编码未匹配，请在表单中核对或重选地区',
+                                icon: 'none',
+                                duration: 2600,
+                            });
                         }
                     },
                     fail(err) {

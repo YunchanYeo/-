@@ -418,6 +418,17 @@ Page({
             });
         });
     },
+    /** 与已有地址完全重复时跳过，避免登录同步时「有任意一条就不保存」 */
+    _addressFingerprintForDedupe(row) {
+        const norm = (s) => String(s ?? '').trim().replace(/\s+/g, '');
+        return [
+            norm(row.phone),
+            norm(row.provinceName),
+            norm(row.cityName),
+            norm(row.districtName),
+            norm(row.detailAddress),
+        ].join('\u001f');
+    },
     /** 收件人·手机仅来自微信通讯地址；手机号绑定可用 fallbackPhone 补全 */
     async syncAddressFromWechat(address, { fallbackPhone = '' } = {}) {
         if (!address)
@@ -426,9 +437,21 @@ Page({
         const phone = String(address.telNumber || fallbackPhone || '').replace(/\s/g, '');
         if (!name || !phone)
             return;
+        const provinceName = String(address.provinceName || '');
+        const cityName = String(address.cityName || '');
+        const districtName = String(address.countyName || '');
+        const detailAddress = String(address.detailInfo || '');
+        const incomingKey = this._addressFingerprintForDedupe({
+            phone,
+            provinceName,
+            cityName,
+            districtName,
+            detailAddress,
+        });
         const existing = await requestJson('/api/addresses', { method: 'GET' }).catch(() => []);
-        if (Array.isArray(existing) && existing.length > 0)
+        if (Array.isArray(existing) && existing.some((row) => this._addressFingerprintForDedupe(row) === incomingKey)) {
             return;
+        }
         await requestJson('/api/addresses', {
             method: 'POST',
             data: {
@@ -436,13 +459,13 @@ Page({
                 phone,
                 countryName: '中国',
                 countryCode: String(address.nationalCode || ''),
-                provinceName: String(address.provinceName || ''),
+                provinceName,
                 provinceCode: '',
-                cityName: String(address.cityName || ''),
+                cityName,
                 cityCode: '',
-                districtName: String(address.countyName || ''),
+                districtName,
                 districtCode: '',
-                detailAddress: String(address.detailInfo || ''),
+                detailAddress,
                 addressTag: '微信导入',
                 isDefault: 1,
             },
