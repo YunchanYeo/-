@@ -26,10 +26,8 @@ Page({
         typeVisible: false,
         genderMap: ['', '男', '女'],
     },
-    onLoad() {
-        this.init();
-    },
-    init() {
+    onShow() {
+        /** 从个人中心等返回时刷新（一键登录后头像昵称已写入服务端） */
         this.fetchData();
     },
     fetchData() {

@@ -4,6 +4,19 @@ import Toast from 'tdesign-miniprogram/toast/index';
 import { resolveAddress, rejectAddress } from '../../../../services/address/list';
 import { getAddressPromise } from '../../../../services/address/edit';
 import { ensureAuthSession } from '../../../../services/auth/session';
+import { areaData } from '../../../../config/index';
+import { phoneRegCheck } from '../../utils/util';
+const { addressParse } = require('../../components/utils/addressParse');
+function addressImportDedupeKey(row) {
+    const norm = (s) => String(s ?? '').trim().replace(/\s+/g, '');
+    return [
+        norm(row.phone),
+        norm(row.provinceName),
+        norm(row.cityName),
+        norm(row.districtName),
+        norm(row.detailAddress),
+    ].join('\u001f');
+}
 Page({
     data: {
         addressList: [],
@@ -66,6 +79,143 @@ Page({
                     duration: 2000,
                 });
             });
+    },
+    parseRegionFromText(rawAddress) {
+        if (!rawAddress) {
+            return {};
+        }
+        const province = (areaData || []).find((p) => rawAddress.includes(p.label));
+        if (!province) {
+            return {};
+        }
+        const city = (province.children || []).find((c) => rawAddress.includes(c.label));
+        const district = (city?.children || []).find((d) => rawAddress.includes(d.label));
+        return {
+            provinceName: province.label,
+            provinceCode: province.value,
+            cityName: city?.label || '',
+            cityCode: city?.value || '',
+            districtName: district?.label || '',
+            districtCode: district?.value || '',
+        };
+    },
+    /** 列表页「微信地址导入」：不跳转编辑页，校验通过后直接 POST */
+    async onWeixinAddressImported(e) {
+        const d = e.detail || {};
+        const phone = String(d.phone || '').replace(/\s/g, '');
+        if (!phoneRegCheck(phone)) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '请填写正确的手机号',
+                icon: '',
+                duration: 1600,
+            });
+            return;
+        }
+        const name = String(d.name || '').trim();
+        const provinceName = String(d.provinceName || '').trim();
+        const cityName = String(d.cityName || '').trim();
+        const districtName = String(d.districtName || '').trim();
+        const detailAddress = String(d.detailAddress || '').trim();
+        if (!name || !districtName || !detailAddress) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '地址信息不完整，请使用「新建收货地址」手动填写',
+                icon: '',
+                duration: 2000,
+            });
+            return;
+        }
+        let provinceCode = String(d.provinceCode || '').trim();
+        let cityCode = String(d.cityCode || '').trim();
+        let districtCode = String(d.districtCode || '').trim();
+        const regionHint = [provinceName, cityName, districtName].filter(Boolean).join('');
+        if (!provinceCode || !cityCode || !districtCode) {
+            const parsed = regionHint ? this.parseRegionFromText(regionHint) : {};
+            provinceCode = provinceCode || parsed.provinceCode || '';
+            cityCode = cityCode || parsed.cityCode || '';
+            districtCode = districtCode || parsed.districtCode || '';
+        }
+        if (!provinceCode || !cityCode || !districtCode) {
+            try {
+                const codes = await addressParse(provinceName, cityName, districtName);
+                provinceCode = codes.provinceCode;
+                cityCode = codes.cityCode;
+                districtCode = codes.districtCode;
+            }
+            catch (_) {
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '省市区未能自动匹配，请点「新建收货地址」选择地区后保存',
+                    icon: '',
+                    duration: 2400,
+                });
+                return;
+            }
+        }
+        const incomingKey = addressImportDedupeKey({
+            phone,
+            provinceName,
+            cityName,
+            districtName,
+            detailAddress,
+        });
+        const dup = (this.data.addressList || []).some((row) => addressImportDedupeKey({
+            phone: row.phone,
+            provinceName: row.provinceName,
+            cityName: row.cityName,
+            districtName: row.districtName,
+            detailAddress: row.detailAddress,
+        }) === incomingKey);
+        if (dup) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '该地址已存在',
+                icon: '',
+                duration: 1600,
+            });
+            return;
+        }
+        const isFirst = !(this.data.addressList && this.data.addressList.length);
+        const payload = {
+            name,
+            phone,
+            countryName: String(d.countryName || '中国').trim() || '中国',
+            countryCode: String(d.countryCode || '').trim(),
+            provinceName,
+            provinceCode,
+            cityName,
+            cityCode,
+            districtName,
+            districtCode,
+            detailAddress,
+            addressTag: '微信地址',
+            isDefault: isFirst ? 1 : 0,
+        };
+        try {
+            await createDeliveryAddress(payload);
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '添加成功',
+                icon: '',
+                duration: 1200,
+            });
+            await this.getAddressList();
+        }
+        catch (err) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '地址保存失败，请稍后重试',
+                icon: '',
+                duration: 2000,
+            });
+        }
     },
     getWXAddressHandle() {
         wx.chooseAddress({

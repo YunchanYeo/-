@@ -22,11 +22,9 @@
         title="微信地址导入"
         isOrderSure="{{isOrderSure}}"
         isDisabledBtn="{{addressList.length >= 20}}"
-        navigateUrl="/pages/user/address/edit/index"
-        navigateEvent="onWeixinAddressPassed"
         t-class="location-btn"
         isCustomStyle="{{true}}"
-        bind:navigate="waitForNewAddress"
+        bind:change="onWeixinAddressImported"
       />
       <view class="address-btn {{addressList.length >= 20 ? 'btn-default':''}}" bind:tap="createHandle">
         <t-icon name="add" size="48rpx" color="#fff" t-class="custom-class" />

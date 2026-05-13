@@ -133,7 +133,7 @@ Page({
         this.fetUseriInfoHandle();
     },
     fetUseriInfoHandle() {
-        fetchUserCenter()
+        return fetchUserCenter()
             .then(({ userInfo, countsData, orderTagInfos: orderInfo, customerServiceInfo, hasWechatProfile = false }) => {
                 // eslint-disable-next-line no-unused-expressions
                 menuData?.[0].forEach((v) => {
