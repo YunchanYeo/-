@@ -11,6 +11,7 @@ import {
   type OrderRow,
 } from '../api/admin';
 import TraceLeafletMap, { type TraceLeafletMapHandle } from '../TraceLeafletMap';
+import { exportOrdersAsSalesSlips } from '../utils/salesSlipExport';
 
 const ADMIN_HIDDEN_ORDERS_KEY = 'admin_web_hidden_order_nos';
 const VIRTUAL_ROW_HEIGHT = 52;
@@ -99,6 +100,9 @@ export default function OrdersPage() {
   const [hiddenOrderNos, setHiddenOrderNos] = useState<string[]>([]);
   const [showHiddenOnly, setShowHiddenOnly] = useState(false);
   const [selectedOrderNos, setSelectedOrderNos] = useState<string[]>([]);
+  const [filterOrderNo, setFilterOrderNo] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterUserKeyword, setFilterUserKeyword] = useState('');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -334,6 +338,24 @@ export default function OrdersPage() {
     XLSX.writeFile(wb, `orders_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
+  async function exportSalesSlipWorkbook() {
+    const XLSX = await getXlsx();
+    const pickList = () => {
+      const selectedInView = selectedOrderNos.filter((no) => visibleOrderNos.includes(no));
+      if (selectedInView.length) {
+        const set = new Set(selectedInView);
+        return displayRows.filter((o) => set.has(o.orderNo));
+      }
+      return displayRows;
+    };
+    const list = pickList();
+    if (!list.length) {
+      window.alert('没有可导出的订单（请调整筛选或勾选列表中的订单）');
+      return;
+    }
+    await exportOrdersAsSalesSlips(XLSX, list);
+  }
+
   async function exportImportTemplate() {
     const XLSX = await getXlsx();
     const ws = XLSX.utils.json_to_sheet([
@@ -517,15 +539,35 @@ export default function OrdersPage() {
     () => (showHiddenOnly ? rows.filter((o) => hiddenOrderNos.includes(o.orderNo)) : rows.filter((o) => !hiddenOrderNos.includes(o.orderNo))),
     [showHiddenOnly, rows, hiddenOrderNos],
   );
-  const visibleOrderNos = useMemo(() => visibleRows.map((o) => o.orderNo), [visibleRows]);
+  const displayRows = useMemo(() => {
+    let list = visibleRows;
+    const no = filterOrderNo.trim().toLowerCase();
+    if (no) list = list.filter((o) => String(o.orderNo || '').toLowerCase().includes(no));
+    const st = filterStatus.trim();
+    if (st !== '') {
+      const n = Number(st);
+      if (Number.isFinite(n)) list = list.filter((o) => o.orderStatus === n);
+    }
+    const kw = filterUserKeyword.trim().toLowerCase();
+    if (kw) {
+      list = list.filter(
+        (o) =>
+          String(o.nickName || '').toLowerCase().includes(kw) ||
+          String(o.phoneNumber || '').toLowerCase().includes(kw) ||
+          String(o.userId).includes(kw),
+      );
+    }
+    return list;
+  }, [visibleRows, filterOrderNo, filterStatus, filterUserKeyword]);
+  const visibleOrderNos = useMemo(() => displayRows.map((o) => o.orderNo), [displayRows]);
   const visibleSelectedCount = selectedOrderNos.filter((no) => visibleOrderNos.includes(no)).length;
-  const allVisibleSelected = visibleRows.length > 0 && visibleSelectedCount === visibleRows.length;
+  const allVisibleSelected = displayRows.length > 0 && visibleSelectedCount === displayRows.length;
   const importFailCount = importFailures.length;
   const startIndex = Math.max(0, Math.floor(virtualScrollTop / VIRTUAL_ROW_HEIGHT) - 6);
-  const endIndex = Math.min(visibleRows.length, startIndex + Math.ceil(listViewportH / VIRTUAL_ROW_HEIGHT) + 12);
-  const windowRows = visibleRows.slice(startIndex, endIndex);
+  const endIndex = Math.min(displayRows.length, startIndex + Math.ceil(listViewportH / VIRTUAL_ROW_HEIGHT) + 12);
+  const windowRows = displayRows.slice(startIndex, endIndex);
   const topSpacer = startIndex * VIRTUAL_ROW_HEIGHT;
-  const bottomSpacer = Math.max(0, (visibleRows.length - endIndex) * VIRTUAL_ROW_HEIGHT);
+  const bottomSpacer = Math.max(0, (displayRows.length - endIndex) * VIRTUAL_ROW_HEIGHT);
 
   useEffect(() => {
     // 过滤掉当前视图中不存在的选择项，避免切换“正常/隐藏”视图时误操作
@@ -562,10 +604,13 @@ export default function OrdersPage() {
   return (
     <div>
       <div className="page-toolbar">
-        <h2 style={{ margin: 0, fontSize: 'clamp(1.05rem, 3.5vw, 1.25rem)' }}>订单与发货</h2>
+        <h2 style={{ margin: 0, fontSize: 'clamp(1.05rem, 3.5vw, 1.25rem)' }}>销售订单管理</h2>
         <div className="page-toolbar__actions">
           <button type="button" className="btn btn-ghost" onClick={exportOrders} disabled={loading}>
-            导出 Excel
+            导出订单列表
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => void exportSalesSlipWorkbook()} disabled={loading}>
+            导出销售单(Excel)
           </button>
           <button type="button" className="btn btn-ghost" onClick={exportImportTemplate}>
             下载导入模板
@@ -614,7 +659,7 @@ export default function OrdersPage() {
           <button type="button" className="btn btn-ghost" onClick={onRestoreAllOrders} disabled={!hiddenOrderNos.length}>
             恢复全部
           </button>
-          <button type="button" className="btn btn-ghost" onClick={toggleSelectAllVisible} disabled={!visibleRows.length}>
+          <button type="button" className="btn btn-ghost" onClick={toggleSelectAllVisible} disabled={!displayRows.length}>
             {allVisibleSelected ? '取消全选' : '全选当前列表'}
           </button>
           {showHiddenOnly ? (
@@ -626,6 +671,39 @@ export default function OrdersPage() {
               选中隐藏({selectedOrderNos.length})
             </button>
           )}
+        </div>
+      </div>
+      <div className="card erp-filter-card" style={{ marginBottom: '1rem' }}>
+        <div className="erp-filter-title">查询条件</div>
+        <div className="erp-filter-grid">
+          <label className="erp-filter-field">
+            <span>订单号</span>
+            <input value={filterOrderNo} onChange={(e) => setFilterOrderNo(e.target.value)} placeholder="模糊匹配" />
+          </label>
+          <label className="erp-filter-field">
+            <span>订单状态</span>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="">全部</option>
+              {ORDER_STATUS_OPTIONS.map((it) => (
+                <option key={it.value} value={String(it.value)}>
+                  {it.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="erp-filter-field">
+            <span>用户（昵称/手机/ID）</span>
+            <input value={filterUserKeyword} onChange={(e) => setFilterUserKeyword(e.target.value)} placeholder="关键字" />
+          </label>
+          <div className="erp-filter-actions">
+            <button type="button" className="btn btn-ghost" onClick={() => { setFilterOrderNo(''); setFilterStatus(''); setFilterUserKeyword(''); }}>
+              重置
+            </button>
+          </div>
+        </div>
+        <div className="erp-filter-meta">
+          当前列表 <strong>{displayRows.length}</strong> 条
+          {displayRows.length !== visibleRows.length ? <span>（已筛选，共 {visibleRows.length} 条）</span> : null}
         </div>
       </div>
       {err ? <div className="err-banner">{err}</div> : null}
