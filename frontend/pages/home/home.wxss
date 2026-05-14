@@ -1,6 +1,8 @@
 page {
   box-sizing: border-box;
-  padding-bottom: 0;
+  /* 自定义 tabBar 固定底部：留出栏高 + 安全区，商品列表可滚到最后一行完全露出 */
+  padding-bottom: calc(128rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(128rpx + env(safe-area-inset-bottom));
   background: #f5f5f5;
 }
 
@@ -12,17 +14,14 @@ page {
   background: linear-gradient(#fff, #f5f5f5);
 }
 
-.home-page-container {
-  background: #f5f5f5;
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 180rpx - env(safe-area-inset-bottom));
-}
-
 .home-page-container,
 .home-page-header {
   display: block;
   padding: 0 24rpx;
+}
+
+.home-page-container {
+  background: #f5f5f5;
 }
 
 .home-page-header .t-search__input-container {
@@ -190,7 +189,7 @@ page {
 .home-page-container .goods-list-container {
   background: #f5f5f5 !important;
   margin-top: 0;
-  flex: 1 1 auto;
+  padding-bottom: 8rpx;
 }
 
 .home-page-tabs {
