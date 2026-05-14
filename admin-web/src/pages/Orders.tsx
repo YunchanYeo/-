@@ -339,11 +339,11 @@ export default function OrdersPage() {
   }
 
   function exportSalesSlipWorkbook() {
-    const pickList = () => {
+    const pickList = (): OrderRow[] => {
       const selectedInView = selectedOrderNos.filter((no) => visibleOrderNos.includes(no));
       if (selectedInView.length) {
-        const set = new Set(selectedInView);
-        return displayRows.filter((o) => set.has(o.orderNo));
+        const rowByNo = new Map(displayRows.map((o) => [o.orderNo, o]));
+        return selectedInView.map((no) => rowByNo.get(no)).filter((o): o is OrderRow => o != null);
       }
       return displayRows;
     };
