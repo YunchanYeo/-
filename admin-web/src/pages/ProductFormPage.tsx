@@ -34,6 +34,7 @@ export default function ProductFormPage() {
   const [priceYuan, setPriceYuan] = useState('');
   const [originYuan, setOriginYuan] = useState('');
   const [stock, setStock] = useState('0');
+  const [unit, setUnit] = useState('件');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [brand, setBrand] = useState('');
@@ -61,6 +62,7 @@ export default function ProductFormPage() {
         setPriceYuan((p.price / 100).toFixed(2));
         setOriginYuan(p.originPrice != null ? (p.originPrice / 100).toFixed(2) : '');
         setStock(String(p.stock));
+        setUnit((p.unit && String(p.unit).trim()) || '件');
         setCategory(p.category || '');
         setDescription(p.description || '');
         setBrand(p.brand || '');
@@ -168,6 +170,7 @@ export default function ProductFormPage() {
       brand,
       company,
       category: category.trim(),
+      unit: unit.trim() || '件',
       status,
     };
 
@@ -247,6 +250,10 @@ export default function ProductFormPage() {
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>库存</span>
             <input type="number" min={0} step={1} value={stock} onChange={(e) => setStock(e.target.value)} required />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>单位（如 件、箱、kg，销售单「单位」列）</span>
+            <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="件" maxLength={16} />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>分类（与小程序分类名称一致）</span>

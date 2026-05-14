@@ -64,6 +64,8 @@ export default function SupportChatPage() {
     setErr('');
     try {
       const rows = await fetchSupportConversations(token);
+      const unreadTotal = rows.reduce((s, r) => s + (Number(r.unreadCount) || 0), 0);
+      window.dispatchEvent(new CustomEvent('admin-support-unread-total', { detail: { total: unreadTotal } }));
       setConversations(rows);
       setActiveUserId((prev) => {
         if (prev != null && rows.some((r) => r.userId === prev)) return prev;

@@ -27,6 +27,7 @@ export type ProductRow = {
   soldNum: number;
   category: string;
   categoryId: number | null;
+  unit: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -160,6 +161,7 @@ export type ProductPayload = {
   brand?: string;
   company?: string;
   category?: string;
+  unit?: string;
   status?: 'ON' | 'OFF';
 };
 

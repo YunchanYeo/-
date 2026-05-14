@@ -47,10 +47,24 @@ export default function Shell() {
         });
     };
     tick();
-    const id = window.setInterval(tick, 15000);
+    const id = window.setInterval(tick, 4000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    window.addEventListener('focus', tick);
+    document.addEventListener('visibilitychange', onVisible);
+    const onUnreadSync = (ev: Event) => {
+      const ce = ev as CustomEvent<{ total?: number }>;
+      const t = ce.detail?.total;
+      if (typeof t === 'number' && !Number.isNaN(t)) setSupportUnreadTotal(Math.max(0, Math.floor(t)));
+    };
+    window.addEventListener('admin-support-unread-total', onUnreadSync as EventListener);
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      window.removeEventListener('focus', tick);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('admin-support-unread-total', onUnreadSync as EventListener);
     };
   }, [token]);
 
@@ -67,7 +81,7 @@ export default function Shell() {
               <span className="shell-erp-navlink__short">{item.short}</span>
               <span className="shell-erp-navlink__label">{item.label}</span>
               {item.to === '/support' && supportUnreadTotal > 0 ? (
-                <span className="shell-erp-nav-badge" title="用户未读消息">
+                <span className="shell-erp-nav-badge shell-erp-nav-badge--pulse" title={`用户未读消息 ${supportUnreadTotal} 条`} aria-label={`未读 ${supportUnreadTotal}`}>
                   {supportUnreadTotal > 99 ? '99+' : supportUnreadTotal}
                 </span>
               ) : null}

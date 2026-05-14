@@ -70,6 +70,7 @@ ensureColumn('company', 'company TEXT');
 ensureColumn('soldNum', "soldNum INTEGER NOT NULL DEFAULT 0");
 ensureColumn('category', 'category TEXT');
 ensureColumn('categoryId', 'categoryId INTEGER');
+ensureColumn('unit', "unit TEXT NOT NULL DEFAULT '件'");
 
 /** 관리자 상품 이미지(BLOB) — `/api/media/product/:id` 로 제공 */
 db.exec(`

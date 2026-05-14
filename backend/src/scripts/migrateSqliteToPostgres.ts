@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS products (
   "createdAt" TEXT NOT NULL,
   "updatedAt" TEXT NOT NULL,
   category TEXT,
-  "categoryId" BIGINT
+  "categoryId" BIGINT,
+  unit TEXT NOT NULL DEFAULT '件'
 );
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT PRIMARY KEY,

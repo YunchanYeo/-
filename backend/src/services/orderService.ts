@@ -18,6 +18,7 @@ import {
   type AlipayWapConfig,
 } from './alipayWap';
 import { hydrateOrderItemsWithProduct } from './orderItemImages';
+import { applyStockDecrementForOrderItems, restoreStockForOrderItems } from './orderInventory';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
 
@@ -78,8 +79,19 @@ export function createOrderService({
   /** 支付成功落库（幂等）；notify 不传 requireUserId，用户主动确认传 userId */
   function finalizeOrderPaid(orderNo: string, requireUserId?: number): { ok: true } | { ok: false; message: string } {
     const order = db
-      .prepare(`SELECT id, userId, orderStatus, paymentAmount, pointsUsed FROM orders WHERE orderNo = ?`)
-      .get(orderNo) as { id: number; userId: number; orderStatus: number; paymentAmount: number; pointsUsed: number } | undefined;
+      .prepare(
+        `SELECT id, userId, orderStatus, paymentAmount, pointsUsed, itemsJson FROM orders WHERE orderNo = ?`,
+      )
+      .get(orderNo) as
+      | {
+          id: number;
+          userId: number;
+          orderStatus: number;
+          paymentAmount: number;
+          pointsUsed: number;
+          itemsJson: string;
+        }
+      | undefined;
     if (!order) return { ok: false, message: 'Order not found' };
     if (requireUserId !== undefined && order.userId !== requireUserId) return { ok: false, message: 'Order not found' };
     if (order.orderStatus === 10 || order.orderStatus === 40 || order.orderStatus === 50) return { ok: true };
@@ -96,6 +108,7 @@ export function createOrderService({
           throw new Error('积分不足，无法完成支付');
         }
       }
+      applyStockDecrementForOrderItems(db, String(order.itemsJson || '[]'));
       db.prepare(
         `UPDATE users
          SET points = MAX(points - ?, 0) + ?,
@@ -530,17 +543,28 @@ export function createOrderService({
     if (order.refundStatus === 1) return res.status(409).json({ ok: false, message: 'Order already refunded' });
 
     const refundAmount = Math.min(parsed.data.refundAmount ?? order.paymentAmount, order.paymentAmount);
-    db.prepare(
-      `UPDATE orders
-       SET refundStatus = 1,
-           refundAmount = ?,
-           refundReason = ?,
-           refundedAt = datetime('now'),
-           orderStatus = 50,
-           orderStatusName = '已完成',
-           updatedAt = datetime('now')
-       WHERE id = ?`,
-    ).run(refundAmount, parsed.data.reason ?? '', order.id);
+    const paidLike =
+      Number(order.orderStatus) === 10 ||
+      Number(order.orderStatus) === 20 ||
+      Number(order.orderStatus) === 40 ||
+      Number(order.orderStatus) === 50;
+    const txn = db.transaction(() => {
+      if (paidLike) {
+        restoreStockForOrderItems(db, String(order.itemsJson || '[]'));
+      }
+      db.prepare(
+        `UPDATE orders
+         SET refundStatus = 1,
+             refundAmount = ?,
+             refundReason = ?,
+             refundedAt = datetime('now'),
+             orderStatus = 50,
+             orderStatusName = '已完成',
+             updatedAt = datetime('now')
+         WHERE id = ?`,
+      ).run(refundAmount, parsed.data.reason ?? '', order.id);
+    });
+    txn();
 
     const updated = db
       .prepare(

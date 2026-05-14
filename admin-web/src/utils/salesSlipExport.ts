@@ -292,6 +292,8 @@ export function appendSalesSlipSheet(wb: XLSX.WorkBook, order: OrderRow, sheetIn
 }
 
 /** 多订单：同一工作表内纵向排列，订单之间空 2 行（九列带边框） */
+const INTER_ORDER_GAP_ROWS = 2;
+
 export function exportOrdersAsSalesSlips(orders: OrderRow[], filePrefix = '销售单导出') {
   const wb = XLSX.utils.book_new();
   if (!orders.length) {
@@ -313,12 +315,12 @@ export function exportOrdersAsSalesSlips(orders: OrderRow[], filePrefix = '销�
     lastRow = blockEnd;
     if (i < orders.length - 1) {
       const gapStart = blockEnd + 1;
-      for (let g = 0; g < 2; g++) {
+      for (let g = 0; g < INTER_ORDER_GAP_ROWS; g++) {
         for (let c = 0; c <= COL_LAST; c++) {
           setCell(ws, gapStart + g, c, cell('', { border: true, valign: 'center' }));
         }
       }
-      baseRow = gapStart + 2;
+      baseRow = gapStart + INTER_ORDER_GAP_ROWS;
     }
   }
 

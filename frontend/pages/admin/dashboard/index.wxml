@@ -80,6 +80,13 @@
         data-key="stock"
         bind:change="onProductInput"
       />
+      <t-input
+        label="单位"
+        placeholder="如 件、箱、kg（销售单单位列）"
+        value="{{productForm.unit}}"
+        data-key="unit"
+        bind:change="onProductInput"
+      />
       <t-button variant="outline" block bind:tap="pickCategory">
         选择分类 {{productForm.category ? '(' + productForm.category + ')' : ''}}
       </t-button>

@@ -12,7 +12,7 @@ function resolveCategoryId(db: Db, categoryName: string | null | undefined): num
 
 export function createProductService({ db }: { db: Db }) {
   const productColumns =
-    `id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, categoryId, status, createdAt, updatedAt`;
+    `id, title, price, originPrice, stock, image, description, brand, company, soldNum, category, categoryId, unit, status, createdAt, updatedAt`;
 
   function publicProducts(req: Request, res: Response) {
     const { category: categoryRaw, categoryId: categoryIdRaw } = (req.query || {}) as any;
@@ -88,6 +88,7 @@ export function createProductService({ db }: { db: Db }) {
       brand: z.string().optional(),
       company: z.string().optional(),
       category: z.string().optional(),
+      unit: z.string().optional(),
       soldNum: z.number().int().nonnegative().optional(),
       status: z.enum(['ON', 'OFF']).optional(),
     });
@@ -96,10 +97,11 @@ export function createProductService({ db }: { db: Db }) {
     const d = parsed.data;
     const catStr = (d.category ?? '').trim();
     const categoryId = resolveCategoryId(db, catStr);
+    const unitStr = (d.unit ?? '').trim() || '件';
     const result = db
       .prepare(
-        `INSERT INTO products (title, price, originPrice, stock, image, description, brand, company, category, categoryId, soldNum, status, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        `INSERT INTO products (title, price, originPrice, stock, image, description, brand, company, category, categoryId, unit, soldNum, status, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       )
       .run(
         d.title,
@@ -112,6 +114,7 @@ export function createProductService({ db }: { db: Db }) {
         d.company ?? '',
         catStr,
         categoryId,
+        unitStr,
         d.soldNum ?? 0,
         d.status ?? 'ON',
       );
@@ -130,18 +133,24 @@ export function createProductService({ db }: { db: Db }) {
       brand: z.string().optional(),
       company: z.string().optional(),
       category: z.string().optional(),
+      unit: z.string().optional(),
       status: z.enum(['ON', 'OFF']).optional(),
     });
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ ok: false, message: 'Invalid product body', issues: parsed.error.issues });
-    const exists = db.prepare(`SELECT id FROM products WHERE id = ?`).get(req.params.id) as { id: number } | undefined;
+    const exists = db.prepare(`SELECT id, unit FROM products WHERE id = ?`).get(req.params.id) as { id: number; unit: string | null } | undefined;
     if (!exists) return res.status(404).json({ ok: false, message: 'Product not found' });
     const d = parsed.data;
+    const body = (req.body || {}) as Record<string, unknown>;
     const catStr = (d.category ?? '').trim();
     const categoryId = resolveCategoryId(db, catStr);
+    const unitStr =
+      Object.prototype.hasOwnProperty.call(body, 'unit')
+        ? String(d.unit ?? '').trim() || '件'
+        : String(exists.unit ?? '').trim() || '件';
     db.prepare(
       `UPDATE products
-       SET title=?, price=?, originPrice=?, stock=?, image=?, description=?, brand=?, company=?, category=?, categoryId=?, status=?,
+       SET title=?, price=?, originPrice=?, stock=?, image=?, description=?, brand=?, company=?, category=?, categoryId=?, unit=?, status=?,
            updatedAt=datetime('now')
        WHERE id=?`,
     ).run(
@@ -155,6 +164,7 @@ export function createProductService({ db }: { db: Db }) {
       d.company ?? '',
       catStr,
       categoryId,
+      unitStr,
       d.status ?? 'ON',
       req.params.id,
     );
