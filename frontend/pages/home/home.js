@@ -52,6 +52,7 @@ Page({
         }
         const currentVersion = getProductDataVersion();
         if (this._lastProductVersion && this._lastProductVersion !== currentVersion) {
+            void this.refreshHomeMarketingStrip();
             void this.loadGoodsList(true, { softRefresh: true });
         }
         this._lastProductVersion = currentVersion;
@@ -105,6 +106,19 @@ Page({
     },
     init() {
         void this.loadHomePage();
+    },
+    /** 管理端改商品后 bump 版本：仅刷新顶部营销轮播与搜索占位，避免整页 loadHomePage 强制滚顶 */
+    async refreshHomeMarketingStrip() {
+        try {
+            const { swiper, hotProducts = [] } = await fetchHome();
+            const hotTitle = hotProducts[0]?.title || '';
+            this.setData({
+                imgSrcs: swiper,
+                hotProducts,
+                searchPlaceholder: hotTitle ? `热销：${hotTitle}` : '搜索',
+            });
+        }
+        catch (_) { /* 失败时保留旧轮播，避免闪空 */ }
     },
     async loadHomePage() {
         if (this._homeReloadLock) {

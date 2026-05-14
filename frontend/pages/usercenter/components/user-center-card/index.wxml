@@ -1,13 +1,5 @@
 <view class="user-center-card">
-  <!-- 未登录的情况 -->
-  <block wx:if="{{currAuthStep === AuthStepType.ONE}}">
-    <button class="user-center-card__header login-btn-reset" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
-      <t-avatar image="{{userInfo.avatarUrl}}" class="user-center-card__header__avatar">
-        <view class="user-center-card__avatar-fallback">用</view>
-      </t-avatar>
-      <view class="user-center-card__header__name">{{'请登录'}}</view>
-    </button>
-  </block>
+  <!-- 未登录：getPhoneNumber 须在页面根绑定，见 pages/usercenter/index.wxml -->
   <!-- 已登录但未授权用户信息情况 -->
   <block wx:if="{{currAuthStep === AuthStepType.TWO}}">
     <view class="user-center-card__header">

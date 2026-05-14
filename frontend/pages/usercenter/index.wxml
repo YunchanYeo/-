@@ -1,4 +1,28 @@
+<view wx:if="{{showPrivacyPopup}}" class="privacy-auth-mask" catchtouchmove="noopPrivacyCatch">
+  <view class="privacy-auth-panel">
+    <view class="privacy-auth-title">隐私保护提示</view>
+    <view class="privacy-auth-desc">为完成登录、订单与客服服务，需使用你的手机号等信息。请先阅读并同意《小程序用户隐私保护指引》。</view>
+    <button
+      id="usercenter-privacy-agree-btn"
+      class="privacy-auth-btn privacy-auth-btn-primary"
+      open-type="agreePrivacyAuthorization"
+      bindagreeprivacyauthorization="onPrivacyAgreePrivacyAuthorization"
+    >
+      同意并继续
+    </button>
+    <button class="privacy-auth-btn privacy-auth-btn-plain" bindtap="onPrivacyDisagree">暂不同意</button>
+  </view>
+</view>
+<view wx:if="{{currAuthStep === 1}}" class="user-center-card">
+  <button class="user-center-card__header login-btn-reset" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumberLogin">
+    <t-avatar image="{{userInfo.avatarUrl}}" class="user-center-card__header__avatar">
+      <view class="user-center-card__avatar-fallback">用</view>
+    </t-avatar>
+    <view class="user-center-card__header__name">请登录</view>
+  </button>
+</view>
 <t-user-center-card
+  wx:else
   userInfo="{{userInfo}}"
   isPhoneHide="{{true}}"
   name-class="custom-name-class"
@@ -6,7 +30,6 @@
   avatar-class="customer-avatar-class"
   currAuthStep="{{currAuthStep}}"
   bind:gotoUserEditPage="gotoUserEditPage"
-  bind:getPhoneNumberLogin="onGetPhoneNumberLogin"
 />
 <view class="content-wrapper">
   <view class="order-group-wrapper">

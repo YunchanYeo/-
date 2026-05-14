@@ -39,14 +39,31 @@ export function fetchHome() {
             .filter((x) => !!x)
             .slice(0, 6);
         const promoRows = Array.isArray(promotions) ? promotions : [];
-        const promotionCards = promoRows.slice(0, 8).map((p) => ({
-            spuId: p?.relatedProductId ? String(p.relatedProductId) : '',
-            promotionId: String(p?.id || ''),
-            title: String(p?.title || ''),
-            image: normalizeGoodsImageUrl(p?.imageUrl || '') || fallbackBanner,
-            price: 0,
-            soldNum: 0,
-        }));
+        const productById = new Map(safeProducts.map((p) => [String(p?.id ?? '').trim(), p]));
+        const promotionCards = promoRows.slice(0, 8).map((p) => {
+            const relatedId = p?.relatedProductId != null && p.relatedProductId !== '' ? String(p.relatedProductId).trim() : '';
+            const prod = relatedId ? productById.get(relatedId) : null;
+            const promoImg = normalizeGoodsImageUrl(p?.imageUrl || '') || fallbackBanner;
+            if (prod) {
+                const cover = normalizeGoodsImageUrl(prod?.image || prod?.thumb || '') || promoImg;
+                return {
+                    spuId: relatedId,
+                    promotionId: String(p?.id || ''),
+                    title: String(prod?.title || p?.title || ''),
+                    image: cover,
+                    price: Number(prod?.price || 0),
+                    soldNum: Number(prod?.soldNum || 0),
+                };
+            }
+            return {
+                spuId: relatedId,
+                promotionId: String(p?.id || ''),
+                title: String(p?.title || ''),
+                image: promoImg,
+                price: 0,
+                soldNum: 0,
+            };
+        });
         const hotProducts = [...safeProducts]
             .sort((a, b) => {
                 const soldDiff = Number(b?.soldNum || 0) - Number(a?.soldNum || 0);

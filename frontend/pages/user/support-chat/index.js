@@ -22,6 +22,7 @@ import {
   playVoiceRuntime,
   shouldAutoScrollByAnchor,
 } from '../services/support/chatPageRuntime';
+import { notifySupportChatToast } from '../../../services/supportChatNotify';
 
 Page({
   data: {
@@ -74,6 +75,8 @@ Page({
       clearInterval(this._timer);
       this._timer = null;
     }
+    /** 进入页后首拉取建立基线，避免把历史客服消息当成「新回复」弹窗 */
+    this._supportAdminReplyBaselineMaxId = null;
     this.loadMyProfile();
     const boot = getPrefetchedSupportMessages();
     if (boot.length > 0) {
@@ -134,6 +137,7 @@ Page({
     try {
       const rows = await listMySupportMessages();
       const rawList = Array.isArray(rows) ? rows : [];
+      this._evalAdminReplyNotify(rawList);
       setPrefetchedSupportMessages(rawList);
       const messages = enrichSupportMessages(rawList);
       this.setData({ messages });

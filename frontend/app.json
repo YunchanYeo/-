@@ -77,7 +77,7 @@
       }
     ]
   },
-  "requiredPrivateInfos": ["chooseAddress"],
+  "requiredPrivateInfos": ["chooseAddress", "chooseLocation"],
   "lazyCodeLoading": "requiredComponents",
   "usingComponents": {},
   "window": {

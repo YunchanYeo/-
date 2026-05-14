@@ -19,7 +19,7 @@
           <view class="marketing-info">
             <view class="marketing-name">{{item.title}}</view>
             <view class="marketing-meta" wx:if="{{item.price > 0}}">
-              <text class="marketing-price">¥{{item.price}}</text>
+              <price wr-class="marketing-price" price="{{item.price}}" />
               <text class="marketing-sold">已售 {{item.soldNum}}</text>
             </view>
           </view>

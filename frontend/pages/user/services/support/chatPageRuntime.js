@@ -54,8 +54,11 @@ export function stopAudioRuntime(page) {
 
 export function stopRecordingRuntime(page) {
   if (!page._recorder) return;
+  const wasRecording = !!page.data?.recording;
   page._cancelVoiceSend = true;
   page.setData({ recording: false, recordWillCancel: false });
+  // 未在录音时调用 stop() 部分机型会触发 onError →「录音失败」；仅在有录音态时 stop
+  if (!wasRecording) return;
   try {
     page._recorder.stop();
   } catch (_) { }
@@ -64,12 +67,12 @@ export function stopRecordingRuntime(page) {
 export function disposeRecorderRuntime(page) {
   if (!page?._recorder) return;
   try {
-    page._recorder.stop();
-  } catch (_) { }
-  try {
     page._recorder.offStart();
     page._recorder.offStop();
     page._recorder.offError();
+  } catch (_) { }
+  try {
+    page._recorder.stop();
   } catch (_) { }
   page._recorder = null;
 }

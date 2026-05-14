@@ -10,6 +10,7 @@ import {
   normalizeChatMediaUrl,
 } from '../services/support/chat';
 import { getAdminToken } from '../../../services/admin/session';
+import { notifySupportChatToast } from '../../../services/supportChatNotify';
 import {
   initRecorderRuntime,
   stopAudioRuntime,
@@ -77,6 +78,8 @@ Page({
       clearInterval(this._timer);
       this._timer = null;
     }
+    this._supportCustomerMsgBaselineByUid = {};
+    this._supportOtherConvUnreadSnap = null;
     this.refresh();
     this._timer = setInterval(() => this.refresh(), 4000);
   },
@@ -125,6 +128,53 @@ Page({
     return shouldAutoScrollByAnchor(this, nextList);
   },
 
+  _evalOtherCustomersUnread(conversations, activeUserId) {
+    const active = String(activeUserId || '');
+    const snap = {};
+    for (const c of conversations || []) {
+      snap[String(c.userId)] = Number(c.unreadCount || 0);
+    }
+    if (this._supportOtherConvUnreadSnap == null) {
+      this._supportOtherConvUnreadSnap = snap;
+      return;
+    }
+    for (const c of conversations || []) {
+      const uid = String(c.userId);
+      if (!uid || uid === active) {
+        continue;
+      }
+      const u = Number(c.unreadCount || 0);
+      const prev = this._supportOtherConvUnreadSnap[uid] ?? 0;
+      if (u > prev) {
+        notifySupportChatToast('其他客户发来新消息');
+        break;
+      }
+    }
+    this._supportOtherConvUnreadSnap = snap;
+  },
+
+  _evalActiveCustomerNewMessages(rawMsgs, activeUserId) {
+    const uid = String(activeUserId || '');
+    if (!uid) {
+      return;
+    }
+    const list = Array.isArray(rawMsgs) ? rawMsgs : [];
+    const ids = list.map((m) => Number(m.id)).filter((n) => Number.isFinite(n));
+    const maxId = ids.length ? Math.max(...ids) : 0;
+    const prev = this._supportCustomerMsgBaselineByUid[uid];
+    if (prev == null) {
+      this._supportCustomerMsgBaselineByUid[uid] = maxId;
+      return;
+    }
+    const hasNewUser = list.some(
+      (m) => Number(m.id) > prev && String(m.fromRole || '') === 'user',
+    );
+    if (hasNewUser) {
+      notifySupportChatToast('客户发来新消息');
+    }
+    this._supportCustomerMsgBaselineByUid[uid] = maxId;
+  },
+
   async refresh() {
     if (!getAdminToken()) {
       return;
@@ -134,10 +184,13 @@ Page({
       const conversations = Array.isArray(rows) ? rows : [];
       let activeUserId = this.data.activeUserId;
       if (!activeUserId && conversations.length > 0) activeUserId = String(conversations[0].userId);
+      this._evalOtherCustomersUnread(conversations, activeUserId);
       this.setData({ conversations, activeUserId });
       if (activeUserId) {
         const msgs = await listAdminSupportMessagesByUser(activeUserId);
-        const messages = enrichSupportMessages(Array.isArray(msgs) ? msgs : []);
+        const rawMsgs = Array.isArray(msgs) ? msgs : [];
+        this._evalActiveCustomerNewMessages(rawMsgs, activeUserId);
+        const messages = enrichSupportMessages(rawMsgs);
         const typing = await getAdminSupportPeerTyping(activeUserId);
         this.setData({ messages });
         this.setData({ peerTyping: Boolean(typing?.peerTyping) });
@@ -164,6 +217,10 @@ Page({
       this._typingActive = false;
       this.reportTyping(false);
     }
+    if (!this._supportCustomerMsgBaselineByUid) {
+      this._supportCustomerMsgBaselineByUid = {};
+    }
+    this._supportCustomerMsgBaselineByUid[userId] = null;
     this.setData({ activeUserId: userId });
     await this.refresh();
   },

@@ -1,6 +1,7 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { getToken, getUser, oneClickLoginByWeChatPhoneCode, loginWithWeChat } from '../../services/auth/session';
+import { extractWeChatPhoneNumberDetail } from '../../services/auth/extractWeChatPhoneNumberDetail';
 import { requestJson } from '../../services/_utils/http';
 import { normalizeGoodsImageUrl } from '../../services/_utils/normalizeGoodsImageUrl';
 import { displayNameForUserCenter } from '../../services/usercenter/displayNameForUserCenter';
@@ -79,6 +80,7 @@ const orderTagInfos = [
     },
 ];
 const getDefaultData = () => ({
+    showPrivacyPopup: false,
     showMakePhone: false,
     userInfo: {
         avatarUrl: '',
@@ -121,7 +123,42 @@ Page({
     data: getDefaultData(),
     onLoad() {
         this.getVersionInfo();
+        this.setupNeedPrivacyAuthorization();
     },
+    /** 微信隐私合规：未同意指引时 getPhoneNumber 不会返回 code，需先弹窗 + agreePrivacyAuthorization */
+    setupNeedPrivacyAuthorization() {
+        if (this._needPrivacySetup || typeof wx.onNeedPrivacyAuthorization !== 'function') {
+            return;
+        }
+        this._needPrivacySetup = true;
+        wx.onNeedPrivacyAuthorization((resolve) => {
+            this._privacyAuthorizeResolve = resolve;
+            this.setData({ showPrivacyPopup: true });
+        });
+    },
+    onPrivacyAgreePrivacyAuthorization() {
+        const resolve = this._privacyAuthorizeResolve;
+        this._privacyAuthorizeResolve = null;
+        this.setData({ showPrivacyPopup: false });
+        if (typeof resolve === 'function') {
+            try {
+                resolve({ buttonId: 'usercenter-privacy-agree-btn', event: 'agree' });
+            }
+            catch (_) { /* ignore */ }
+        }
+    },
+    onPrivacyDisagree() {
+        const resolve = this._privacyAuthorizeResolve;
+        this._privacyAuthorizeResolve = null;
+        this.setData({ showPrivacyPopup: false });
+        if (typeof resolve === 'function') {
+            try {
+                resolve({ event: 'disagree' });
+            }
+            catch (_) { /* ignore */ }
+        }
+    },
+    noopPrivacyCatch() { },
     onShow() {
         const tabBar = this.getTabBar && this.getTabBar();
         if (tabBar && typeof tabBar.init === 'function') {
@@ -318,14 +355,24 @@ Page({
             return;
         }
         this._phoneLoginBusy = true;
-        const errMsg = String(e?.detail?.errMsg || '');
-        const phoneCode = String(e?.detail?.code || '');
+        const { code: phoneCodeRaw, errMsg: errMsgRaw } = extractWeChatPhoneNumberDetail(e);
+        const errMsg = String(errMsgRaw || '');
+        const phoneCode = String(phoneCodeRaw || '').trim();
         if (!phoneCode) {
             const cancelled = errMsg.includes('fail user deny') || errMsg.includes('cancel');
+            const privacyBlock = errMsg.includes('privacy permission') || errMsg.includes('privacy');
+            const devNoCode = errMsg.includes('not support') || errMsg.includes('模拟器') || errMsg.includes('devtools');
+            let tip = cancelled ? '你已取消手机号授权' : '手机号授权失败';
+            if (privacyBlock) {
+                tip = '请先同意《小程序隐私保护指引》后再点击登录';
+            }
+            else if (devNoCode && !cancelled) {
+                tip = '当前环境可能无法返回手机号，请用真机预览或升级开发者工具';
+            }
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: cancelled ? '你已取消手机号授权' : '手机号授权失败',
+                message: tip,
                 icon: '',
                 duration: 1400,
             });
@@ -333,20 +380,14 @@ Page({
             return;
         }
         try {
-            // 必须在 getPhoneNumber 回调内**同步**发起 getUserProfile，再 await 网络；否则真机常报「非用户触摸」导致头像昵称为空。
-            const profilePromise = new Promise((resolve, reject) => {
-                wx.getUserProfile({
-                    desc: '一键登录：同步授权手机号与头像昵称',
-                    success: resolve,
-                    fail: reject,
-                });
-            });
-            await oneClickLoginByWeChatPhoneCode(phoneCode, { profilePromise });
+            // 真机：在 getPhoneNumber 回调里再调 getUserProfile 常被判「非用户触摸」→ 授权失败；开发者工具较宽松故仅工具成功。
+            // 此处仅用手机号一键登录；头像昵称请到「个人资料」页用独立按钮授权（见 person-info / handleLoginWithConsent 流程）。
+            await oneClickLoginByWeChatPhoneCode(phoneCode, {});
             await this.fetUseriInfoHandle();
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: '一键登录成功',
+                message: '登录成功',
                 icon: 'success',
                 duration: 1200,
             });

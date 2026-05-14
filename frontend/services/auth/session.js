@@ -24,6 +24,19 @@ export function logout() {
 }
 const MAX_AUTH_ALT_HOPS = 4;
 
+/** 仅当服务端明确拒绝会话时再清本地 token（网络抖动、微信 checkSession 失败不应抹掉 JWT） */
+export function shouldInvalidateSessionError(err) {
+    const msg = String(err?.message || err || '');
+    if (/HTTP\s*401|\b401\b|Unauthorized|未授权|Invalid session|Missing Authorization|token/i.test(msg))
+        return true;
+    if (err?.raw && typeof err.raw === 'object') {
+        const sc = Number(err.raw.statusCode);
+        if (sc === 401)
+            return true;
+    }
+    return false;
+}
+
 function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
     const run = (base, hop) =>
         new Promise((resolve, reject) => {
@@ -141,15 +154,6 @@ async function prefetchUserBootstrapData(token) {
     }
     catch (e) {
         console.warn('prefetch user data failed', e);
-    }
-}
-async function checkWeChatSessionValid() {
-    try {
-        await new Promise((resolve, reject) => wx.checkSession({ success: resolve, fail: reject }));
-        return true;
-    }
-    catch (e) {
-        return false;
     }
 }
 export function getPrefetchedUserData() {
@@ -310,11 +314,7 @@ export async function ensureAuthSession(options = {}) {
     const token = getToken();
     if (token) {
         try {
-            const validWeChatSession = await checkWeChatSessionValid();
-            if (!validWeChatSession) {
-                logout();
-                throw new Error('WECHAT_SESSION_EXPIRED');
-            }
+            /** 不与 wx.checkSession 绑定：后端 JWT 仍可能有效；checkSession 失败曾误清 token */
             const me = await requestAuth('/api/me', { method: 'GET', token });
             setUser(me);
             await trySyncWeChatProfileSilently(token);
@@ -323,7 +323,12 @@ export async function ensureAuthSession(options = {}) {
             return me;
         }
         catch (e) {
-            clearToken();
+            if (shouldInvalidateSessionError(e)) {
+                logout();
+            }
+            else {
+                throw e;
+            }
         }
     }
     if (!allowLogin)
