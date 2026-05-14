@@ -2,7 +2,7 @@ import { config } from '../../../config/runtime';
 import { requestJson } from '../../../services/_utils/http';
 import { fetchCustomerServicePhone } from '../../../services/_utils/customerServicePhone';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
-import { OrderButtonTypes, OrderStatus } from '../config';
+import { OrderButtonTypes, OrderStatus, ORDER_BUTTON_APPLY_REFUND_NAME } from '../config';
 
 /** 与后端 extractProductIdFromOrderItem 对齐，用于评价按钮与 reviewedProductIds */
 function productIdFromOrderLineItem(g) {
@@ -141,7 +141,7 @@ function buildButtonsByOrder(row) {
     if (status === OrderStatus.COMPLETE) {
         const right = [
             { name: '删除订单', primary: true, type: OrderButtonTypes.DELETE },
-            { name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND },
+            { name: ORDER_BUTTON_APPLY_REFUND_NAME, primary: false, type: OrderButtonTypes.APPLY_REFUND },
             { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
         ];
         if (row.needsReview) {
@@ -150,7 +150,7 @@ function buildButtonsByOrder(row) {
         return right;
     }
     if (status === OrderStatus.PENDING_DELIVERY) {
-        return [{ name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND }];
+        return [{ name: ORDER_BUTTON_APPLY_REFUND_NAME, primary: false, type: OrderButtonTypes.APPLY_REFUND }];
     }
     if (status === OrderStatus.CANCELED_NOT_PAYMENT) {
         return [
@@ -158,6 +158,6 @@ function buildButtonsByOrder(row) {
             { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
         ];
     }
-    return [{ name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND }];
+    return [{ name: ORDER_BUTTON_APPLY_REFUND_NAME, primary: false, type: OrderButtonTypes.APPLY_REFUND }];
 }
 

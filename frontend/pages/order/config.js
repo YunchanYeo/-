@@ -45,6 +45,8 @@ export const OrderButtonTypes = {
     REBUY: 9, // 再次购买
     INVITE_GROUPON: 11, //邀请好友拼团
 };
+/** 订单「申请售后」按钮展示文案（固定为「售+后」U+540E，避免误写「侯/候」等形近字） */
+export const ORDER_BUTTON_APPLY_REFUND_NAME = '\u7533\u8bf7\u552e\u540e';
 // 售后服务按钮类型
 export const ServiceButtonTypes = {
     REVOKE: 2, // 撤销
