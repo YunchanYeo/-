@@ -136,6 +136,28 @@ Page({
     return shouldAutoScrollByAnchor(this, nextList);
   },
 
+  /** 轮询拉取后：若相对基线出现新的客服(admin)消息则轻提示（首帧只建基线不弹窗） */
+  _evalAdminReplyNotify(rawMsgs) {
+    const list = Array.isArray(rawMsgs) ? rawMsgs : [];
+    const ids = list.map((m) => Number(m.id)).filter((n) => Number.isFinite(n));
+    const maxId = ids.length ? Math.max(...ids) : 0;
+    if (this._supportAdminReplyBaselineMaxId == null) {
+      this._supportAdminReplyBaselineMaxId = maxId;
+      return;
+    }
+    const baseline = Number(this._supportAdminReplyBaselineMaxId) || 0;
+    const hasNewAdmin = list.some((m) => {
+      const id = Number(m.id);
+      if (!Number.isFinite(id) || id <= baseline) return false;
+      const role = String(m.fromRole || '').trim().toLowerCase();
+      return role === 'admin';
+    });
+    if (hasNewAdmin) {
+      notifySupportChatToast('客服发来新消息');
+    }
+    this._supportAdminReplyBaselineMaxId = maxId;
+  },
+
   async fetchMessages() {
     try {
       const rows = await listMySupportMessages();
