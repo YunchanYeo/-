@@ -338,8 +338,7 @@ export default function OrdersPage() {
     XLSX.writeFile(wb, `orders_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  async function exportSalesSlipWorkbook() {
-    const XLSX = await getXlsx();
+  function exportSalesSlipWorkbook() {
     const pickList = () => {
       const selectedInView = selectedOrderNos.filter((no) => visibleOrderNos.includes(no));
       if (selectedInView.length) {
@@ -353,7 +352,7 @@ export default function OrdersPage() {
       window.alert('没有可导出的订单（请调整筛选或勾选列表中的订单）');
       return;
     }
-    await exportOrdersAsSalesSlips(XLSX, list);
+    exportOrdersAsSalesSlips(list);
   }
 
   async function exportImportTemplate() {
