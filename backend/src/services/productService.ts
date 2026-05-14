@@ -66,6 +66,86 @@ export function createProductService({ db }: { db: Db }) {
     res.json({ ok: true, data: row });
   }
 
+  /** 商品详情页评价列表与统计（公开） */
+  function publicProductReviews(req: Request, res: Response) {
+    const productId = Number(req.params.id);
+    if (!Number.isFinite(productId) || productId <= 0) {
+      return res.status(400).json({ ok: false, message: 'Invalid product id' });
+    }
+    const exists = db.prepare(`SELECT id FROM products WHERE id = ?`).get(productId);
+    if (!exists) return res.status(404).json({ ok: false, message: 'Product not found' });
+
+    const limit = Math.min(100, Math.max(1, Number((req.query as { limit?: string }).limit) || 20));
+    const offset = Math.max(0, Number((req.query as { offset?: string }).offset) || 0);
+
+    const statsRow = db
+      .prepare(
+        `SELECT
+           COUNT(*) as commentCount,
+           SUM(CASE WHEN score >= 4 THEN 1 ELSE 0 END) as goodCount,
+           SUM(CASE WHEN score = 3 THEN 1 ELSE 0 END) as middleCount,
+           SUM(CASE WHEN score <= 2 THEN 1 ELSE 0 END) as badCount
+         FROM product_reviews WHERE productId = ?`,
+      )
+      .get(productId) as {
+      commentCount: number | null;
+      goodCount: number | null;
+      middleCount: number | null;
+      badCount: number | null;
+    };
+    const commentCount = Number(statsRow?.commentCount || 0);
+    const goodCount = Number(statsRow?.goodCount || 0);
+    const middleCount = Number(statsRow?.middleCount || 0);
+    const badCount = Number(statsRow?.badCount || 0);
+    const goodRate = commentCount > 0 ? Math.floor((goodCount / commentCount) * 1000) / 10 : 0;
+
+    const rows = db
+      .prepare(
+        `SELECT r.id, r.score, r.content, r.isAnonymous, r.createdAt, r.userId, u.nickName
+         FROM product_reviews r
+         INNER JOIN users u ON u.id = r.userId
+         WHERE r.productId = ?
+         ORDER BY r.id DESC
+         LIMIT ? OFFSET ?`,
+      )
+      .all(productId, limit, offset) as Array<{
+      id: number;
+      score: number;
+      content: string;
+      isAnonymous: number;
+      createdAt: string;
+      userId: number;
+      nickName: string | null;
+    }>;
+
+    const homePageComments = rows.map((x) => ({
+      id: x.id,
+      spuId: String(productId),
+      createdAt: x.createdAt,
+      userName: x.isAnonymous ? '匿名用户' : x.nickName || '用户',
+      commentScore: x.score,
+      commentContent: x.content || '',
+      isAnonymity: Boolean(x.isAnonymous),
+      userHeadUrl: x.isAnonymous ? '' : `/api/media/user-avatar/${x.userId}`,
+    }));
+
+    return res.json({
+      ok: true,
+      data: {
+        homePageComments,
+        total: commentCount,
+        stats: {
+          badCount,
+          commentCount,
+          goodCount,
+          goodRate,
+          hasImageCount: 0,
+          middleCount,
+        },
+      },
+    });
+  }
+
   function adminProducts(req: Request, res: Response) {
     const rows = db.prepare(`SELECT ${productColumns} FROM products ORDER BY id DESC`).all();
     return res.json({ ok: true, data: rows });
@@ -194,6 +274,7 @@ export function createProductService({ db }: { db: Db }) {
   return {
     publicProducts,
     publicProductDetail,
+    publicProductReviews,
     adminProducts,
     adminProductDetail,
     adminCreateProduct,

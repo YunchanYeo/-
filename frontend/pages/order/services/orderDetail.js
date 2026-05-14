@@ -17,6 +17,7 @@ export function fetchOrderDetail(params) {
         const address = row.address || {};
         const hasShipping = !!row.logisticsNo;
         const shippedAt = row.shippedAt ? new Date(row.shippedAt).getTime() : 0;
+        const reviewedSet = new Set((row.reviewedProductIds || []).map((x) => Number(x)));
         return {
             data: {
                 orderId: row.id,
@@ -40,7 +41,15 @@ export function fetchOrderDetail(params) {
                     logisticsCompanyName: row.logisticsCompanyName || '',
                     logisticsCompanyTel: '',
                 },
-                orderItemVOs: items.map((g, index) => ({
+                orderItemVOs: items.map((g, index) => {
+                    const spuIdStr = String(g.spuId ?? '').trim();
+                    const pid = parseInt(spuIdStr, 10);
+                    const hasReview = Number.isFinite(pid) ? reviewedSet.has(pid) : false;
+                    const lineButtons = [];
+                    if (Number(row.orderStatus) === OrderStatus.COMPLETE && !row.refundStatus && Number.isFinite(pid) && !hasReview) {
+                        lineButtons.push({ name: '评价', primary: true, type: OrderButtonTypes.COMMENT });
+                    }
+                    return {
                     id: index + 1,
                     goodsPictureUrl: normalizeGoodsImageUrl(g.primaryImage || g.thumb || g.image || ''),
                     goodsName: g.goodsName || g.title || '商品',
@@ -49,8 +58,9 @@ export function fetchOrderDetail(params) {
                     specifications: Array.isArray(g.specInfo) ? g.specInfo.map((s) => ({ specValue: s.specValue || '' })) : [],
                     actualPrice: Number(g.price || g.settlePrice || 0),
                     buyQuantity: Number(g.quantity || 1),
-                    buttonVOs: [],
-                })),
+                    buttonVOs: lineButtons,
+                };
+                }),
                 buttonVOs: buildButtonsByOrder(row),
                 paymentVO: { paySuccessTime: row.refundStatus ? 0 : new Date(row.createdAt).getTime() },
                 invoiceStatus: 3,

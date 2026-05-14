@@ -17,7 +17,7 @@ import {
   verifyAlipayNotifyParams,
   type AlipayWapConfig,
 } from './alipayWap';
-import { hydrateOrderItemsWithProduct } from './orderItemImages';
+import { extractProductIdFromOrderItem, hydrateOrderItemsWithProduct } from './orderItemImages';
 import { applyStockDecrementForOrderItems, restoreStockForOrderItems } from './orderInventory';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
@@ -522,14 +522,84 @@ export function createOrderService({
       .get(userId, req.params.orderNo);
     if (!row) return res.status(404).json({ ok: false, message: 'Order not found' });
     const r: any = row;
+    const reviewedRows = db
+      .prepare(`SELECT productId FROM product_reviews WHERE orderNo = ?`)
+      .all(req.params.orderNo) as { productId: number }[];
+    const reviewedProductIds = reviewedRows.map((x) => x.productId);
     return res.json({
       ok: true,
       data: {
         ...r,
         items: hydrateOrderItemsWithProduct(db, JSON.parse(r.itemsJson || '[]')),
         address: JSON.parse(r.addressJson || '{}'),
+        reviewedProductIds,
       },
     });
+  }
+
+  function createOrderReview(req: Request, res: Response) {
+    const userId = (req as any).user?.id;
+    const orderNo = String(req.params.orderNo || '').trim();
+    if (!orderNo) return res.status(400).json({ ok: false, message: 'Invalid orderNo' });
+    const schema = z.object({
+      productId: z.number().int().positive(),
+      score: z.number().int().min(1).max(5),
+      content: z.string().max(500).optional(),
+      isAnonymous: z.boolean().optional(),
+      skuId: z.string().max(120).optional(),
+    });
+    const parsed = schema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ ok: false, message: 'Invalid review body', issues: parsed.error.issues });
+    }
+
+    const order = db.prepare(`SELECT * FROM orders WHERE userId = ? AND orderNo = ?`).get(userId, orderNo) as any;
+    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+    if (Number(order.orderStatus) !== 50) {
+      return res.status(409).json({ ok: false, message: '仅已完成订单可评价' });
+    }
+    if (Number(order.refundStatus) === 1) {
+      return res.status(409).json({ ok: false, message: '已退款订单不可评价' });
+    }
+
+    const pid = parsed.data.productId;
+    const items = JSON.parse(String(order.itemsJson || '[]')) as unknown[];
+    const allowed =
+      Array.isArray(items) &&
+      items.some((it) => extractProductIdFromOrderItem(it as Record<string, unknown>) === pid);
+    if (!allowed) return res.status(400).json({ ok: false, message: '该订单不包含此商品' });
+
+    const productRow = db.prepare(`SELECT id FROM products WHERE id = ?`).get(pid);
+    if (!productRow) return res.status(400).json({ ok: false, message: '商品不存在' });
+
+    try {
+      db.prepare(
+        `INSERT INTO product_reviews (userId, orderNo, productId, skuId, score, content, isAnonymous, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      ).run(
+        userId,
+        orderNo,
+        pid,
+        (parsed.data.skuId ?? '').trim(),
+        parsed.data.score,
+        (parsed.data.content ?? '').trim(),
+        parsed.data.isAnonymous ? 1 : 0,
+      );
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('UNIQUE')) {
+        return res.status(409).json({ ok: false, message: '该订单中此商品已评价' });
+      }
+      throw e;
+    }
+
+    const created = db
+      .prepare(
+        `SELECT id, userId, orderNo, productId, skuId, score, content, isAnonymous, createdAt
+         FROM product_reviews WHERE orderNo = ? AND productId = ?`,
+      )
+      .get(orderNo, pid);
+    return res.json({ ok: true, data: created });
   }
 
   function refundOrder(req: Request, res: Response) {
@@ -833,6 +903,7 @@ if (typeof wx !== 'undefined' && wx.miniProgram) {
     listOrders,
     ordersCount,
     getOrderDetail,
+    createOrderReview,
     refundOrder,
     orderLogisticsTrace,
   };

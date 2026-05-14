@@ -16,7 +16,7 @@ Component({
                     this.setData({
                         buttons: {
                             left: [],
-                            right: (goods.buttons || []).filter((b) => b.type == OrderButtonTypes.APPLY_REFUND),
+                            right: (goods.buttons || []).filter((b) => b.type == OrderButtonTypes.APPLY_REFUND || b.type == OrderButtonTypes.COMMENT),
                         },
                     });
                     return;
@@ -268,11 +268,25 @@ Component({
         },
         /** 添加订单评论 */
         onAddComment(order) {
-            const imgUrl = order?.goodsList?.[0]?.thumb;
-            const title = order?.goodsList?.[0]?.title;
-            const specs = order?.goodsList?.[0]?.specs;
+            const idxRaw = this.properties.goodsIndex;
+            const idx = Number.isFinite(idxRaw) ? Number(idxRaw) : NaN;
+            const goods = Number.isFinite(idx) ? order?.goodsList?.[idx] : order?.goodsList?.[0];
+            const spuId = String(goods?.spuId ?? '').trim();
+            const skuId = String(goods?.skuId ?? '').trim();
+            const imgUrl = encodeURIComponent(goods?.thumb || '');
+            const title = encodeURIComponent(goods?.title || '');
+            const specs = encodeURIComponent((goods?.specs || []).join(' '));
+            if (!order?.orderNo || !spuId) {
+                Toast({
+                    context: this,
+                    selector: '#t-toast',
+                    message: '缺少订单或商品信息',
+                    icon: '',
+                });
+                return;
+            }
             wx.navigateTo({
-                url: `/pages/goods/comments/create/index?specs=${specs}&title=${title}&orderNo=${order?.orderNo}&imgUrl=${imgUrl}`,
+                url: `/pages/goods/comments/create/index?orderNo=${encodeURIComponent(order.orderNo)}&spuId=${encodeURIComponent(spuId)}&skuId=${encodeURIComponent(skuId)}&specs=${specs}&title=${title}&imgUrl=${imgUrl}`,
             });
         },
     },

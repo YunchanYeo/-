@@ -5,9 +5,11 @@ import { addItemToLocalCart } from '../../../services/cart/cart';
 import { getGoodsDetailsCommentList, getGoodsDetailsCommentsCount, } from '../services/fetchGoodsDetailsComments';
 import { getProductDataVersion } from '../../../services/good/productVersion';
 import { cdnBase } from '../../../config/runtime';
+import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 const imgPrefix = `${cdnBase}/`;
 const recLeftImg = `${imgPrefix}common/rec-left.png`;
 const recRightImg = `${imgPrefix}common/rec-right.png`;
+const defaultAnonCommentAvatar = 'https://tdesign.gtimg.com/mobile/demos/avatar1.jpeg';
 const obj2Params = (obj = {}, encode = false) => {
     const result = [];
     Object.keys(obj).forEach((key) => result.push(`${key}=${encode ? encodeURIComponent(obj[key]) : obj[key]}`));
@@ -375,25 +377,29 @@ Page({
             });
         });
     },
-    async getCommentsList() {
+    async getCommentsList(spuId) {
+        const sid = String(spuId ?? this.data.spuId ?? '').trim();
+        if (!sid)
+            return;
         try {
-            const code = 'Success';
-            const data = await getGoodsDetailsCommentList();
-            const { homePageComments } = data;
-            if (code.toUpperCase() === 'SUCCESS') {
-                const nextState = {
-                    commentsList: homePageComments.map((item) => {
-                        return {
-                            goodsSpu: item.spuId,
-                            userName: item.userName || '',
-                            commentScore: item.commentScore,
-                            commentContent: item.commentContent || '用户未填写评价',
-                            userHeadUrl: item.isAnonymity ? this.anonymityAvatar : item.userHeadUrl || this.anonymityAvatar,
-                        };
-                    }),
-                };
-                this.setData(nextState);
-            }
+            const data = await getGoodsDetailsCommentList(sid);
+            const homePageComments = Array.isArray(data?.homePageComments) ? data.homePageComments : [];
+            const nextState = {
+                commentsList: homePageComments.map((item) => {
+                    const head = item.isAnonymity
+                        ? defaultAnonCommentAvatar
+                        : (normalizeGoodsImageUrl(item.userHeadUrl) || defaultAnonCommentAvatar);
+                    return {
+                        reviewId: item.id,
+                        goodsSpu: item.spuId,
+                        userName: item.userName || '',
+                        commentScore: item.commentScore,
+                        commentContent: item.commentContent || '用户未填写评价',
+                        userHeadUrl: head,
+                    };
+                }),
+            };
+            this.setData(nextState);
         }
         catch (error) {
             console.error('comments error:', error);
@@ -415,25 +421,24 @@ Page({
         return customInfo;
     },
     /** 获取评价统计 */
-    async getCommentsStatistics() {
+    async getCommentsStatistics(spuId) {
+        const sid = String(spuId ?? this.data.spuId ?? '').trim();
+        if (!sid)
+            return;
         try {
-            const code = 'Success';
-            const data = await getGoodsDetailsCommentsCount();
-            if (code.toUpperCase() === 'SUCCESS') {
-                const { badCount, commentCount, goodCount, goodRate, hasImageCount, middleCount } = data;
-                const nextState = {
-                    commentsStatistics: {
-                        badCount: parseInt(`${badCount}`),
-                        commentCount: parseInt(`${commentCount}`),
-                        goodCount: parseInt(`${goodCount}`),
-                        /** 后端返回百分比后数据但没有限制位数 */
-                        goodRate: Math.floor(goodRate * 10) / 10,
-                        hasImageCount: parseInt(`${hasImageCount}`),
-                        middleCount: parseInt(`${middleCount}`),
-                    },
-                };
-                this.setData(nextState);
-            }
+            const data = await getGoodsDetailsCommentsCount(sid);
+            const { badCount, commentCount, goodCount, goodRate, hasImageCount, middleCount } = data || {};
+            const nextState = {
+                commentsStatistics: {
+                    badCount: parseInt(`${badCount ?? 0}`, 10),
+                    commentCount: parseInt(`${commentCount ?? 0}`, 10),
+                    goodCount: parseInt(`${goodCount ?? 0}`, 10),
+                    goodRate: Math.floor(Number(goodRate || 0) * 10) / 10,
+                    hasImageCount: parseInt(`${hasImageCount ?? 0}`, 10),
+                    middleCount: parseInt(`${middleCount ?? 0}`, 10),
+                },
+            };
+            this.setData(nextState);
         }
         catch (error) {
             console.error('comments statiistics error:', error);

@@ -243,6 +243,25 @@ ensureOrderColumn('pointsUsed', "pointsUsed INTEGER NOT NULL DEFAULT 0");
 ensureOrderColumn('pointsEarned', "pointsEarned INTEGER NOT NULL DEFAULT 0");
 ensureOrderColumn('adminHidden', "adminHidden INTEGER NOT NULL DEFAULT 0");
 
+/** 订单完成后用户对商品的评价（与订单、商品关联；删订单时级联删除） */
+db.exec(`
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL,
+  orderNo TEXT NOT NULL,
+  productId INTEGER NOT NULL,
+  skuId TEXT,
+  score INTEGER NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  isAnonymous INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (orderNo) REFERENCES orders(orderNo) ON DELETE CASCADE,
+  UNIQUE(orderNo, productId)
+);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_productId ON product_reviews(productId);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS admins (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

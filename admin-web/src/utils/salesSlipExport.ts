@@ -8,57 +8,12 @@ function pickStr(v: unknown): string {
 
 const RGB_BORDER = 'FF000000';
 const thin = { style: 'thin' as const, color: { rgb: RGB_BORDER } };
-const thick = { style: 'thick' as const, color: { rgb: RGB_BORDER } };
 const borderAll = {
   top: thin,
   bottom: thin,
   left: thin,
   right: thin,
 };
-
-function getCellStyleBorder(co: XLSX.CellObject): Record<string, unknown> {
-  const s = co.s as Record<string, unknown> | undefined;
-  const b = s?.border as Record<string, unknown> | undefined;
-  if (b && typeof b === 'object') return { ...b };
-  return { top: thin, bottom: thin, left: thin, right: thin };
-}
-
-/** 销售单矩形外缘加粗线（与内部细线区分）；合并区只处理 master 格 */
-function applyThickOutsideSalesSlipBlock(
-  ws: XLSX.WorkSheet,
-  boxTop: number,
-  boxBottom: number,
-  merges: XLSX.Range[],
-) {
-  const L = 0;
-  const R = COL_LAST;
-
-  const mergeAt = (r: number, c: number): XLSX.Range | undefined =>
-    merges.find((m) => r >= m.s.r && r <= m.e.r && c >= m.s.c && c <= m.e.c);
-
-  for (let r = boxTop; r <= boxBottom; r++) {
-    for (let c = L; c <= R; c++) {
-      const addr = XLSX.utils.encode_cell({ r, c });
-      const co = (ws as Record<string, XLSX.CellObject>)[addr];
-      if (!co) continue;
-      const m = mergeAt(r, c);
-      if (m && (m.s.r !== r || m.s.c !== c)) continue;
-
-      const r0 = m ? m.s.r : r;
-      const r1 = m ? m.e.r : r;
-      const c0 = m ? m.s.c : c;
-      const c1 = m ? m.e.c : c;
-
-      if (!co.s) co.s = {};
-      const b = getCellStyleBorder(co);
-      if (r0 === boxTop) b.top = thick;
-      if (r1 === boxBottom) b.bottom = thick;
-      if (c0 === L) b.left = thick;
-      if (c1 === R) b.right = thick;
-      (co.s as Record<string, unknown>).border = b;
-    }
-  }
-}
 
 function cell(
   v: string | number | null | undefined,
@@ -201,8 +156,7 @@ function applySheetLayout(ws: XLSX.WorkSheet, lastRow: number) {
 }
 
 /**
- * 在 `baseRow` 起笔写入一张销售单（标题「销售单」水平垂直居中；表内九列全部为细线框，
- * 整张单外缘在细线基础上再加粗线描边）。
+ * 在 `baseRow` 起笔写入一张销售单（标题「销售单」水平垂直居中；表内九列均为默认细线框）。
  * 返回合并区域与占用到的最后一行行号（含页码行）。
  */
 function writeSalesSlipBlock(
@@ -316,8 +270,6 @@ function writeSalesSlipBlock(
   setCell(ws, pageRow, 7, cell('页码 : 第1/1页', { align: 'right', valign: 'center', border: true }));
   merges.push({ s: { r: pageRow, c: 7 }, e: { r: pageRow, c: 8 } });
   setCell(ws, pageRow, 8, cell('', { border: true, valign: 'center' }));
-
-  applyThickOutsideSalesSlipBlock(ws, B, pageRow, merges);
 
   return { merges, lastRow: pageRow };
 }

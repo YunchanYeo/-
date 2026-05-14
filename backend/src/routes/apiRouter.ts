@@ -21,6 +21,7 @@ export function createApiRouter(controller: any) {
   router.get('/media/product/:id', controller.serveProductImage);
   router.get('/media/user-avatar/:userId', controller.serveUserAvatar);
   router.get('/products', controller.publicProducts);
+  router.get('/products/:id/reviews', controller.publicProductReviews);
   router.get('/products/:id', controller.publicProductDetail);
   router.get('/promotions', controller.publicPromotions);
   router.get('/promotions/:id', controller.publicPromotionDetail);
@@ -39,6 +40,7 @@ export function createApiRouter(controller: any) {
   router.get('/orders', controller.requireAuth, controller.listOrders);
   router.get('/orders/count', controller.requireAuth, controller.ordersCount);
   router.get('/orders/:orderNo', controller.requireAuth, controller.getOrderDetail);
+  router.post('/orders/:orderNo/reviews', controller.requireAuth, controller.createOrderReview);
   router.post('/orders/:orderNo/refund', controller.requireAuth, controller.refundOrder);
   router.post('/orders/:orderNo/paid', controller.requireAuth, controller.markOrderPaid);
   router.post('/orders/:orderNo/cancel', controller.requireAuth, controller.cancelOrder);

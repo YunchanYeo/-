@@ -1,9 +1,10 @@
 // import { getCommentDetail } from '../../../../services/good/comments/fetchCommentDetail';
 import Toast from 'tdesign-miniprogram/toast/index';
+import { submitOrderReview } from '../../../order/services/submitReview';
 Page({
     data: {
         serviceRateValue: 1,
-        goodRateValue: 1,
+        goodRateValue: 5,
         conveyRateValue: 1,
         isAnonymous: false,
         uploadFiles: [],
@@ -19,13 +20,23 @@ Page({
         imageProps: {
             mode: 'aspectFit',
         },
+        orderNo: '',
+        spuId: '',
+        skuId: '',
     },
     onLoad(options) {
+        const orderNo = String(options.orderNo || '').trim();
+        const spuId = String(options.spuId || '').trim();
+        const skuId = String(options.skuId || '').trim();
         this.setData({
-            imgUrl: options.imgUrl,
-            title: options.title,
-            goodsDetail: options.specs,
+            imgUrl: decodeURIComponent(String(options.imgUrl || '')),
+            title: decodeURIComponent(String(options.title || '')),
+            goodsDetail: decodeURIComponent(String(options.specs || '')),
+            orderNo,
+            spuId,
+            skuId,
         });
+        this.textAreaValue = '';
     },
     onRateChange(e) {
         const { value } = e?.detail;
@@ -58,22 +69,49 @@ Page({
         this.updateButtonStatus();
     },
     updateButtonStatus() {
-        const { serviceRateValue, goodRateValue, conveyRateValue, isAllowedSubmit } = this.data;
-        const { textAreaValue } = this;
-        const temp = serviceRateValue && goodRateValue && conveyRateValue && textAreaValue;
+        const { goodRateValue, isAllowedSubmit } = this.data;
+        const text = String(this.textAreaValue || '').trim();
+        const temp = goodRateValue >= 1 && text.length > 0;
         if (temp !== isAllowedSubmit)
             this.setData({ isAllowedSubmit: temp });
     },
-    onSubmitBtnClick() {
-        const { isAllowedSubmit } = this.data;
+    async onSubmitBtnClick() {
+        const { isAllowedSubmit, orderNo, spuId, skuId, goodRateValue, isAnonymous } = this.data;
         if (!isAllowedSubmit)
             return;
-        Toast({
-            context: this,
-            selector: '#t-toast',
-            message: '评价提交成功',
-            icon: 'check-circle',
-        });
-        wx.navigateBack();
+        const productId = parseInt(String(spuId), 10);
+        if (!orderNo || !Number.isFinite(productId)) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '缺少订单或商品，请从订单页进入评价',
+                icon: '',
+            });
+            return;
+        }
+        try {
+            await submitOrderReview(orderNo, {
+                productId,
+                score: goodRateValue,
+                content: String(this.textAreaValue || '').trim(),
+                isAnonymous: Boolean(isAnonymous),
+                skuId: skuId || undefined,
+            });
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '评价提交成功',
+                icon: 'check-circle',
+            });
+            wx.navigateBack();
+        }
+        catch (e) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: e?.message || '提交失败，请稍后重试',
+                icon: '',
+            });
+        }
     },
 });
