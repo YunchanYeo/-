@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
-import { fetchAdminMe, type AdminMe } from '../api/admin';
+import { fetchAdminMe, fetchSupportConversations, type AdminMe } from '../api/admin';
 
 const NAV: { to: string; label: string; short: string }[] = [
   { to: '/products', label: '商品与库存', short: '商品' },
@@ -17,6 +17,7 @@ export default function Shell() {
   const { token, logout } = useAuth();
   const nav = useNavigate();
   const [me, setMe] = useState<AdminMe | null>(null);
+  const [supportUnreadTotal, setSupportUnreadTotal] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -27,6 +28,31 @@ export default function Shell() {
         nav('/login', { replace: true });
       });
   }, [token, logout, nav]);
+
+  useEffect(() => {
+    if (!token) {
+      setSupportUnreadTotal(0);
+      return;
+    }
+    let cancelled = false;
+    const tick = () => {
+      fetchSupportConversations(token)
+        .then((rows) => {
+          if (cancelled) return;
+          const n = rows.reduce((s, r) => s + (Number(r.unreadCount) || 0), 0);
+          setSupportUnreadTotal(n);
+        })
+        .catch(() => {
+          if (!cancelled) setSupportUnreadTotal(0);
+        });
+    };
+    tick();
+    const id = window.setInterval(tick, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [token]);
 
   const navCls = ({ isActive }: { isActive: boolean }) =>
     `shell-erp-navlink${isActive ? ' shell-erp-navlink--active' : ''}`;
@@ -40,6 +66,11 @@ export default function Shell() {
             <NavLink key={item.to} to={item.to} className={navCls}>
               <span className="shell-erp-navlink__short">{item.short}</span>
               <span className="shell-erp-navlink__label">{item.label}</span>
+              {item.to === '/support' && supportUnreadTotal > 0 ? (
+                <span className="shell-erp-nav-badge" title="用户未读消息">
+                  {supportUnreadTotal > 99 ? '99+' : supportUnreadTotal}
+                </span>
+              ) : null}
             </NavLink>
           ))}
         </nav>

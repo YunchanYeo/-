@@ -56,6 +56,7 @@
               <text class="voice-sec">{{item.voiceSec}}″</text>
             </view>
           </view>
+          <view wx:else class="bubble bubble--text">{{item.content}}</view>
         </view>
         <view class="avatar avatar--mine" wx:if="{{item.fromRole === 'user'}}">
           <image wx:if="{{myAvatarUrl}}" class="avatar-img" src="{{myAvatarUrl}}" mode="aspectFill" />

@@ -31,7 +31,18 @@ function parseMeta(metaJson: string | null | undefined): Record<string, unknown>
 
 function rowWithParsed(row: Record<string, unknown>) {
   const content = rewriteLegacyChatMediaUrl(String(row.content || ''));
-  return { ...row, content, meta: parseMeta(row.metaJson as string | null | undefined) };
+  const meta = parseMeta(row.metaJson as string | null | undefined);
+  const roleRaw = String(
+    row.fromRole ?? (row as Record<string, unknown>)['fromrole'] ?? '',
+  )
+    .trim()
+    .toLowerCase();
+  const fromRole: 'user' | 'admin' = roleRaw === 'admin' ? 'admin' : 'user';
+  const mtRaw = String(row.msgType ?? (row as Record<string, unknown>)['msgtype'] ?? 'text')
+    .trim()
+    .toLowerCase();
+  const msgType = mtRaw === 'image' || mtRaw === 'voice' ? mtRaw : 'text';
+  return { ...row, content, meta, fromRole, msgType };
 }
 
 export function createSupportService({ db, uploadsDir }: { db: Db; uploadsDir: string }) {

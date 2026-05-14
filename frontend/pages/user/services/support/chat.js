@@ -31,8 +31,18 @@ export function normalizeChatMediaUrl(url) {
 }
 
 export function enrichSupportMessage(m) {
-  const msgType = /** @type {'text'|'image'|'voice'} */ (m.msgType || 'text');
+  const rawType = String(m.msgType || 'text').trim().toLowerCase();
+  const msgType =
+    rawType === 'image' || rawType === 'voice'
+      ? /** @type {'text'|'image'|'voice'} */ (rawType)
+      : /** @type {'text'|'image'|'voice'} */ ('text');
   const displayUrl = msgType === 'image' || msgType === 'voice' ? normalizeChatMediaUrl(String(m.content || '')) : '';
+  const roleRaw = String(m.fromRole || '').trim().toLowerCase();
+  const fromRole = roleRaw === 'admin' ? 'admin' : 'user';
+  const orderNo =
+    m.meta && typeof /** @type {{ orderNo?: unknown }} */ (m.meta).orderNo === 'string'
+      ? String(/** @type {{ orderNo?: string }} */ (m.meta).orderNo || '').trim()
+      : '';
   let voiceSec = 0;
   let voiceBarWidth = 0;
   if (msgType === 'voice') {
@@ -43,7 +53,7 @@ export function enrichSupportMessage(m) {
     }
     voiceBarWidth = Math.min(560, Math.max(148, 120 + voiceSec * 32));
   }
-  return { ...m, msgType, displayUrl, voiceSec, voiceBarWidth };
+  return { ...m, msgType, fromRole, displayUrl, voiceSec, voiceBarWidth, orderNo };
 }
 
 export function enrichSupportMessages(list) {
