@@ -3,6 +3,7 @@ import Toast from 'tdesign-miniprogram/toast/index';
 import { priceFormat } from '../utils/util';
 import { OrderStatus, ServiceType, ServiceReceiptStatus } from '../config';
 import reasonSheet from '../components/reason-sheet/reasonSheet';
+import { getErrorMessage } from '../../../services/_utils/errors';
 import { fetchRightsPreview, dispatchConfirmReceived, fetchApplyReasonList, dispatchApplyService, } from '../services/applyService';
 Page({
     query: {},
@@ -103,23 +104,16 @@ Page({
         catch (e) { }
     },
     checkQuery() {
-        const { orderNo, skuId } = this.query;
+        const { orderNo } = this.query;
         if (!orderNo) {
             Dialog.alert({
                 content: '请先选择订单',
             }).then(() => {
-                wx.redirectTo({ url: 'pages/order/order-list/index' });
+                wx.redirectTo({ url: '/pages/order/order-list/index' });
             });
             return false;
         }
-        if (!skuId) {
-            Dialog.alert({
-                content: '请先选择商品',
-            }).then(() => {
-                wx.redirectTo(`pages/order/order-detail/index?orderNo=${orderNo}`);
-            });
-            return false;
-        }
+        // skuId 可能为空（历史订单行未存 skuId）；退款预览接口会用订单首行商品补全
         return true;
     },
     async refresh() {
@@ -137,11 +131,14 @@ Page({
                 paidAmountEach: res.data.paidAmountEach,
                 boughtQuantity: res.data.boughtQuantity,
             };
+            const maxFen = Number(res.data.refundableAmount || 0);
             this.setData({
                 goodsInfo,
                 'serviceFrom.amount': {
-                    max: res.data.refundableAmount,
-                    current: res.data.refundableAmount,
+                    max: maxFen,
+                    current: maxFen,
+                    temp: priceFormat(maxFen, 2),
+                    focus: false,
                 },
                 'serviceFrom.returnNum': res.data.numOfSku,
                 amountTip: `最多可申请退款¥ ${priceFormat(res.data.refundableAmount, 2)}，含发货运费¥ ${priceFormat(res.data.shippingFeeIncluded, 2)}`,
@@ -288,8 +285,12 @@ Page({
             confirmBtn: '确定',
         });
         this.inputDialog._onConfirm = () => {
+            const t = this.data.serviceFrom.amount.temp;
+            const yuan = Number.parseFloat(String(t).replace(/[^\d.]/g, '')) || 0;
+            const fen = Math.max(0, Math.round(yuan * 100));
+            const capped = Math.min(fen, Number(this.data.serviceFrom.amount.max) || 0);
             this.setData({
-                'serviceFrom.amount.current': this.data.serviceFrom.amount.temp * 100,
+                'serviceFrom.amount.current': capped,
             });
         };
         this.inputDialog._onCancel = () => { };
@@ -363,12 +364,20 @@ Page({
                 }
                 else {
                     wx.redirectTo({
-                        url: `/pages/order/order-detail/index?orderNo=${this.query.orderNo}`,
+                        url: `/pages/order/order-detail/index?orderNo=${encodeURIComponent(this.query.orderNo)}`,
                     });
                 }
             })
                 .then(() => this.setData({ submitting: false }))
-                .catch(() => this.setData({ submitting: false }));
+                .catch((e) => {
+                    Toast({
+                        context: this,
+                        selector: '#t-toast',
+                        message: getErrorMessage(e) || '申请失败',
+                        icon: '',
+                    });
+                    this.setData({ submitting: false });
+                });
         });
     },
     onCloseToHome() {

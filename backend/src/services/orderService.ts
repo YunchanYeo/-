@@ -541,6 +541,13 @@ export function createOrderService({
     const order = db.prepare(`SELECT * FROM orders WHERE userId = ? AND orderNo = ?`).get(userId, req.params.orderNo) as any;
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
     if (order.refundStatus === 1) return res.status(409).json({ ok: false, message: 'Order already refunded' });
+    const st = Number(order.orderStatus ?? 0);
+    if (st === 5) {
+      return res.status(409).json({ ok: false, message: '订单尚未支付，无法申请退款；请取消订单或完成支付' });
+    }
+    if (st === 80) {
+      return res.status(409).json({ ok: false, message: '订单已取消，无法退款' });
+    }
 
     const refundAmount = Math.min(parsed.data.refundAmount ?? order.paymentAmount, order.paymentAmount);
     const paidLike =

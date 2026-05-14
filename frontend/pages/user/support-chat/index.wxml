@@ -1,4 +1,5 @@
 <view class="chat-page">
+  <view wx:if="{{chatLoadError}}" class="chat-sync-err">{{chatLoadError}}</view>
   <scroll-view
     class="msg-scroll"
     scroll-y

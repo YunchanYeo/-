@@ -23,9 +23,11 @@ import {
   shouldAutoScrollByAnchor,
 } from '../services/support/chatPageRuntime';
 import { notifySupportChatToast } from '../../../services/supportChatNotify';
+import { getErrorMessage } from '../../../services/_utils/errors';
 
 Page({
   data: {
+    chatLoadError: '',
     messages: [],
     inputText: '',
     sending: false,
@@ -71,6 +73,7 @@ Page({
   },
 
   onShow() {
+    this._supportChatErrorNotified = false;
     if (this._timer) {
       clearInterval(this._timer);
       this._timer = null;
@@ -140,13 +143,25 @@ Page({
       this._evalAdminReplyNotify(rawList);
       setPrefetchedSupportMessages(rawList);
       const messages = enrichSupportMessages(rawList);
-      this.setData({ messages });
+      this.setData({ messages, chatLoadError: '' });
+      this._supportChatErrorNotified = false;
       if (this.shouldAutoScroll(messages)) {
         wx.nextTick(() => this.scrollToBottom(messages));
       }
       const typing = await getMySupportPeerTyping();
       this.setData({ peerTyping: Boolean(typing?.peerTyping) });
-    } catch (e) {}
+    } catch (e) {
+      const msg = getErrorMessage(e);
+      this.setData({ chatLoadError: msg });
+      if (msg && !this._supportChatErrorNotified) {
+        this._supportChatErrorNotified = true;
+        if (/401|登录|授权/i.test(msg)) {
+          Toast({ context: this, selector: '#t-toast', message: '请先登录后再使用在线客服', icon: '' });
+        } else {
+          Toast({ context: this, selector: '#t-toast', message: msg, icon: '' });
+        }
+      }
+    }
   },
 
   onInput(e) {

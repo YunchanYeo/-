@@ -230,10 +230,12 @@ Component({
         },
         onApplyRefund(order) {
             const goods = order.goodsList[this.properties.goodsIndex];
+            const skuId = String(goods?.skuId || goods?.spuId || '').trim();
+            const spuId = String(goods?.spuId || goods?.skuId || '').trim();
             const params = {
                 orderNo: order.orderNo,
-                skuId: goods?.skuId ?? '19384938948343',
-                spuId: goods?.spuId ?? '28373847384343',
+                skuId: skuId || '0',
+                spuId: spuId || '0',
                 orderStatus: order.status,
                 logisticsNo: order.logisticsNo,
                 price: goods?.price ?? 89,
@@ -244,7 +246,7 @@ Component({
                 canApplyReturn: true,
             };
             const paramsStr = Object.keys(params)
-                .map((k) => `${k}=${params[k]}`)
+                .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(String(params[k] ?? ''))}`)
                 .join('&');
             wx.navigateTo({ url: `/pages/order/apply-service/index?${paramsStr}` });
         },

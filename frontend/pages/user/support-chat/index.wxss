@@ -8,6 +8,16 @@
   box-sizing: border-box;
 }
 
+.chat-sync-err {
+  flex-shrink: 0;
+  padding: 16rpx 24rpx;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 24rpx;
+  line-height: 1.4;
+  border-bottom: 1rpx solid #fecaca;
+}
+
 .msg-scroll {
   flex: 1;
   height: 0;

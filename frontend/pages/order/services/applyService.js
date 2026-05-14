@@ -64,10 +64,14 @@ function mockDispatchApplyService(params) {
 export function dispatchApplyService(params) {
     if (config.useMock)
         return mockDispatchApplyService(params);
-    const orderNo = params?.rights?.orderNo;
-    const refundAmount = Number(params?.rights?.refundRequestAmount || 0);
+    const orderNo = String(params?.rights?.orderNo || params?.orderNo || '').trim();
+    if (!orderNo) {
+        return Promise.reject(new Error('缺少订单号'));
+    }
+    const rawAmt = Number(params?.rights?.refundRequestAmount || 0);
+    const refundAmount = Math.max(0, Math.round(Number.isFinite(rawAmt) ? rawAmt : 0));
     const reason = params?.rights?.rightsReasonDesc || '';
-    return requestJson(`/api/orders/${orderNo}/refund`, {
+    return requestJson(`/api/orders/${encodeURIComponent(orderNo)}/refund`, {
         method: 'POST',
         data: { refundAmount, reason },
     }).then((data) => ({
