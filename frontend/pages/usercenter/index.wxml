@@ -20,8 +20,14 @@
     </t-avatar>
     <view class="user-center-card__header__name">微信登录</view>
   </view>
-  <button class="user-center-phone-oneclick login-btn-reset" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumberLogin">
-    <text class="user-center-phone-oneclick__txt">手机号一键登录</text>
+  <button
+    id="usercenter-phone-login-btn"
+    class="user-center-phone-oneclick login-btn-reset"
+    open-type="getPhoneNumber|agreePrivacyAuthorization"
+    bindgetphonenumber="onGetPhoneNumberLogin"
+    bindagreeprivacyauthorization="onPrivacyAgreePrivacyAuthorization"
+  >
+    <text class="user-center-phone-oneclick__txt">本机手机号一键登录</text>
   </button>
 </view>
 <t-user-center-card
@@ -37,14 +43,6 @@
 <view class="content-wrapper">
   <view class="order-group-wrapper">
     <t-order-group orderTagInfos="{{orderTagInfos}}" bind:onClickTop="jumpAllOrder" bind:onClickItem="jumpNav" />
-  </view>
-  <view wx:if="{{showWxLoginFallback}}" class="cell-box wx-login-fallback-box">
-    <view class="wx-login-fallback-tip">若登录异常，可点此重新发起微信登录。</view>
-    <t-button theme="primary" variant="outline" block bind:tap="onWechatPrimaryLogin">重新微信登录</t-button>
-  </view>
-  <view wx:if="{{needsBindPhone}}" class="cell-box wx-bind-phone-box">
-    <view class="wx-login-fallback-tip">绑定手机号后将用作展示昵称（无昵称或「微信用户」时）。</view>
-    <button class="wx-bind-phone-btn login-btn-reset" open-type="getPhoneNumber" bindgetphonenumber="onBindPhoneNumber">绑定手机号</button>
   </view>
   <view wx:for="{{menuData}}" wx:key="item" class="cell-box">
     <t-cell-group>
@@ -67,10 +65,17 @@
       </t-cell>
     </t-cell-group>
   </view>
-  <view class="cell-box admin-entry">
-    <view class="admin-entry-inner">
-      <t-button theme="primary" variant="outline" block bind:tap="gotoAdminLogin">管理员登录</t-button>
-    </view>
+  <view class="cell-box">
+    <t-cell-group>
+      <t-cell
+        title="管理员登录"
+        arrow
+        bordered="{{false}}"
+        bind:click="gotoAdminLogin"
+        t-class="t-cell-padding"
+        t-class-left="order-group__left"
+      />
+    </t-cell-group>
   </view>
 </view>
 <view class="footer__version" wx:if="{{versionNo !== ''}}">当前版本 {{versionNo}}</view>

@@ -1,6 +1,6 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { getToken, getUser, oneClickLoginByWeChatPhoneCode, loginWithWeChat, bindPhoneByWeChatCode } from '../../services/auth/session';
+import { getToken, getUser, oneClickLoginByWeChatPhoneCode, loginWithWeChat } from '../../services/auth/session';
 import { extractWeChatPhoneNumberDetail } from '../../services/auth/extractWeChatPhoneNumberDetail';
 import { touchRequirePrivacyAuthorizeIfSupported } from '../../services/privacy/touchRequirePrivacyAuthorize';
 import { requestJson } from '../../services/_utils/http';
@@ -92,8 +92,6 @@ const getDefaultData = () => ({
     orderTagInfos,
     customerServiceInfo: {},
     currAuthStep: 1,
-    showWxLoginFallback: true,
-    needsBindPhone: false,
     showKefu: true,
     versionNo: '',
 });
@@ -129,7 +127,7 @@ Page({
         this.setupNeedPrivacyAuthorization();
         touchRequirePrivacyAuthorizeIfSupported();
     },
-    /** 微信隐私合规：未同意指引时 getPhoneNumber 不会返回 code，需先弹窗 + agreePrivacyAuthorization */
+    /** 微信隐私：getPhoneNumber 建议与 agreePrivacyAuthorization 耦合（基础库 ≥2.32.3）；未同意指引时单独 getPhoneNumber 常无 code */
     setupNeedPrivacyAuthorization() {
         if (this._needPrivacySetup || typeof wx.onNeedPrivacyAuthorization !== 'function') {
             return;
@@ -140,13 +138,14 @@ Page({
             this.setData({ showPrivacyPopup: true });
         });
     },
-    onPrivacyAgreePrivacyAuthorization() {
+    onPrivacyAgreePrivacyAuthorization(e) {
         const resolve = this._privacyAuthorizeResolve;
         this._privacyAuthorizeResolve = null;
         this.setData({ showPrivacyPopup: false });
         if (typeof resolve === 'function') {
+            const btnId = (e && e.currentTarget && e.currentTarget.id) || (e && e.target && e.target.id) || 'usercenter-privacy-agree-btn';
             try {
-                resolve({ buttonId: 'usercenter-privacy-agree-btn', event: 'agree' });
+                resolve({ buttonId: btnId, event: 'agree' });
             }
             catch (_) { /* ignore */ }
         }
@@ -189,8 +188,6 @@ Page({
                 phoneNumber: phone,
             },
             currAuthStep: 3,
-            showWxLoginFallback: false,
-            needsBindPhone: !phone,
         });
     },
     init() {
@@ -221,29 +218,22 @@ Page({
                 /** 已登录：个人中心统一用「已登录」资料卡（头像昵称以 DB+GET/me 为准，避免 step2 空白感） */
                 const loggedIn = !!getToken();
                 const currAuthStep = !loggedIn ? 1 : 3;
-                const showWxLoginFallback = !loggedIn;
-                const boundPhone = String(userInfo?.phoneNumber || '').replace(/\s/g, '').trim();
-                const needsBindPhone = loggedIn && !boundPhone;
                 this.setData({
                     userInfo,
                     menuData: nextMenu,
                     orderTagInfos: info,
                     customerServiceInfo,
                     currAuthStep,
-                    showWxLoginFallback,
-                    needsBindPhone,
                 });
             })
             .catch(() => {
                 if (getToken()) {
                     this.applyHeaderFromStoredUser();
-                    this.setData({ showWxLoginFallback: true, needsBindPhone: !String(getUser()?.phoneNumber || '').replace(/\s/g, '').trim() });
                     return;
                 }
                 const resetData = getDefaultData();
                 resetData.userInfo = { avatarUrl: '', nickName: '', phoneNumber: '' };
                 resetData.currAuthStep = 1;
-                resetData.showWxLoginFallback = true;
                 this.setData(resetData);
             })
             .finally(() => {
@@ -375,10 +365,14 @@ Page({
         if (!phoneCode) {
             const cancelled = errMsg.includes('fail user deny') || errMsg.includes('cancel');
             const privacyBlock = errMsg.includes('privacy permission') || errMsg.includes('privacy');
+            const scopeUndeclared = errMsg.includes('112') || errMsg.includes('scope is not declared') || errMsg.includes('未在隐私协议');
             const devNoCode = errMsg.includes('not support') || errMsg.includes('模拟器') || errMsg.includes('devtools');
             let tip = cancelled ? '你已取消手机号授权' : '手机号授权失败';
             if (privacyBlock) {
                 tip = '请先同意《小程序隐私保护指引》后再点击登录';
+            }
+            else if (scopeUndeclared) {
+                tip = '请在微信公众平台「用户隐私保护指引」中声明收集手机号，约 5 分钟后重试';
             }
             else if (devNoCode && !cancelled) {
                 tip = '当前环境可能无法返回手机号，请用真机预览或升级开发者工具';
@@ -395,13 +389,13 @@ Page({
         }
         try {
             // 真机：在 getPhoneNumber 回调里再调 getUserProfile 常被判「非用户触摸」→ 授权失败；开发者工具较宽松故仅工具成功。
-            // 此处仅用手机号一键登录；头像昵称请到「个人资料」页用独立按钮授权（见 person-info / handleLoginWithConsent 流程）。
+            // 本机手机号一键登录；头像昵称请到「个人资料」页用独立按钮授权（见 person-info / handleLoginWithConsent 流程）。
             await oneClickLoginByWeChatPhoneCode(phoneCode, {});
             await this.fetUseriInfoHandle();
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: '登录成功',
+                message: '手机号一键登录成功',
                 icon: 'success',
                 duration: 1200,
             });
@@ -411,7 +405,7 @@ Page({
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: msg.includes('401') ? '一键登录失败(401)，请确认微信后台AppID与服务器配置一致' : (err?.message || '一键登录失败，请重试'),
+                message: msg.includes('401') ? '手机号一键登录失败(401)，请确认微信后台AppID与服务器配置一致' : (err?.message || '手机号一键登录失败，请重试'),
                 icon: '',
                 duration: 1600,
             });
@@ -420,67 +414,7 @@ Page({
             this._phoneLoginBusy = false;
         }
     },
-    async onBindPhoneNumber(e) {
-        if (this._bindPhoneBusy) {
-            return;
-        }
-        if (!getToken()) {
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: '请先完成微信登录',
-                icon: '',
-                duration: 1400,
-            });
-            return;
-        }
-        this._bindPhoneBusy = true;
-        const { code: phoneCodeRaw, errMsg: errMsgRaw } = extractWeChatPhoneNumberDetail(e);
-        const errMsg = String(errMsgRaw || '');
-        const phoneCode = String(phoneCodeRaw || '').trim();
-        if (!phoneCode) {
-            const cancelled = errMsg.includes('fail user deny') || errMsg.includes('cancel');
-            const privacyBlock = errMsg.includes('privacy permission') || errMsg.includes('privacy');
-            let tip = cancelled ? '你已取消手机号授权' : '手机号授权失败';
-            if (privacyBlock) {
-                tip = '请先同意《小程序隐私保护指引》后再绑定';
-            }
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: tip,
-                icon: '',
-                duration: 1400,
-            });
-            this._bindPhoneBusy = false;
-            return;
-        }
-        try {
-            await bindPhoneByWeChatCode(phoneCode);
-            await this.fetUseriInfoHandle();
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: '绑定成功',
-                icon: 'success',
-                duration: 1200,
-            });
-        }
-        catch (err) {
-            const msg = String(err?.message || '');
-            Toast({
-                context: this,
-                selector: '#t-toast',
-                message: msg.includes('401') ? '绑定失败(401)，请重新登录后再试' : (err?.message || '绑定失败，请重试'),
-                icon: '',
-                duration: 1600,
-            });
-        }
-        finally {
-            this._bindPhoneBusy = false;
-        }
-    },
-    /** 微信 code2session 登录（主入口）；手机号在绑定后由服务端写入昵称 */
+    /** 微信 code2session 登录（主入口） */
     async onWechatPrimaryLogin() {
         if (this._phoneLoginBusy) {
             return;

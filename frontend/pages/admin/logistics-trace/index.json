@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "物流轨迹",
+  "navigationBarBackgroundColor": "#ffffff",
+  "backgroundColor": "#f5f5f5",
   "usingComponents": {}
 }

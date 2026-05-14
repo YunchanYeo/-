@@ -1,5 +1,7 @@
 {
   "navigationBarTitleText": "客服会话（管理员）",
+  "navigationBarBackgroundColor": "#ffffff",
+  "backgroundColor": "#f5f5f5",
   "usingComponents": {
     "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast"
   }

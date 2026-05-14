@@ -1,23 +1,7 @@
-.page {
-  min-height: 100vh;
-  box-sizing: border-box;
-  padding: 24rpx;
-  background: linear-gradient(180deg, #fff5ef 0%, #f7f8fa 42%, #f7f8fa 100%);
-}
-
-.card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 22rpx;
-  box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.05);
-  border: 1rpx solid #ffe4d3;
-}
+@import '../_admin-theme.wxss';
 
 .title {
-  font-size: 32rpx;
-  font-weight: 600;
   margin-bottom: 16rpx;
-  color: #222;
 }
 
 .image-preview {
@@ -27,4 +11,3 @@
   margin: 12rpx 0 16rpx;
   background: #f7f8fa;
 }
-

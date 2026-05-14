@@ -1,17 +1,5 @@
 @import './components/user-center-card/index.wxss';
 
-.wx-login-fallback-box {
-  padding: 28rpx 24rpx 32rpx;
-  background: #fff;
-}
-
-.wx-login-fallback-tip {
-  font-size: 26rpx;
-  color: #666;
-  line-height: 40rpx;
-  margin-bottom: 20rpx;
-}
-
 .login-header-tap:active {
   opacity: 0.85;
 }
@@ -29,27 +17,10 @@
 }
 
 .user-center-phone-oneclick__txt {
-  font-size: 30rpx;
+  font-size: 28rpx;
   color: #333;
   font-weight: 500;
-}
-
-.wx-bind-phone-box {
-  padding: 28rpx 24rpx 32rpx;
-  background: #fff;
-}
-
-.wx-bind-phone-btn {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 22rpx 28rpx;
-  background: #f7f7f7;
-  border-radius: 12rpx;
-  text-align: center;
-  font-size: 30rpx;
-  color: #333;
-  font-weight: 500;
+  line-height: 1.4;
 }
 
 page {
@@ -191,14 +162,6 @@ page {
   margin-bottom: 4rpx;
   font-size: 24rpx;
   line-height: 32rpx;
-}
-
-.admin-entry {
-  background: #fff;
-}
-
-.admin-entry-inner {
-  padding: 24rpx 20rpx;
 }
 
 .privacy-auth-mask {

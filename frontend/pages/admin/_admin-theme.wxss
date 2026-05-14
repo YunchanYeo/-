@@ -1,0 +1,44 @@
+/**
+ * Admin 分包共用视觉：与 app tabBar selectedColor #FF5F15、style/theme.wxss 主色 #fa4126 一致。
+ * 各页 wxss 顶部 @import './_admin-theme.wxss';（路径按目录深度调整）
+ */
+
+.admin-page,
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #fff5ef 0%, #f7f8fa 42%, #f5f5f5 100%);
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 22rpx;
+  margin-bottom: 18rpx;
+  box-shadow: 0 8rpx 24rpx rgba(250, 65, 38, 0.07);
+  border: 1rpx solid rgba(255, 228, 211, 0.95);
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+  color: #222;
+}
+
+.sub {
+  color: #888;
+  font-size: 24rpx;
+  margin-bottom: 18rpx;
+}
+
+.link-btn {
+  color: #fa4126;
+  font-size: 24rpx;
+}
+
+.link-btn.danger {
+  color: #e34d59;
+}
