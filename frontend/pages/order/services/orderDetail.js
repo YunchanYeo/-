@@ -3,6 +3,23 @@ import { requestJson } from '../../../services/_utils/http';
 import { fetchCustomerServicePhone } from '../../../services/_utils/customerServicePhone';
 import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 import { OrderButtonTypes, OrderStatus } from '../config';
+
+/** 与后端 extractProductIdFromOrderItem 对齐，用于评价按钮与 reviewedProductIds */
+function productIdFromOrderLineItem(g) {
+    const raw = g?.spuId ?? g?.productId ?? g?.spu_id;
+    if (typeof raw === 'number' && Number.isFinite(raw))
+        return raw;
+    const s = String(raw ?? '').trim();
+    if (!s)
+        return null;
+    const legacy = /^spu_(\d+)$/i.exec(s);
+    if (legacy?.[1]) {
+        const n = parseInt(legacy[1], 10);
+        return Number.isFinite(n) ? n : null;
+    }
+    const n = parseInt(s, 10);
+    return Number.isFinite(n) ? n : null;
+}
 function mockFetchOrderDetail(params) {
     const { delay } = require('../../../services/_utils/delay');
     const { genOrderDetail } = require('../../../model/order/orderDetail');
@@ -27,6 +44,8 @@ export function fetchOrderDetail(params) {
                 storeName: items[0]?.storeName || '默认门店',
                 orderStatus: row.orderStatus,
                 orderStatusName: row.orderStatusName,
+                needsReview: !!row.needsReview,
+                reviewedProductIds: Array.isArray(row.reviewedProductIds) ? row.reviewedProductIds : [],
                 paymentAmount: row.refundStatus ? 0 : row.paymentAmount,
                 goodsAmountApp: row.totalAmount,
                 createTime: new Date(row.createdAt).getTime(),
@@ -42,11 +61,13 @@ export function fetchOrderDetail(params) {
                     logisticsCompanyTel: '',
                 },
                 orderItemVOs: items.map((g, index) => {
-                    const spuIdStr = String(g.spuId ?? '').trim();
-                    const pid = parseInt(spuIdStr, 10);
-                    const hasReview = Number.isFinite(pid) ? reviewedSet.has(pid) : false;
+                    const pid = productIdFromOrderLineItem(g);
+                    const hasReview = pid != null ? reviewedSet.has(pid) : false;
+                    const st = Number(row.orderStatus ?? 0);
+                    /** 确认收货后才可评价 */
+                    const canReviewOrder = st === OrderStatus.COMPLETE && Number(row.refundStatus ?? 0) !== 1;
                     const lineButtons = [];
-                    if (Number(row.orderStatus) === OrderStatus.COMPLETE && !row.refundStatus && Number.isFinite(pid) && !hasReview) {
+                    if (canReviewOrder && pid != null && !hasReview) {
                         lineButtons.push({ name: '评价', primary: true, type: OrderButtonTypes.COMMENT });
                     }
                     return {
@@ -54,7 +75,8 @@ export function fetchOrderDetail(params) {
                     goodsPictureUrl: normalizeGoodsImageUrl(g.primaryImage || g.thumb || g.image || ''),
                     goodsName: g.goodsName || g.title || '商品',
                     skuId: g.skuId || '',
-                    spuId: g.spuId || '',
+                    spuId: pid != null ? String(pid) : String(g.spuId || ''),
+                    productId: pid,
                     specifications: Array.isArray(g.specInfo) ? g.specInfo.map((s) => ({ specValue: s.specValue || '' })) : [],
                     actualPrice: Number(g.price || g.settlePrice || 0),
                     buyQuantity: Number(g.quantity || 1),
@@ -117,14 +139,18 @@ function buildButtonsByOrder(row) {
         ];
     }
     if (status === OrderStatus.COMPLETE) {
-        return [
+        const right = [
             { name: '删除订单', primary: true, type: OrderButtonTypes.DELETE },
             { name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND },
             { name: '再次购买', primary: true, type: OrderButtonTypes.REBUY },
         ];
+        if (row.needsReview) {
+            right.unshift({ name: '评价', primary: true, type: OrderButtonTypes.COMMENT });
+        }
+        return right;
     }
     if (status === OrderStatus.PENDING_DELIVERY) {
-        return [{ name: '申请售후', primary: false, type: OrderButtonTypes.APPLY_REFUND }];
+        return [{ name: '申请售后', primary: false, type: OrderButtonTypes.APPLY_REFUND }];
     }
     if (status === OrderStatus.CANCELED_NOT_PAYMENT) {
         return [

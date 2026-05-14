@@ -5,6 +5,7 @@ import type { Db } from '../types';
 import {
   buildMiniProgramPayParams,
   decryptNotifyCiphertext,
+  domesticRefund,
   jsapiTransactions,
   shouldUseRealWechatPay,
   verifyNotifySignature,
@@ -12,6 +13,7 @@ import {
 } from './wechatPayV3';
 import {
   isAlipayTradeSuccess,
+  requestAlipayTradeRefund,
   requestAlipayTradeWapPayHtml,
   shouldUseRealAlipayPay,
   verifyAlipayNotifyParams,
@@ -21,6 +23,58 @@ import { extractProductIdFromOrderItem, hydrateOrderItemsWithProduct } from './o
 import { applyStockDecrementForOrderItems, restoreStockForOrderItems } from './orderInventory';
 import { resolveKuaidiCom } from './logistics/resolveKuaidiCom';
 import { queryKuaidi100RealTime } from './logistics/kuaidi100Query';
+
+/** 用户侧：退款记账后的订单状态（与「已完成」50 区分） */
+const ORDER_STATUS_REFUNDED = 70;
+
+function orderLineProductIds(itemsJson: string): number[] {
+  let items: unknown[] = [];
+  try {
+    items = JSON.parse(itemsJson || '[]') as unknown[];
+  } catch {
+    items = [];
+  }
+  if (!Array.isArray(items)) return [];
+  const ids: number[] = [];
+  for (const it of items) {
+    const pid = extractProductIdFromOrderItem(it as Record<string, unknown>);
+    if (pid != null) ids.push(pid);
+  }
+  return ids;
+}
+
+function loadReviewedProductIdsByOrderNo(db: Db, userId: number): Map<string, Set<number>> {
+  const rows = db
+    .prepare(
+      `SELECT r.orderNo, r.productId
+       FROM product_reviews r
+       INNER JOIN orders o ON o.orderNo = r.orderNo
+       WHERE o.userId = ?`,
+    )
+    .all(userId) as { orderNo: string; productId: number }[];
+  const m = new Map<string, Set<number>>();
+  for (const r of rows) {
+    const on = String(r.orderNo || '');
+    if (!m.has(on)) m.set(on, new Set());
+    m.get(on)!.add(Number(r.productId));
+  }
+  return m;
+}
+
+function computeNeedsReview(
+  orderNo: string,
+  itemsJson: string,
+  orderStatus: number,
+  refundStatus: number,
+  reviewedByOrder: Map<string, Set<number>>,
+): boolean {
+  if (Number(orderStatus) !== 50) return false;
+  if (Number(refundStatus) === 1) return false;
+  const reviewed = reviewedByOrder.get(String(orderNo)) || new Set<number>();
+  const pids = orderLineProductIds(itemsJson);
+  if (pids.length === 0) return false;
+  return pids.some((pid) => !reviewed.has(pid));
+}
 
 function genTradeNo() {
   const ts = Date.now();
@@ -77,7 +131,11 @@ export function createOrderService({
   }
 
   /** 支付成功落库（幂等）；notify 不传 requireUserId，用户主动确认传 userId */
-  function finalizeOrderPaid(orderNo: string, requireUserId?: number): { ok: true } | { ok: false; message: string } {
+  function finalizeOrderPaid(
+    orderNo: string,
+    requireUserId?: number,
+    meta?: { payChannel?: 'wechat' | 'alipay'; wechatTransactionId?: string; alipayTradeNo?: string },
+  ): { ok: true } | { ok: false; message: string } {
     const order = db
       .prepare(
         `SELECT id, userId, orderStatus, paymentAmount, pointsUsed, itemsJson FROM orders WHERE orderNo = ?`,
@@ -100,6 +158,9 @@ export function createOrderService({
     const pointsUsed = Number(order.pointsUsed || 0);
     const policy = getPointPolicy();
     const pointsEarned = Math.floor((Number(order.paymentAmount || 0) * Number(policy.pointsEarnRatePercent || 0)) / 100);
+    const pc = String(meta?.payChannel || '');
+    const wtid = String(meta?.wechatTransactionId || '');
+    const atn = String(meta?.alipayTradeNo || '');
     const txn = db.transaction(() => {
       if (pointsUsed > 0) {
         const user = db.prepare(`SELECT points FROM users WHERE id = ?`).get(userId) as { points: number } | undefined;
@@ -120,9 +181,12 @@ export function createOrderService({
          SET orderStatus = 10,
              orderStatusName = '待发货',
              pointsEarned = ?,
+             payChannel = CASE WHEN ? != '' THEN ? ELSE payChannel END,
+             wechatTransactionId = CASE WHEN ? != '' THEN ? ELSE wechatTransactionId END,
+             alipayTradeNo = CASE WHEN ? != '' THEN ? ELSE alipayTradeNo END,
              updatedAt = datetime('now')
          WHERE id = ?`,
-      ).run(pointsEarned, order.id);
+      ).run(pointsEarned, pc, pc, wtid, wtid, atn, atn, order.id);
     });
     try {
       txn();
@@ -173,8 +237,8 @@ export function createOrderService({
       db.prepare(
         `INSERT INTO orders (
           orderNo, userId, totalAmount, paymentAmount, refundAmount, refundStatus, orderStatus, orderStatusName,
-          itemsJson, addressJson, pointsUsed, pointsEarned, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+          payChannel, itemsJson, addressJson, pointsUsed, pointsEarned, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       ).run(
         tradeNo,
         userId,
@@ -184,6 +248,7 @@ export function createOrderService({
         0,
         5,
         '待付款',
+        payChannel,
         JSON.stringify(orderItems),
         JSON.stringify(orderAddress),
         pointsToUse,
@@ -361,7 +426,7 @@ export function createOrderService({
       return;
     }
 
-    let data: { out_trade_no?: string; trade_state?: string; amount?: { total?: number } };
+    let data: { out_trade_no?: string; trade_state?: string; amount?: { total?: number }; transaction_id?: string };
     try {
       data = JSON.parse(plain);
     } catch {
@@ -393,7 +458,10 @@ export function createOrderService({
       return;
     }
 
-    const r = finalizeOrderPaid(orderNo);
+    const r = finalizeOrderPaid(orderNo, undefined, {
+      payChannel: 'wechat',
+      wechatTransactionId: String(data.transaction_id || '').trim(),
+    });
     if (!r.ok) {
       console.warn('[wechat pay notify] finalize', orderNo, r);
       res.status(500).json({ code: 'FAIL', message: r.message });
@@ -455,8 +523,8 @@ export function createOrderService({
       .prepare(`SELECT id, orderStatus FROM orders WHERE userId = ? AND orderNo = ?`)
       .get(userId, orderNo) as { id: number; orderStatus: number } | undefined;
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
-    if (order.orderStatus !== 80 && order.orderStatus !== 50) {
-      return res.status(409).json({ ok: false, message: '仅已完成或已取消订单可删除' });
+    if (order.orderStatus !== 80 && order.orderStatus !== 50 && order.orderStatus !== ORDER_STATUS_REFUNDED) {
+      return res.status(409).json({ ok: false, message: '仅已完成、已退款或已取消订单可删除' });
     }
     const ret = db.prepare(`DELETE FROM orders WHERE id = ?`).run(order.id);
     if ((ret?.changes || 0) < 1) {
@@ -477,11 +545,19 @@ export function createOrderService({
          ORDER BY id DESC`,
       )
       .all(userId);
-    const data = rows.map((row: any) => ({
-      ...row,
-      items: hydrateOrderItemsWithProduct(db, JSON.parse(row.itemsJson || '[]')),
-      address: JSON.parse(row.addressJson || '{}'),
-    }));
+    const reviewedByOrder = loadReviewedProductIdsByOrderNo(db, userId);
+    const data = rows.map((row: any) => {
+      const needsReview = computeNeedsReview(row.orderNo, row.itemsJson, row.orderStatus, row.refundStatus, reviewedByOrder);
+      const rev = reviewedByOrder.get(String(row.orderNo));
+      const reviewedProductIds = rev ? Array.from(rev.values()) : [];
+      return {
+        ...row,
+        needsReview,
+        reviewedProductIds,
+        items: hydrateOrderItemsWithProduct(db, JSON.parse(row.itemsJson || '[]')),
+        address: JSON.parse(row.addressJson || '{}'),
+      };
+    });
     return res.json({ ok: true, data });
   }
 
@@ -494,7 +570,18 @@ export function createOrderService({
     const pendingReceipt = c(
       `SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus IN (20, 40)`,
     );
-    const completed = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND orderStatus = 50`);
+    const reviewedByOrder = loadReviewedProductIdsByOrderNo(db, userId);
+    const rows50 = db
+      .prepare(`SELECT orderNo, itemsJson, refundStatus, orderStatus FROM orders WHERE userId = ? AND orderStatus = 50`)
+      .all(userId) as Array<{ orderNo: string; itemsJson: string; refundStatus: number; orderStatus: number }>;
+    let pendingReview = 0;
+    let completedReviewed = 0;
+    for (const row of rows50) {
+      if (Number(row.refundStatus) === 1) continue;
+      const nr = computeNeedsReview(row.orderNo, row.itemsJson, row.orderStatus, row.refundStatus, reviewedByOrder);
+      if (nr) pendingReview += 1;
+      else completedReviewed += 1;
+    }
     const afterSale = c(`SELECT COUNT(*) as n FROM orders WHERE userId = ? AND refundStatus = 1`);
     return res.json({
       ok: true,
@@ -503,7 +590,8 @@ export function createOrderService({
         { tabType: 5, orderNum: pendingPay },
         { tabType: 10, orderNum: pendingDelivery },
         { tabType: 40, orderNum: pendingReceipt },
-        { tabType: 50, orderNum: completed },
+        { tabType: 51, orderNum: pendingReview },
+        { tabType: 50, orderNum: completedReviewed },
         { tabType: 0, orderNum: afterSale },
       ],
     });
@@ -526,6 +614,14 @@ export function createOrderService({
       .prepare(`SELECT productId FROM product_reviews WHERE orderNo = ?`)
       .all(req.params.orderNo) as { productId: number }[];
     const reviewedProductIds = reviewedRows.map((x) => x.productId);
+    const reviewedByOrder = new Map<string, Set<number>>([[String(req.params.orderNo), new Set(reviewedProductIds)]]);
+    const needsReview = computeNeedsReview(
+      String(req.params.orderNo),
+      String(r.itemsJson || '[]'),
+      Number(r.orderStatus),
+      Number(r.refundStatus ?? 0),
+      reviewedByOrder,
+    );
     return res.json({
       ok: true,
       data: {
@@ -533,6 +629,7 @@ export function createOrderService({
         items: hydrateOrderItemsWithProduct(db, JSON.parse(r.itemsJson || '[]')),
         address: JSON.parse(r.addressJson || '{}'),
         reviewedProductIds,
+        needsReview,
       },
     });
   }
@@ -555,8 +652,10 @@ export function createOrderService({
 
     const order = db.prepare(`SELECT * FROM orders WHERE userId = ? AND orderNo = ?`).get(userId, orderNo) as any;
     if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
-    if (Number(order.orderStatus) !== 50) {
-      return res.status(409).json({ ok: false, message: '仅已完成订单可评价' });
+    const st = Number(order.orderStatus ?? 0);
+    /** 确认收货后（已完成态）才可评价 */
+    if (st !== 50) {
+      return res.status(409).json({ ok: false, message: '当前订单状态不可评价' });
     }
     if (Number(order.refundStatus) === 1) {
       return res.status(409).json({ ok: false, message: '已退款订单不可评价' });
@@ -602,7 +701,7 @@ export function createOrderService({
     return res.json({ ok: true, data: created });
   }
 
-  function refundOrder(req: Request, res: Response) {
+  async function refundOrder(req: Request, res: Response) {
     const userId = (req as any).user?.id;
     const schema = z.object({ reason: z.string().optional(), refundAmount: z.number().int().nonnegative().optional() });
     const parsed = schema.safeParse(req.body || {});
@@ -625,23 +724,85 @@ export function createOrderService({
       Number(order.orderStatus) === 20 ||
       Number(order.orderStatus) === 40 ||
       Number(order.orderStatus) === 50;
-    const txn = db.transaction(() => {
-      if (paidLike) {
-        restoreStockForOrderItems(db, String(order.itemsJson || '[]'));
+
+    const payCh = String(order.payChannel || 'wechat').toLowerCase();
+    const reasonStr = (parsed.data.reason ?? '').trim() || '用户申请退款';
+
+    if (refundAmount > 0) {
+      try {
+        if (payCh === 'alipay' && shouldUseRealAlipayPay(alipayPaymentMockMode, alipayWapConfig)) {
+          const alipayRefundReq: {
+            outTradeNo: string;
+            tradeNo?: string;
+            refundAmountYuan: string;
+            outRequestNo: string;
+            refundReason: string;
+          } = {
+            outTradeNo: String(order.orderNo),
+            refundAmountYuan: (refundAmount / 100).toFixed(2),
+            outRequestNo: `${String(order.orderNo)}_refund`,
+            refundReason: reasonStr,
+          };
+          const tn = String(order.alipayTradeNo || '').trim();
+          if (tn) alipayRefundReq.tradeNo = tn;
+          const ar = await requestAlipayTradeRefund(alipayWapConfig!, alipayRefundReq);
+          if (ar.code !== '10000') {
+            return res.status(502).json({
+              ok: false,
+              message: `支付宝退款失败：${ar.sub_msg || ar.msg || ar.code}`,
+            });
+          }
+        } else if (payCh !== 'alipay' && shouldUseRealWechatPay(paymentMockMode, wechatPayConfig)) {
+          const wxRefundReq: {
+            config: WechatPayV3Config;
+            outRefundNo: string;
+            transactionId?: string;
+            outTradeNo: string;
+            refundFen: number;
+            totalFen: number;
+            reason: string;
+          } = {
+            config: wechatPayConfig!,
+            outRefundNo: `${String(order.orderNo)}_refund`.slice(0, 64),
+            outTradeNo: String(order.orderNo),
+            refundFen: refundAmount,
+            totalFen: Number(order.paymentAmount || 0),
+            reason: reasonStr,
+          };
+          const wxt = String(order.wechatTransactionId || '').trim();
+          if (wxt) wxRefundReq.transactionId = wxt;
+          const wxr = await domesticRefund(wxRefundReq);
+          if (wxr.status !== 'SUCCESS' && wxr.status !== 'PROCESSING') {
+            return res.status(502).json({ ok: false, message: `微信退款失败：${wxr.status || '未知状态'}` });
+          }
+        }
+      } catch (e: any) {
+        const msg = String(e?.message || '退款接口调用失败');
+        return res.status(502).json({ ok: false, message: msg });
       }
-      db.prepare(
-        `UPDATE orders
+    }
+
+    try {
+      const txn = db.transaction(() => {
+        if (paidLike) {
+          restoreStockForOrderItems(db, String(order.itemsJson || '[]'));
+        }
+        db.prepare(
+          `UPDATE orders
          SET refundStatus = 1,
              refundAmount = ?,
              refundReason = ?,
              refundedAt = datetime('now'),
-             orderStatus = 50,
-             orderStatusName = '已完成',
+             orderStatus = ?,
+             orderStatusName = '已退款',
              updatedAt = datetime('now')
          WHERE id = ?`,
-      ).run(refundAmount, parsed.data.reason ?? '', order.id);
-    });
-    txn();
+        ).run(refundAmount, reasonStr, ORDER_STATUS_REFUNDED, order.id);
+      });
+      txn();
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, message: String(e?.message || '退款记账失败') });
+    }
 
     const updated = db
       .prepare(
@@ -836,7 +997,10 @@ export function createOrderService({
       console.error('[alipay notify] amount mismatch', orderNo, notifyFen, order.paymentAmount);
       return res.status(400).type('text/plain').send('fail');
     }
-    const r = finalizeOrderPaid(orderNo);
+    const r = finalizeOrderPaid(orderNo, undefined, {
+      payChannel: 'alipay',
+      alipayTradeNo: String(params.trade_no || '').trim(),
+    });
     if (!r.ok) {
       console.warn('[alipay notify] finalize', orderNo, r.message);
     }

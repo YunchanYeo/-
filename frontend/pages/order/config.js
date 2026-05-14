@@ -2,7 +2,11 @@ export const OrderStatus = {
     PENDING_PAYMENT: 5, // 待支付
     PENDING_DELIVERY: 10, // 待发货
     PENDING_RECEIPT: 40, // 待收货
-    COMPLETE: 50, // 已完成/待评价
+    /** 订单列表 Tab「待评价」：确认收货后仍有未评商品 */
+    PENDING_REVIEW: 51,
+    COMPLETE: 50, // 已完成（列表 Tab：已全部评价）
+    /** 退款记账后的订单状态 */
+    REFUNDED: 70,
     PAYMENT_TIMEOUT: 80, // 已取消，支付超时
     CANCELED_NOT_PAYMENT: 80, // 已取消，未支付主动取消
     CANCELED_PAYMENT: 80, // 已取消，已支付主动取消

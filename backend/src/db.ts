@@ -242,6 +242,9 @@ ensureOrderColumn('shippedAt', 'shippedAt TEXT');
 ensureOrderColumn('pointsUsed', "pointsUsed INTEGER NOT NULL DEFAULT 0");
 ensureOrderColumn('pointsEarned', "pointsEarned INTEGER NOT NULL DEFAULT 0");
 ensureOrderColumn('adminHidden', "adminHidden INTEGER NOT NULL DEFAULT 0");
+ensureOrderColumn('payChannel', "payChannel TEXT NOT NULL DEFAULT 'wechat'");
+ensureOrderColumn('wechatTransactionId', 'wechatTransactionId TEXT');
+ensureOrderColumn('alipayTradeNo', 'alipayTradeNo TEXT');
 
 /** 订单完成后用户对商品的评价（与订单、商品关联；删订单时级联删除） */
 db.exec(`
@@ -261,6 +264,11 @@ CREATE TABLE IF NOT EXISTS product_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_product_reviews_productId ON product_reviews(productId);
 `);
+
+/** 历史数据：退款单不应占用「已完成」50 */
+db.exec(
+  `UPDATE orders SET orderStatus = 70, orderStatusName = '已退款' WHERE refundStatus = 1 AND orderStatus = 50;`,
+);
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS admins (

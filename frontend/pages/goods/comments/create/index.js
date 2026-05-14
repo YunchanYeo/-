@@ -1,6 +1,21 @@
 // import { getCommentDetail } from '../../../../services/good/comments/fetchCommentDetail';
 import Toast from 'tdesign-miniprogram/toast/index';
 import { submitOrderReview } from '../../../order/services/submitReview';
+
+function parseProductIdFromSpuParam(spuIdRaw) {
+    if (typeof spuIdRaw === 'number' && Number.isFinite(spuIdRaw) && spuIdRaw > 0)
+        return spuIdRaw;
+    const s = String(spuIdRaw ?? '').trim();
+    if (!s)
+        return NaN;
+    const legacy = /^spu_(\d+)$/i.exec(s);
+    if (legacy?.[1]) {
+        const n = parseInt(legacy[1], 10);
+        return Number.isFinite(n) && n > 0 ? n : NaN;
+    }
+    const n = parseInt(s, 10);
+    return Number.isFinite(n) && n > 0 ? n : NaN;
+}
 Page({
     data: {
         serviceRateValue: 1,
@@ -79,7 +94,7 @@ Page({
         const { isAllowedSubmit, orderNo, spuId, skuId, goodRateValue, isAnonymous } = this.data;
         if (!isAllowedSubmit)
             return;
-        const productId = parseInt(String(spuId), 10);
+        const productId = parseProductIdFromSpuParam(spuId);
         if (!orderNo || !Number.isFinite(productId)) {
             Toast({
                 context: this,

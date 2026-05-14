@@ -10,9 +10,18 @@ Component({
         order: {
             type: Object,
             observer(order) {
-                // 判定有传goodsIndex ，则认为是商品button bar, 仅显示申请售后按钮
-                if (this.properties?.goodsIndex !== null) {
-                    const goods = order.goodsList[Number(this.properties.goodsIndex)];
+                if (!order || !Array.isArray(order.goodsList)) {
+                    this.setData({ buttons: { left: [], right: [] } });
+                    return;
+                }
+                const gi = this.properties.goodsIndex;
+                const isLineBar = typeof gi === 'number' && !Number.isNaN(gi) && gi >= 0;
+                if (isLineBar) {
+                    const goods = order.goodsList[gi];
+                    if (!goods) {
+                        this.setData({ buttons: { left: [], right: [] } });
+                        return;
+                    }
                     this.setData({
                         buttons: {
                             left: [],
@@ -266,12 +275,33 @@ Component({
                 url: `/pages/order/order-detail/index?orderNo=${encodeURIComponent(order.orderNo)}`,
             });
         },
-        /** 添加订单评论 */
+        /** 添加订单评论：无行下标时跳转首个未评商品 */
         onAddComment(order) {
+            const reviewed = new Set((order?.reviewedProductIds || []).map((x) => Number(x)));
             const idxRaw = this.properties.goodsIndex;
-            const idx = Number.isFinite(idxRaw) ? Number(idxRaw) : NaN;
-            const goods = Number.isFinite(idx) ? order?.goodsList?.[idx] : order?.goodsList?.[0];
-            const spuId = String(goods?.spuId ?? '').trim();
+            const hasLineIndex = typeof idxRaw === 'number' && !Number.isNaN(idxRaw) && idxRaw >= 0;
+            const list = order?.goodsList || [];
+            let goods = null;
+            if (hasLineIndex && list[idxRaw]) {
+                goods = list[idxRaw];
+            }
+            else {
+                for (let i = 0; i < list.length; i++) {
+                    const g = list[i];
+                    const pid = Number(g?.productId ?? NaN);
+                    const pid2 = Number.isFinite(pid) && pid > 0 ? pid : parseInt(String(g?.spuId ?? '').trim(), 10);
+                    if (!Number.isFinite(pid2) || pid2 <= 0)
+                        continue;
+                    if (!reviewed.has(pid2)) {
+                        goods = g;
+                        break;
+                    }
+                }
+                if (!goods && list.length > 0)
+                    goods = list[0];
+            }
+            const pidRaw = goods?.productId ?? goods?.spuId;
+            const spuId = String(pidRaw ?? '').trim();
             const skuId = String(goods?.skuId ?? '').trim();
             const imgUrl = encodeURIComponent(goods?.thumb || '');
             const title = encodeURIComponent(goods?.title || '');

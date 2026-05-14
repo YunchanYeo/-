@@ -170,6 +170,66 @@ export async function jsapiTransactions(opts: {
   return { prepay_id: json.prepay_id };
 }
 
+/** 退款：transaction_id 与 out_trade_no 二选一（与商户单号一致时用 out_trade_no 即可） */
+export async function domesticRefund(opts: {
+  config: WechatPayV3Config;
+  outRefundNo: string;
+  transactionId?: string;
+  outTradeNo?: string;
+  refundFen: number;
+  totalFen: number;
+  reason?: string;
+}): Promise<{ status: string; refund_id?: string; amount?: { refund?: number; total?: number } }> {
+  const urlPath = '/v3/refund/domestic/refunds';
+  const bodyObj: Record<string, unknown> = {
+    out_refund_no: opts.outRefundNo.slice(0, 64),
+    reason: (opts.reason || '用户申请退款').slice(0, 80),
+    amount: {
+      refund: Math.floor(opts.refundFen),
+      total: Math.floor(opts.totalFen),
+      currency: 'CNY',
+    },
+  };
+  const tid = String(opts.transactionId || '').trim();
+  const otn = String(opts.outTradeNo || '').trim();
+  if (tid) bodyObj.transaction_id = tid;
+  else if (otn) bodyObj.out_trade_no = otn;
+  else throw new Error('domesticRefund: need transaction_id or out_trade_no');
+
+  const body = JSON.stringify(bodyObj);
+  const authorization = buildAuthorization({
+    mchId: opts.config.mchId,
+    serialNo: opts.config.serialNo,
+    privateKeyPem: opts.config.privateKeyPem,
+    method: 'POST',
+    urlPath,
+    body,
+  });
+
+  const res = await fetch(`https://api.mch.weixin.qq.com${urlPath}`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      Accept: 'application/json',
+      'Accept-Language': 'zh-CN',
+      'Content-Type': 'application/json',
+      'User-Agent': 'WechatMiniBackend/1.0',
+    },
+    body,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(text || `WeChat refund HTTP ${res.status}`);
+  }
+  const json = JSON.parse(text) as { status?: string; refund_id?: string; amount?: { refund?: number; total?: number } };
+  const status = String(json.status || '').trim();
+  if (!status) throw new Error(text || 'WeChat refund missing status');
+  const out: { status: string; refund_id?: string; amount?: { refund?: number; total?: number } } = { status };
+  if (json.refund_id) out.refund_id = json.refund_id;
+  if (json.amount) out.amount = json.amount;
+  return out;
+}
+
 export function buildMiniProgramPayParams(appId: string, prepayId: string, privateKeyPem: string) {
   const timeStamp = String(Math.floor(Date.now() / 1000));
   const nonceStr = crypto.randomBytes(16).toString('hex');

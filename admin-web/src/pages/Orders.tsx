@@ -39,6 +39,7 @@ const ORDER_STATUS_OPTIONS = [
   { value: 40, label: '待收货' },
   { value: 50, label: '已完成' },
   { value: 60, label: '已取消' },
+  { value: 70, label: '已退款' },
 ] as const;
 
 type LogisticsTraceData = {

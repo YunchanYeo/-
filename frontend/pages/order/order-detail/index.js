@@ -89,7 +89,9 @@ Page({
                 storeId: order.storeId,
                 storeName: order.storeName,
                 status: order.orderStatus,
-                statusDesc: order.orderStatusName,
+                statusDesc: order.needsReview ? '待评价' : order.orderStatusName,
+                needsReview: !!order.needsReview,
+                reviewedProductIds: order.reviewedProductIds || [],
                 amount: order.paymentAmount,
                 totalAmount: order.goodsAmountApp,
                 logisticsNo: order.logisticsVO.logisticsNo,
@@ -99,6 +101,7 @@ Page({
                     title: goods.goodsName,
                     skuId: goods.skuId,
                     spuId: goods.spuId,
+                    productId: goods.productId,
                     specs: (goods.specifications || []).map((s) => s.specValue),
                     price: goods.tagPrice ? goods.tagPrice : goods.actualPrice, // 商品销售单价, 优先取限时活动价
                     num: goods.buyQuantity,

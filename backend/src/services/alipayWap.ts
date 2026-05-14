@@ -138,3 +138,63 @@ export function isAlipayTradeSuccess(params: Record<string, string>): boolean {
   const s = params.trade_status;
   return s === 'TRADE_SUCCESS' || s === 'TRADE_FINISHED';
 }
+
+/** 同步退款 alipay.trade.refund（biz 为 JSON，网关返回 JSON） */
+export async function requestAlipayTradeRefund(
+  config: AlipayWapConfig,
+  opts: {
+    outTradeNo: string;
+    tradeNo?: string;
+    refundAmountYuan: string;
+    outRequestNo: string;
+    refundReason?: string;
+  },
+): Promise<{ code: string; msg: string; sub_code?: string; sub_msg?: string }> {
+  const biz: Record<string, string> = {
+    out_trade_no: opts.outTradeNo,
+    refund_amount: opts.refundAmountYuan,
+    out_request_no: opts.outRequestNo.slice(0, 64),
+  };
+  const tn = String(opts.tradeNo || '').trim();
+  if (tn) biz.trade_no = tn;
+  if (opts.refundReason) biz.refund_reason = opts.refundReason.slice(0, 256);
+  const bizContent = JSON.stringify(biz);
+
+  const params: Record<string, string> = {
+    app_id: config.appId,
+    method: 'alipay.trade.refund',
+    format: 'JSON',
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: formatAlipayTimestamp(),
+    version: '1.0',
+    biz_content: bizContent,
+  };
+  const signContent = buildSignString(params);
+  params.sign = rsa2Sign(signContent, config.appPrivateKeyPem);
+
+  const body = new URLSearchParams(params);
+  const res = await fetch(config.gateway, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+    body,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`支付宝退款 HTTP ${res.status}: ${text.slice(0, 500)}`);
+  }
+  let root: Record<string, unknown>;
+  try {
+    root = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(`支付宝退款响应非 JSON：${text.slice(0, 300)}`);
+  }
+  const sub = root.alipay_trade_refund_response as Record<string, unknown> | undefined;
+  const resp = (sub || root) as Record<string, unknown>;
+  const code = String(resp.code ?? '');
+  const msg = String(resp.msg ?? '');
+  const out: { code: string; msg: string; sub_code?: string; sub_msg?: string } = { code, msg };
+  if (resp.sub_code != null && String(resp.sub_code) !== '') out.sub_code = String(resp.sub_code);
+  if (resp.sub_msg != null && String(resp.sub_msg) !== '') out.sub_msg = String(resp.sub_msg);
+  return out;
+}

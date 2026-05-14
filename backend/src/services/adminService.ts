@@ -97,6 +97,8 @@ export function createAdminService({ db, uploadsDir }: { db: Db; uploadsDir: str
     40: '待收货',
     50: '已完成',
     60: '已取消',
+    70: '已退款',
+    80: '已取消',
   };
   function adminMe(req: Request, res: Response) {
     const adminId = (req as any).admin?.id;
