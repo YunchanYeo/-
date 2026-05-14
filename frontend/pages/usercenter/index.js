@@ -1,7 +1,8 @@
 import { fetchUserCenter } from '../../services/usercenter/fetchUsercenter';
 import Toast from 'tdesign-miniprogram/toast/index';
-import { getToken, getUser, oneClickLoginByWeChatPhoneCode, loginWithWeChat } from '../../services/auth/session';
+import { getToken, getUser, oneClickLoginByWeChatPhoneCode, loginWithWeChat, bindPhoneByWeChatCode } from '../../services/auth/session';
 import { extractWeChatPhoneNumberDetail } from '../../services/auth/extractWeChatPhoneNumberDetail';
+import { touchRequirePrivacyAuthorizeIfSupported } from '../../services/privacy/touchRequirePrivacyAuthorize';
 import { requestJson } from '../../services/_utils/http';
 import { normalizeGoodsImageUrl } from '../../services/_utils/normalizeGoodsImageUrl';
 import { displayNameForUserCenter } from '../../services/usercenter/displayNameForUserCenter';
@@ -91,6 +92,8 @@ const getDefaultData = () => ({
     orderTagInfos,
     customerServiceInfo: {},
     currAuthStep: 1,
+    showWxLoginFallback: true,
+    needsBindPhone: false,
     showKefu: true,
     versionNo: '',
 });
@@ -124,6 +127,7 @@ Page({
     onLoad() {
         this.getVersionInfo();
         this.setupNeedPrivacyAuthorization();
+        touchRequirePrivacyAuthorizeIfSupported();
     },
     /** 微信隐私合规：未同意指引时 getPhoneNumber 不会返回 code，需先弹窗 + agreePrivacyAuthorization */
     setupNeedPrivacyAuthorization() {
@@ -160,6 +164,7 @@ Page({
     },
     noopPrivacyCatch() { },
     onShow() {
+        touchRequirePrivacyAuthorizeIfSupported();
         const tabBar = this.getTabBar && this.getTabBar();
         if (tabBar && typeof tabBar.init === 'function') {
             tabBar.init();
@@ -184,6 +189,8 @@ Page({
                 phoneNumber: phone,
             },
             currAuthStep: 3,
+            showWxLoginFallback: false,
+            needsBindPhone: !phone,
         });
     },
     init() {
@@ -214,22 +221,29 @@ Page({
                 /** 已登录：个人中心统一用「已登录」资料卡（头像昵称以 DB+GET/me 为准，避免 step2 空白感） */
                 const loggedIn = !!getToken();
                 const currAuthStep = !loggedIn ? 1 : 3;
+                const showWxLoginFallback = !loggedIn;
+                const boundPhone = String(userInfo?.phoneNumber || '').replace(/\s/g, '').trim();
+                const needsBindPhone = loggedIn && !boundPhone;
                 this.setData({
                     userInfo,
                     menuData: nextMenu,
                     orderTagInfos: info,
                     customerServiceInfo,
                     currAuthStep,
+                    showWxLoginFallback,
+                    needsBindPhone,
                 });
             })
             .catch(() => {
                 if (getToken()) {
                     this.applyHeaderFromStoredUser();
+                    this.setData({ showWxLoginFallback: true, needsBindPhone: !String(getUser()?.phoneNumber || '').replace(/\s/g, '').trim() });
                     return;
                 }
                 const resetData = getDefaultData();
                 resetData.userInfo = { avatarUrl: '', nickName: '', phoneNumber: '' };
                 resetData.currAuthStep = 1;
+                resetData.showWxLoginFallback = true;
                 this.setData(resetData);
             })
             .finally(() => {
@@ -342,7 +356,7 @@ Page({
             Toast({
                 context: this,
                 selector: '#t-toast',
-                message: '请先点击上方“请登录”完成手机号授权登录',
+                message: '请先完成微信登录',
                 icon: '',
                 duration: 1400,
             });
@@ -400,6 +414,97 @@ Page({
                 message: msg.includes('401') ? '一键登录失败(401)，请确认微信后台AppID与服务器配置一致' : (err?.message || '一键登录失败，请重试'),
                 icon: '',
                 duration: 1600,
+            });
+        }
+        finally {
+            this._phoneLoginBusy = false;
+        }
+    },
+    async onBindPhoneNumber(e) {
+        if (this._bindPhoneBusy) {
+            return;
+        }
+        if (!getToken()) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '请先完成微信登录',
+                icon: '',
+                duration: 1400,
+            });
+            return;
+        }
+        this._bindPhoneBusy = true;
+        const { code: phoneCodeRaw, errMsg: errMsgRaw } = extractWeChatPhoneNumberDetail(e);
+        const errMsg = String(errMsgRaw || '');
+        const phoneCode = String(phoneCodeRaw || '').trim();
+        if (!phoneCode) {
+            const cancelled = errMsg.includes('fail user deny') || errMsg.includes('cancel');
+            const privacyBlock = errMsg.includes('privacy permission') || errMsg.includes('privacy');
+            let tip = cancelled ? '你已取消手机号授权' : '手机号授权失败';
+            if (privacyBlock) {
+                tip = '请先同意《小程序隐私保护指引》后再绑定';
+            }
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: tip,
+                icon: '',
+                duration: 1400,
+            });
+            this._bindPhoneBusy = false;
+            return;
+        }
+        try {
+            await bindPhoneByWeChatCode(phoneCode);
+            await this.fetUseriInfoHandle();
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '绑定成功',
+                icon: 'success',
+                duration: 1200,
+            });
+        }
+        catch (err) {
+            const msg = String(err?.message || '');
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: msg.includes('401') ? '绑定失败(401)，请重新登录后再试' : (err?.message || '绑定失败，请重试'),
+                icon: '',
+                duration: 1600,
+            });
+        }
+        finally {
+            this._bindPhoneBusy = false;
+        }
+    },
+    /** 微信 code2session 登录（主入口）；手机号在绑定后由服务端写入昵称 */
+    async onWechatPrimaryLogin() {
+        if (this._phoneLoginBusy) {
+            return;
+        }
+        this._phoneLoginBusy = true;
+        try {
+            await loginWithWeChat(null);
+            await this.fetUseriInfoHandle();
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '登录成功',
+                icon: 'success',
+                duration: 1200,
+            });
+        }
+        catch (err) {
+            const msg = String(err?.message || '');
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: msg.includes('401') || msg.includes('40029') ? '微信登录失败，请检查网络与 AppID 配置' : (err?.message || '微信登录失败'),
+                icon: '',
+                duration: 1800,
             });
         }
         finally {

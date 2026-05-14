@@ -1,4 +1,4 @@
-import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl } from '../../config/runtime';
+import { config, getAlternateApiBaseForDevtools, getAlternatePhoneHttpsBase, setSessionApiBaseUrl, ensurePhoneApiSessionBase, getMiniProgramPlatform } from '../../config/runtime';
 import { wxRequestTransportOpts } from '../_utils/wxRequestTransport';
 const TOKEN_KEY = 'auth.token';
 const USER_KEY = 'auth.user';
@@ -24,17 +24,14 @@ export function logout() {
 }
 const MAX_AUTH_ALT_HOPS = 4;
 
-/** 仅当服务端明确拒绝会话时再清本地 token（网络抖动、微信 checkSession 失败不应抹掉 JWT） */
+/** 仅当服务端明确拒绝会话时再清本地 token（勿用宽泛的 "token" 子串，避免误伤） */
 export function shouldInvalidateSessionError(err) {
-    const msg = String(err?.message || err || '');
-    if (/HTTP\s*401|\b401\b|Unauthorized|未授权|Invalid session|Missing Authorization|token/i.test(msg))
+    if (!err)
+        return false;
+    if (err.code === 'HTTP_STATUS_ERROR' && err.raw && Number(err.raw.statusCode) === 401)
         return true;
-    if (err?.raw && typeof err.raw === 'object') {
-        const sc = Number(err.raw.statusCode);
-        if (sc === 401)
-            return true;
-    }
-    return false;
+    const msg = String(err.message || err || '');
+    return /\[\s*HTTP\s*401\s*\]|^HTTP\s*401\b|\b401\b.*Unauthorized|Unauthorized|未授权|Invalid session|Invalid session token|Missing Authorization token/i.test(msg);
 }
 
 function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
@@ -55,8 +52,21 @@ function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
                     }
                     if (!res.data?.ok)
                         return reject(new Error(res.data?.message || 'Auth API failed'));
-                    if (hop > 0)
-                        setSessionApiBaseUrl(root);
+                    try {
+                        const isDevtools = getMiniProgramPlatform() === 'devtools';
+                        if (!isDevtools && /^https:\/\//i.test(root))
+                            setSessionApiBaseUrl(root);
+                        else if (hop > 0)
+                            setSessionApiBaseUrl(root);
+                    }
+                    catch (_) {
+                        if (hop > 0) {
+                            try {
+                                setSessionApiBaseUrl(root);
+                            }
+                            catch (__) { /* ignore */ }
+                        }
+                    }
                     return resolve(res.data.data);
                 },
                 fail(err) {
@@ -72,7 +82,10 @@ function requestAuth(path, { method = 'GET', data, token = '' } = {}) {
                 },
             });
         });
-    return run(config.apiBaseUrl, 0);
+    /** 与 requestJson 一致：真机先探测并锁定 sessionApiBaseUrl，避免登录落在 A 域、后续 /api/me 走 B 域导致「有 token 但 Invalid session」 */
+    return ensurePhoneApiSessionBase({ timeoutMs: 12000 })
+        .catch(() => {})
+        .then(() => run(config.apiBaseUrl, 0));
 }
 /**
  * 로그인 직후 getUserProfile 으로 받은 닉·아바타를 PUT /api/me 로 반영（code2session 직후 COALESCE 만으로 닉이 비는 경우 보완）

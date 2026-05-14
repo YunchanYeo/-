@@ -77,6 +77,22 @@ function getAdminToken(req: Request) {
   return getAuthToken(req);
 }
 
+/** 展示昵称兜底：优先境内号码 purePhoneNumber，否则从带区号号码中抽数字 */
+function nicknameDefaultFromPhoneInfo(phoneInfo: Record<string, unknown> | null | undefined): string {
+  if (!phoneInfo || typeof phoneInfo !== 'object') return '';
+  const pure = String(phoneInfo.purePhoneNumber || '').trim();
+  if (pure) return pure;
+  const full = String(phoneInfo.phoneNumber || '').trim();
+  if (!full) return '';
+  const digits = full.replace(/\D/g, '');
+  return digits || full;
+}
+
+function shouldUsePhoneAsDefaultNick(nick: string | null | undefined): boolean {
+  const n = String(nick ?? '').trim();
+  return !n || n === '微信用户';
+}
+
 export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<RequestContext, 'db' | 'wechatAppId' | 'wechatAppSecret'>) {
   let cachedAccessToken = '';
   let cachedAccessTokenExpireAt = 0;
@@ -284,6 +300,7 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
       }
       const phoneNumber = String(phoneData?.phone_info?.phoneNumber || '');
       if (!phoneNumber) return res.status(401).json({ ok: false, message: 'wechat getPhoneNumber failed: missing phoneNumber' });
+      const phoneNick = nicknameDefaultFromPhoneInfo(phoneData?.phone_info as Record<string, unknown>);
 
       // 3) upsert user + session token
       const token = genSessionToken();
@@ -308,8 +325,9 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
             ),
         );
       } else {
-        const insertNick = String(userInfo?.nickName ?? '').trim();
+        const insertNickRaw = String(userInfo?.nickName ?? '').trim();
         const insertAvatar = String(userInfo?.avatarUrl ?? '').trim();
+        const insertNick = insertNickRaw || phoneNick || '';
         await withSqliteRetry(() =>
           db
             .prepare(
@@ -317,6 +335,17 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
             )
             .run(openid, unionid || null, token, insertNick, insertAvatar, userInfo?.gender ?? 0, phoneNumber),
+        );
+      }
+
+      if (phoneNick) {
+        await withSqliteRetry(() =>
+          db
+            .prepare(
+              `UPDATE users SET nickName = ?
+               WHERE openid = ? AND (TRIM(COALESCE(nickName,'')) = '' OR TRIM(nickName) = '微信用户')`,
+            )
+            .run(nickNameForSqlUpdate(phoneNick) ?? phoneNick, openid),
         );
       }
 
@@ -385,9 +414,20 @@ export function createAuthService({ db, wechatAppId, wechatAppSecret }: Pick<Req
       if (!phoneNumber) {
         return res.status(401).json({ ok: false, message: 'wechat getPhoneNumber failed: missing phoneNumber' });
       }
-      await withSqliteRetry(() =>
-        db.prepare(`UPDATE users SET phoneNumber = ?, updatedAt = datetime('now') WHERE id = ?`).run(phoneNumber, user.id),
-      );
+      const phoneNick = nicknameDefaultFromPhoneInfo(wxData?.phone_info as Record<string, unknown>);
+      const curNick = String(user.nickName || '').trim();
+      const setNick = phoneNick && shouldUsePhoneAsDefaultNick(curNick);
+      await withSqliteRetry(() => {
+        if (setNick) {
+          db.prepare(`UPDATE users SET phoneNumber = ?, nickName = ?, updatedAt = datetime('now') WHERE id = ?`).run(
+            phoneNumber,
+            nickNameForSqlUpdate(phoneNick) ?? phoneNick,
+            user.id,
+          );
+        } else {
+          db.prepare(`UPDATE users SET phoneNumber = ?, updatedAt = datetime('now') WHERE id = ?`).run(phoneNumber, user.id);
+        }
+      });
       const me = db
         .prepare(
           `SELECT id, ('CUS' || printf('%08d', id)) AS customerId, openid, nickName, avatarUrl, gender, phoneNumber, points

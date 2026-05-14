@@ -1,7 +1,7 @@
 import { config } from '../../config/runtime';
 import { requestJson } from '../_utils/http';
 import { fetchCustomerServicePhone } from '../_utils/customerServicePhone';
-import { getToken, getUser, logout, shouldInvalidateSessionError } from '../auth/session';
+import { getToken, getUser, logout } from '../auth/session';
 import { fetchCouponList } from '../coupon/index';
 import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
 import { displayNameForUserCenter } from './displayNameForUserCenter';
@@ -33,9 +33,9 @@ export function fetchUserCenter() {
         ]).then((results) => {
             if (getToken()) {
                 const meRes = results[1];
-                if (meRes.status === 'rejected' && shouldInvalidateSessionError(meRes.reason)) {
+                const sc = meRes.status === 'rejected' ? Number(meRes.reason?.raw?.statusCode) : 0;
+                if (sc === 401)
                     logout();
-                }
             }
             const servicePhone = results[0].status === 'fulfilled' ? results[0].value : config.customerServicePhone;
             const me = results[1].status === 'fulfilled' ? results[1].value : null;
