@@ -7,6 +7,7 @@
 - 운영 가이드: `docs/kr/USER_GUIDE.md`
 - 개발 가이드: `docs/kr/DEV_GUIDE.md`
 - 배포·微信 도메인 참고: **`docs/kr/DEPLOY_CN_WECHAT.md`**
+- **위챗페이 실결제 테스트·폰–서버 연결·알리클라우드 끊김:** **`docs/kr/WECHAT_PAY_REAL_TEST.md`**
 - **EC2 + 도메인 `hebibingtest.shop`:** **`docs/kr/DEPLOY_EC2_HEBIBINGTEST.md`** · 스택 파일 `deploy/ec2-al2023/`
 - **관리자 세션·이미지·OSS·계정 생성(최근 변경):** `docs/kr/ADMIN_MEDIA_SESSIONS.md`
 - 최적화 보고서: `docs/kr/OPTIMIZATION_REPORT.md`

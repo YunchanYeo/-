@@ -55,6 +55,7 @@ WECHAT_PAY_MOCK=true
 - `WECHAT_APPID` / `WECHAT_APPSECRET`: WeChat 로그인 코드 교환
 - `WECHAT_PAY_MOCK`: `false`가 아니면 결제 mock. 실결제·商户证书·`WECHAT_PAY_PRIVATE_KEY` PEM 형식·Docker 반영은 **`backend/.env.example`** 및 **`backend/certs/wechat-pay/README.md`** 참고.
 - 위챗페이 **서명용 설정**(商户号·证书序列号·私钥)만 빠르게 검증: `cd backend && npm run probe:wechat-pay` — 위챗 `GET /v3/certificates` 호출, 성공 시 키·직렬번호·私钥 조합이 플랫폼과 맞음. `WECHAT_PAY_API_V3_KEY` 정합성은 이 스크립트로는 검증하지 않음(32바이트 길이만 경고).
+- 실결제 절차·`APPID_MCHID_NOT_MATCH`·폰 접속·알리클라우드 이슈 정리: **`docs/kr/WECHAT_PAY_REAL_TEST.md`**
 - `KUAIDI100_KEY` / `KUAIDI100_CUSTOMER`(선택): 관리자 주문 **물류轨迹** 연동(快递100 등, `.env.example` 참고)
 
 ## 4. 관리자 계정 시드
