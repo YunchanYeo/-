@@ -11,6 +11,8 @@ Page({
         order: {}, // 后台返回的原始数据
         _order: {}, // 内部使用和提供给 order-card 的数据
         storeDetail: {},
+        /** 与「我的」一致：在线客服 extInfo（后端未配置时为空） */
+        customerServiceInfo: {},
         countDownTime: null,
         addressEditable: false,
         backRefresh: false, // 用于接收其他页面back时的状态
@@ -163,11 +165,15 @@ Page({
     },
     getStoreDetail() {
         fetchBusinessTime().then((res) => {
+            const tel = String(res.data.telphone || '').trim();
             const storeDetail = {
-                storeTel: res.data.telphone,
-                storeBusiness: res.data.businessTime.join('\n'),
+                storeTel: tel,
+                storeBusiness: (Array.isArray(res.data.businessTime) ? res.data.businessTime : []).join('\n'),
             };
-            this.setData({ storeDetail });
+            this.setData({
+                storeDetail,
+                customerServiceInfo: { servicePhone: tel },
+            });
         });
     },
     // 仅对待支付状态计算付款倒计时
@@ -246,10 +252,51 @@ Page({
         wx.showToast({ title: '点击了拼团' });
     },
     clickService() {
-        Toast({
-            context: this,
-            selector: '#t-toast',
-            message: '您点击了联系客服',
+        const phoneRaw = String(this.data.storeDetail?.storeTel || '').trim();
+        if (!phoneRaw) {
+            Toast({
+                context: this,
+                selector: '#t-toast',
+                message: '暂未配置客服电话',
+                icon: '',
+                duration: 1200,
+            });
+            return;
+        }
+        wx.showActionSheet({
+            itemList: ['拨打客服电话', '在线客服'],
+            success: (res) => {
+                if (res.tapIndex === 0) {
+                    const phoneNumber = phoneRaw.replace(/\s/g, '');
+                    wx.makePhoneCall({
+                        phoneNumber,
+                        fail: () => {
+                            Toast({
+                                context: this,
+                                selector: '#t-toast',
+                                message: '无法发起拨号，请检查号码或系统权限',
+                                icon: '',
+                            });
+                        },
+                    });
+                    return;
+                }
+                if (typeof wx.openCustomerServiceChat === 'function') {
+                    const info = this.data.customerServiceInfo || {};
+                    const extInfoUrl = String(info.chatUrl || '').trim();
+                    if (extInfoUrl) {
+                        wx.openCustomerServiceChat({
+                            extInfo: { url: extInfoUrl },
+                            corpId: String(info.corpId || '').trim(),
+                            fail: () => {
+                                wx.navigateTo({ url: '/pages/user/support-chat/index' });
+                            },
+                        });
+                        return;
+                    }
+                }
+                wx.navigateTo({ url: '/pages/user/support-chat/index' });
+            },
         });
     },
     onOrderInvoiceView() {

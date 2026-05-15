@@ -1,13 +1,15 @@
 /* eslint-disable no-param-reassign */
-import { config } from '../../../config/runtime';
+import { config, cdnBase } from '../../../config/runtime';
 import { requestJson } from '../../../services/_utils/http';
+import { normalizeGoodsImageUrl } from '../../../services/_utils/normalizeGoodsImageUrl';
 function mockSearchResult(params) {
     const { delay } = require('../../../services/_utils/delay');
     const { getSearchResult } = require('../../../model/search');
     const data = getSearchResult(params);
     if (data.spuList.length) {
+        const fallbackThumb = `${cdnBase}/activity/banner.png`;
         data.spuList.forEach((item) => {
-            item.thumb = item.primaryImage;
+            item.thumb = normalizeGoodsImageUrl(item.primaryImage || item.thumb || '') || fallbackThumb;
             item.price = item.minSalePrice;
             item.originPrice = item.maxLinePrice;
             item.tags = item.spuTagList ? item.spuTagList.map((tag) => ({ title: tag.title })) : [];
@@ -26,6 +28,7 @@ export function getSearchResult(params) {
     const pageNum = Math.max(1, Number(params?.pageNum || 1));
     const pageSize = Math.max(1, Number(params?.pageSize || 30));
     return requestJson('/api/products', { method: 'GET' }).then((rows) => {
+        const fallbackThumb = `${cdnBase}/activity/banner.png`;
         const normalizedRows = Array.isArray(rows) ? rows : [];
         let filtered = normalizedRows.filter((p) => {
             const title = String(p?.title || '').toLowerCase();
@@ -50,7 +53,7 @@ export function getSearchResult(params) {
             spuList: pageRows.map((p) => ({
                 spuId: String(p.id),
                 title: p.title || '',
-                thumb: p.image || '',
+                thumb: p.thumb || normalizeGoodsImageUrl(p.image || '') || fallbackThumb,
                 price: Number(p.price || 0),
                 originPrice: Number(p.originPrice || 0),
                 desc: p.description || '',
