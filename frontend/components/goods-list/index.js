@@ -22,6 +22,10 @@ Component({
             type: Number,
             value: 1,
         },
+        thumbMode: {
+            type: String,
+            value: 'aspectFill',
+        },
     },
     data: {
         independentID: '',

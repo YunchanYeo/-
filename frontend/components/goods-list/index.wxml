@@ -6,6 +6,7 @@
 		  currency="{{item.currency || '¥'}}"
 		  thresholds="{{thresholds}}"
 		  layout="{{gridColumns === 2 ? 'grid' : 'default'}}"
+		  thumbMode="{{thumbMode}}"
 		  class="goods-card-inside"
 		  data-index="{{index}}"
 		  bind:thumb="onClickGoodsThumb"

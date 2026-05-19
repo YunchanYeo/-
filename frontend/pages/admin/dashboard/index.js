@@ -1,4 +1,4 @@
-import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, fetchAdminPromotions, createAdminPromotion, updateAdminPromotion, deleteAdminPromotion, } from '../../../services/admin/adminApi';
+import { fetchAdminOrders, fetchAdminProducts, updateAdminOrderShipping, updateAdminOrderStatus, deleteAdminOrder, updateAdminProductStock, createAdminProduct, uploadAdminImage, fetchAdminCategories, deleteAdminCategory, fetchAdminCoupons, createAdminCoupon, grantAdminCoupon, updateAdminCoupon, deleteAdminCoupon, deleteAdminProduct, fetchAdminPromotions, createAdminPromotion, updateAdminPromotion, deleteAdminPromotion, } from '../../../services/admin/adminApi';
 import { clearAdminSession, getAdminToken } from '../../../services/admin/session';
 import { config } from '../../../config/runtime';
 import { wxRequestTransportOpts } from '../../../services/_utils/wxRequestTransport';
@@ -518,7 +518,11 @@ Page({
         this.setData({ categoriesLoading: true });
         try {
             const rows = await fetchAdminCategories();
-            this.setData({ adminCategories: Array.isArray(rows) ? rows : [] });
+            const adminCategories = (Array.isArray(rows) ? rows : []).map((r) => ({
+                ...r,
+                thumbDisplay: resolveAdminImageForDisplay(r?.thumbnail || r?.thumb || ''),
+            }));
+            this.setData({ adminCategories });
         }
         catch (e) {
             showMessage(e?.message || '分类列表加载失败', 'error');
@@ -527,61 +531,19 @@ Page({
             this.setData({ categoriesLoading: false });
         }
     },
-    async onAddCategory() {
-        const modal = await new Promise((resolve) => {
-            wx.showModal({
-                title: '新增分类',
-                editable: true,
-                placeholderText: '例如：甜品',
-                success: resolve,
-                fail: () => resolve({ confirm: false }),
-            });
-        });
-        if (!modal.confirm)
-            return;
-        const name = String(modal.content || '').trim();
-        if (!name) {
-            showMessage('请输入分类名称');
-            return;
-        }
-        try {
-            await createAdminCategory({ name });
-            showMessage('已新增分类', 'success');
-            await this.loadAdminCategories();
-            this.loadCategories();
-        }
-        catch (e) {
-            showMessage(e?.message || '新增失败', 'error');
-        }
+    onAddCategory() {
+        wx.navigateTo({ url: '/pages/admin/category-edit/index' });
     },
-    async onEditCategory(e) {
-        const item = e.currentTarget.dataset.item;
-        if (!item?.id)
+    onEditCategory(e) {
+        const id = e?.currentTarget?.dataset?.id;
+        if (!id)
             return;
-        const modal = await new Promise((resolve) => {
-            wx.showModal({
-                title: '修改分类名称',
-                editable: true,
-                placeholderText: item.name || '',
-                success: resolve,
-                fail: () => resolve({ confirm: false }),
-            });
-        });
-        if (!modal.confirm)
-            return;
-        const name = String(modal.content || '').trim();
-        if (!name) {
-            showMessage('请输入分类名称');
-            return;
-        }
-        try {
-            await updateAdminCategory(item.id, { name });
-            showMessage('已保存', 'success');
-            await this.loadAdminCategories();
+        wx.navigateTo({ url: `/pages/admin/category-edit/index?id=${encodeURIComponent(String(id))}` });
+    },
+    onShow() {
+        if (this.data.activeTab === 'categories') {
+            void this.loadAdminCategories();
             this.loadCategories();
-        }
-        catch (e) {
-            showMessage(e?.message || '保存失败', 'error');
         }
     },
     async onDeleteCategory(e) {
@@ -600,6 +562,7 @@ Page({
             return;
         try {
             await deleteAdminCategory(item.id);
+            bumpProductDataVersion();
             showMessage('已删除', 'success');
             await this.loadAdminCategories();
             this.loadCategories();

@@ -135,9 +135,28 @@
 
 .category-row {
   align-items: center;
+  gap: 16rpx;
+}
+
+.category-thumb {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #f7f8fa;
+  flex-shrink: 0;
+}
+
+.category-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #ccc;
 }
 
 .category-name {
+  flex: 1;
+  min-width: 0;
   font-size: 30rpx;
   font-weight: 600;
   color: #333;

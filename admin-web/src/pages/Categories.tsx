@@ -1,6 +1,13 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth';
-import { createCategory, deleteCategory, fetchCategories, updateCategory, type CategoryRow } from '../api/admin';
+import {
+  createCategory,
+  deleteCategory,
+  fetchCategories,
+  updateCategory,
+  uploadAdminImageMultipart,
+  type CategoryRow,
+} from '../api/admin';
 import { resolveUploadUrl } from '../api/client';
 
 export default function CategoriesPage() {
@@ -9,7 +16,9 @@ export default function CategoriesPage() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
+  const [newThumb, setNewThumb] = useState('');
   const [creating, setCreating] = useState(false);
+  const [uploadingNew, setUploadingNew] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -28,14 +37,32 @@ export default function CategoriesPage() {
     load();
   }, [load]);
 
+  async function onUploadNewThumb(file?: File | null) {
+    if (!token || !file) return;
+    setUploadingNew(true);
+    setErr('');
+    try {
+      const up = await uploadAdminImageMultipart(token, file, file.name || 'category.jpg', file.type || 'image/jpeg');
+      setNewThumb(up.imageUrl || '');
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : '图片上传失败');
+    } finally {
+      setUploadingNew(false);
+    }
+  }
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     if (!token || !newName.trim()) return;
     setCreating(true);
     setErr('');
     try {
-      await createCategory(token, { name: newName.trim() });
+      await createCategory(token, {
+        name: newName.trim(),
+        thumbnail: newThumb.trim() || undefined,
+      });
       setNewName('');
+      setNewThumb('');
       await load();
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : '创建失败');
@@ -44,7 +71,10 @@ export default function CategoriesPage() {
     }
   }
 
-  async function saveRow(r: CategoryRow, patch: { name?: string; sortOrder?: number }) {
+  async function saveRow(
+    r: CategoryRow,
+    patch: { name?: string; sortOrder?: number; thumbnail?: string | null },
+  ) {
     if (!token) return;
     setErr('');
     try {
@@ -74,15 +104,48 @@ export default function CategoriesPage() {
           刷新
         </button>
       </div>
+      <p style={{ margin: '0 0 1rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
+        分类图标显示在小程序首页「商品分类」区域；未上传则使用系统默认图标。
+      </p>
       {err ? <div className="err-banner">{err}</div> : null}
 
-      <form className="card" onSubmit={onCreate} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: '1 1 200px' }}>
+      <form
+        className="card"
+        onSubmit={onCreate}
+        style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}
+      >
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>新分类名称</span>
           <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="不超过 32 字" maxLength={32} />
         </label>
-        <button type="submit" className="btn btn-primary" disabled={creating || !newName.trim()}>
-          {creating ? '创建中…' : '添加'}
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <label className="btn btn-ghost" style={{ cursor: uploadingNew ? 'not-allowed' : 'pointer' }}>
+            {uploadingNew ? '上传中…' : '上传分类图标'}
+            <input
+              type="file"
+              accept="image/*"
+              disabled={uploadingNew}
+              style={{ display: 'none' }}
+              onChange={(e) => onUploadNewThumb(e.target.files?.[0] || null)}
+            />
+          </label>
+          {newThumb ? (
+            <img
+              alt=""
+              src={resolveUploadUrl(newThumb)}
+              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'contain', background: '#f5f6f8' }}
+            />
+          ) : (
+            <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>可选，建议正方形 PNG</span>
+          )}
+          {newThumb ? (
+            <button type="button" className="btn btn-ghost" onClick={() => setNewThumb('')}>
+              清除图标
+            </button>
+          ) : null}
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={creating || !newName.trim()} style={{ justifySelf: 'start' }}>
+          {creating ? '创建中…' : '添加分类'}
         </button>
       </form>
 
@@ -93,15 +156,15 @@ export default function CategoriesPage() {
           <table className="data">
             <thead>
               <tr>
-                <th style={{ width: 72 }}>缩略图</th>
+                <th style={{ width: 88 }}>图标</th>
                 <th>名称</th>
                 <th style={{ width: 120 }}>排序</th>
-                <th style={{ width: 120 }} />
+                <th style={{ width: 200 }} />
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <CategoryEditorRow key={r.id} row={r} onSave={saveRow} onDelete={() => remove(r.id)} />
+                <CategoryEditorRow key={r.id} row={r} token={token} onSave={saveRow} onDelete={() => remove(r.id)} onError={setErr} />
               ))}
             </tbody>
           </table>
@@ -113,31 +176,76 @@ export default function CategoriesPage() {
 
 function CategoryEditorRow({
   row,
+  token,
   onSave,
   onDelete,
+  onError,
 }: {
   row: CategoryRow;
-  onSave: (r: CategoryRow, patch: { name?: string; sortOrder?: number }) => void;
+  token: string | null;
+  onSave: (r: CategoryRow, patch: { name?: string; sortOrder?: number; thumbnail?: string | null }) => void;
   onDelete: () => void;
+  onError: (msg: string) => void;
 }) {
   const [name, setName] = useState(row.name);
   const [sort, setSort] = useState(String(row.sortOrder));
+  const [thumb, setThumb] = useState(row.thumbnail || '');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     setName(row.name);
     setSort(String(row.sortOrder));
-  }, [row.name, row.sortOrder]);
+    setThumb(row.thumbnail || '');
+  }, [row.name, row.sortOrder, row.thumbnail]);
 
-  const dirty = name.trim() !== row.name || Number(sort) !== row.sortOrder;
+  const dirty =
+    name.trim() !== row.name ||
+    Number(sort) !== row.sortOrder ||
+    (thumb || '') !== (row.thumbnail || '');
+
+  async function onPickThumb(file?: File | null) {
+    if (!token || !file) return;
+    setUploading(true);
+    onError('');
+    try {
+      const up = await uploadAdminImageMultipart(token, file, file.name || 'category.jpg', file.type || 'image/jpeg');
+      setThumb(up.imageUrl || '');
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : '图片上传失败');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <tr>
       <td>
-        {row.thumbnail ? (
-          <img alt="" src={resolveUploadUrl(row.thumbnail)} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8 }} />
-        ) : (
-          <span className="badge">—</span>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+          {thumb ? (
+            <img
+              alt=""
+              src={resolveUploadUrl(thumb)}
+              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'contain', background: '#f5f6f8' }}
+            />
+          ) : (
+            <span className="badge">默认</span>
+          )}
+          <label className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', cursor: uploading ? 'not-allowed' : 'pointer' }}>
+            {uploading ? '…' : '换图'}
+            <input
+              type="file"
+              accept="image/*"
+              disabled={uploading}
+              style={{ display: 'none' }}
+              onChange={(e) => onPickThumb(e.target.files?.[0] || null)}
+            />
+          </label>
+          {thumb ? (
+            <button type="button" className="btn btn-ghost" style={{ padding: 0, fontSize: '0.75rem' }} onClick={() => setThumb('')}>
+              清除
+            </button>
+          ) : null}
+        </div>
       </td>
       <td>
         <input value={name} onChange={(e) => setName(e.target.value)} style={{ width: '100%', maxWidth: 280 }} />
@@ -155,7 +263,11 @@ function CategoryEditorRow({
             onClick={() => {
               const sortOrder = Math.floor(Number(sort));
               if (!Number.isFinite(sortOrder)) return;
-              onSave(row, { name: name.trim(), sortOrder });
+              onSave(row, {
+                name: name.trim(),
+                sortOrder,
+                thumbnail: thumb.trim() || null,
+              });
             }}
           >
             保存

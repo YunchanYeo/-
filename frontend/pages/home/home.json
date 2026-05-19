@@ -6,13 +6,8 @@
   "usingComponents": {
     "t-search": "/miniprogram_npm/tdesign-miniprogram/search/search",
     "t-loading": "/miniprogram_npm/tdesign-miniprogram/loading/loading",
-    "t-swiper": "/miniprogram_npm/tdesign-miniprogram/swiper/swiper",
-    "t-swiper-nav": "/miniprogram_npm/tdesign-miniprogram/swiper-nav/swiper-nav",
-    "t-image": "/components/webp-image/index",
     "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon",
     "t-toast": "/miniprogram_npm/tdesign-miniprogram/toast/toast",
-    "t-tabs": "/miniprogram_npm/tdesign-miniprogram/tabs/tabs",
-    "t-tab-panel": "/miniprogram_npm/tdesign-miniprogram/tab-panel/tab-panel",
     "goods-list": "/components/goods-list/index",
     "price": "/components/price/index",
     "load-more": "/components/load-more/index"

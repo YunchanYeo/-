@@ -1,6 +1,21 @@
 import { cdnBase } from '../../config/runtime';
 import { requestJson } from '../_utils/http';
 import { normalizeGoodsImageUrl } from '../_utils/normalizeGoodsImageUrl';
+const DEFAULT_CATEGORY_THUMB_BY_NAME = {
+    零食: 'https://img.icons8.com/color/240/potato-chips.png',
+    面: 'https://img.icons8.com/color/240/noodles.png',
+    饮料: 'https://img.icons8.com/color/240/water-bottle.png',
+    饭: 'https://img.icons8.com/color/240/rice-bowl.png',
+    罐头: 'https://img.icons8.com/color/240/tin-can.png',
+    糖果: 'https://img.icons8.com/color/240/candy.png',
+};
+const FALLBACK_CATEGORY_THUMB = 'https://img.icons8.com/color/240/shopping-basket-2.png';
+function resolveCategoryThumb(categoryRow, name) {
+    const fromApi = normalizeGoodsImageUrl(categoryRow?.thumb || categoryRow?.thumbnail || '');
+    if (fromApi)
+        return fromApi;
+    return DEFAULT_CATEGORY_THUMB_BY_NAME[name] || FALLBACK_CATEGORY_THUMB;
+}
 function mockFetchHome() {
     const { delay } = require('../_utils/delay');
     const { genSwiperImageList } = require('../../model/swiper');
@@ -30,14 +45,27 @@ export function fetchHome() {
             ? safeCategories.map((c, idx) => {
                 const name = String(c?.name || c?.title || c?.label || `分类${idx + 1}`);
                 const id = c?.id == null ? null : Number(c.id);
-                return { text: name, key: idx, categoryId: Number.isFinite(id) ? id : null, categoryName: name };
+                return {
+                    text: name,
+                    key: idx,
+                    categoryId: Number.isFinite(id) ? id : null,
+                    categoryName: name,
+                    thumb: resolveCategoryThumb(c, name),
+                };
             })
             : [{ text: '精选推荐', key: 0, categoryId: null, categoryName: '' }];
         const fallbackBanner = `${cdnBase}/activity/banner.png`;
-        const swiper = safeProducts
-            .map((p) => normalizeGoodsImageUrl(p?.image || p?.thumb || ''))
-            .filter((x) => !!x)
-            .slice(0, 6);
+        const bannerProducts = safeProducts.slice(0, 6);
+        const bannerItems = bannerProducts
+            .map((p) => {
+            const image = normalizeGoodsImageUrl(p?.image || p?.thumb || '') || fallbackBanner;
+            return {
+                image,
+                spuId: String(p?.id || ''),
+            };
+        })
+            .filter((b) => !!b.image);
+        const swiper = bannerItems.map((b) => b.image);
         const promoRows = Array.isArray(promotions) ? promotions : [];
         const productById = new Map(safeProducts.map((p) => [String(p?.id ?? '').trim(), p]));
         const promotionCards = promoRows.slice(0, 8).map((p) => {
@@ -81,6 +109,7 @@ export function fetchHome() {
             }));
         return {
             swiper: swiper.length > 0 ? swiper : [fallbackBanner],
+            bannerItems: bannerItems.length > 0 ? bannerItems : [{ image: fallbackBanner, spuId: '' }],
             tabList,
             activityImg: fallbackBanner,
             hotProducts: promotionCards.length > 0 ? promotionCards : hotProducts,

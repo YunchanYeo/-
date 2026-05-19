@@ -8,6 +8,7 @@ const DEFAULT_THUMB_BY_NAME: Record<string, string> = {
   饮料: 'https://img.icons8.com/color/240/water-bottle.png',
   饭: 'https://img.icons8.com/color/240/rice-bowl.png',
   罐头: 'https://img.icons8.com/color/240/tin-can.png',
+  糖果: 'https://img.icons8.com/color/240/candy.png',
 };
 const FALLBACK_THUMB = 'https://img.icons8.com/color/240/shopping-basket-2.png';
 

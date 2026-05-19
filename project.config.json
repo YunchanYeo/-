@@ -4,24 +4,24 @@
   "packOptions": {
     "ignore": [
       {
-        "type": "file",
-        "value": "frontend/miniprogram_npm/tdesign-miniprogram/step-item/step-item.json"
+        "value": "frontend/miniprogram_npm/tdesign-miniprogram/step-item/step-item.json",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "frontend/miniprogram_npm/tdesign-miniprogram/steps/steps.json"
+        "value": "frontend/miniprogram_npm/tdesign-miniprogram/steps/steps.json",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "frontend/miniprogram_npm/tdesign-miniprogram/.wechatide.ib.json"
+        "value": "frontend/miniprogram_npm/tdesign-miniprogram/.wechatide.ib.json",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "frontend/miniprogram_npm/tslib/index.js.map"
+        "value": "frontend/miniprogram_npm/tslib/index.js.map",
+        "type": "file"
       },
       {
-        "type": "folder",
-        "value": "frontend/node_modules/miniprogram-build-npm"
+        "value": "frontend/node_modules/miniprogram-build-npm",
+        "type": "folder"
       }
     ],
     "include": []

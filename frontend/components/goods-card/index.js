@@ -35,6 +35,10 @@ Component({
             type: String,
             value: 'default',
         },
+        thumbMode: {
+            type: String,
+            value: 'aspectFill',
+        },
         thresholds: {
             type: Array,
             value: [],

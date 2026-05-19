@@ -121,14 +121,21 @@
   <view wx:if="{{activeTab==='categories'}}">
     <view class="card form-card">
       <view class="form-title">商品分类</view>
-      <view class="hint-text">以下分类会显示在客户端「分类」页侧边栏；新增或改名后，上架商品时选择对应分类即可。</view>
+      <view class="hint-text">分类图标会显示在客户端首页「商品分类」；名称用于分类页侧边栏与商品归类。</view>
       <t-button theme="primary" block bind:tap="onAddCategory">新增分类</t-button>
     </view>
     <view class="card" wx:for="{{adminCategories}}" wx:key="id" wx:for-item="item">
       <view class="row category-row">
+        <image
+          wx:if="{{item.thumbDisplay}}"
+          class="category-thumb"
+          src="{{item.thumbDisplay}}"
+          mode="aspectFit"
+        />
+        <view wx:else class="category-thumb category-thumb--empty">—</view>
         <text class="category-name">{{item.name}}</text>
         <view class="btn-row category-actions">
-          <t-button size="small" variant="outline" bind:tap="onEditCategory" data-item="{{item}}">编辑</t-button>
+          <t-button size="small" variant="outline" bind:tap="onEditCategory" data-id="{{item.id}}">编辑</t-button>
           <t-button size="small" variant="outline" bind:tap="onDeleteCategory" data-item="{{item}}">删除</t-button>
         </view>
       </view>

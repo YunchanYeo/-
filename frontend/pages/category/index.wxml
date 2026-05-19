@@ -27,6 +27,7 @@
         <goods-list
           wr-class="cat-goods-list-inner"
           gridColumns="{{2}}"
+          thumbMode="aspectFit"
           goodsList="{{goodsList}}"
           bind:click="gotoGoodsDetail"
           bind:addcart="handleAddCart"

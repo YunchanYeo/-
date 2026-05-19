@@ -2,6 +2,7 @@ import { getCategoryList } from '../../services/good/fetchCategoryList';
 import { fetchGoodsList } from '../../services/good/fetchGoodsList';
 import { addItemToLocalCart } from '../../services/cart/cart';
 import Toast from 'tdesign-miniprogram/toast/index';
+const PENDING_CATEGORY_STORAGE_KEY = 'PENDING_CATEGORY_NAME';
 Page({
     data: {
         list: [],
@@ -36,6 +37,7 @@ Page({
         }
         finally {
             this._categoryReady = true;
+            this.consumePendingCategory();
         }
     },
     /** 再次进入分类 Tab 时拉取最新分类（含管理端新增项）并刷新商品 */
@@ -47,10 +49,13 @@ Page({
             if (activeIndex >= list.length) {
                 activeIndex = Math.max(0, list.length - 1);
             }
+            this.setData({ list, activeIndex });
+            if (this.consumePendingCategory()) {
+                return;
+            }
             const { currentCategory } = this.data;
             const nameStill = list.some((c) => c.name === currentCategory);
             const targetName = nameStill ? currentCategory : list[activeIndex]?.name;
-            this.setData({ list, activeIndex });
             if (targetName) {
                 await this.loadCategoryGoods(targetName);
             }
@@ -104,13 +109,35 @@ Page({
             this.setData({ goodsLoading: false });
         }
     },
+    consumePendingCategory() {
+        let pending = '';
+        try {
+            pending = String(wx.getStorageSync(PENDING_CATEGORY_STORAGE_KEY) || '').trim();
+            if (pending)
+                wx.removeStorageSync(PENDING_CATEGORY_STORAGE_KEY);
+        }
+        catch (_) { /* ignore */ }
+        if (!pending)
+            return false;
+        const { list } = this.data;
+        if (!Array.isArray(list) || !list.length)
+            return false;
+        const idx = list.findIndex((c) => String(c?.name || '').trim() === pending);
+        if (idx < 0)
+            return false;
+        this.setData({ activeIndex: idx });
+        void this.loadCategoryGoods(pending);
+        return true;
+    },
     onShow() {
         const tabBar = this.getTabBar && this.getTabBar();
         if (tabBar && typeof tabBar.init === 'function') {
             tabBar.init();
         }
         if (this._categoryReady) {
-            this.refreshCategoriesFromApi();
+            if (!this.consumePendingCategory()) {
+                this.refreshCategoriesFromApi();
+            }
         }
     },
     onPullDownRefresh() {

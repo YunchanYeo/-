@@ -19,9 +19,12 @@ export function fetchGoodsList(pageIndex = 1, pageSize = 20) {
     const opts = arguments.length >= 3 ? arguments[2] : null;
     const categoryId = opts && typeof opts === 'object' && opts.categoryId != null ? Number(opts.categoryId) : null;
     const categoryName = opts && typeof opts === 'object' && opts.categoryName != null ? String(opts.categoryName).trim() : '';
-    const qs = Number.isFinite(categoryId)
-        ? `?categoryId=${encodeURIComponent(String(categoryId))}`
-        : (categoryName ? `?category=${encodeURIComponent(categoryName)}` : '');
+    // 优先按分类名筛选：后端会同时匹配 category 文本与 categoryId；仅传 id 时未回填 categoryId 的商品会漏掉
+    const qs = categoryName
+        ? `?category=${encodeURIComponent(categoryName)}`
+        : (Number.isFinite(categoryId) && categoryId > 0
+            ? `?categoryId=${encodeURIComponent(String(categoryId))}`
+            : '');
     return requestJson(`/api/products${qs}`, { method: 'GET' }).then((rows) => {
         const fallbackThumb = `${cdnBase}/activity/banner.png`;
         const safeRows = Array.isArray(rows) ? rows : [];

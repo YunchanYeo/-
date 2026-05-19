@@ -10,7 +10,7 @@
 			  wx:if="{{ !!goods.thumb }}"
 			  class="goods-card__img"
 			  src="{{ goods.thumb }}"
-			  mode="aspectFill"
+			  mode="{{thumbMode}}"
 			  lazy-load="{{true}}"
 			/>
 		</view>

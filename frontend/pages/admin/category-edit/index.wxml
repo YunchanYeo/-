@@ -1,0 +1,22 @@
+<view class="page" wx:if="{{!loading}}">
+  <view class="card">
+    <view class="title">{{isEdit ? '编辑分类' : '新增分类'}}</view>
+    <view class="hint">首页「商品分类」图标将显示此处上传的图片；未上传则使用系统默认图标。</view>
+
+    <t-input label="分类名称" placeholder="例如：零食" value="{{form.name}}" data-key="name" bind:change="onInput" />
+
+    <view class="thumb-block">
+      <text class="field-label">分类图标</text>
+      <view class="thumb-preview-wrap" wx:if="{{form.thumbnail}}">
+        <image class="thumb-preview" src="{{form.thumbnail}}" mode="aspectFit" />
+      </view>
+      <view class="thumb-placeholder" wx:else>暂无图标</view>
+      <t-button variant="outline" block bind:tap="onPickImage">拍照/相册上传图标</t-button>
+      <t-button wx:if="{{form.thumbnail}}" variant="outline" block bind:tap="onClearImage">清除图标</t-button>
+    </view>
+
+    <t-input label="排序(数字越小越靠前)" type="number" value="{{form.sortOrder}}" data-key="sortOrder" bind:change="onInput" />
+
+    <t-button theme="primary" block loading="{{submitting}}" disabled="{{submitting}}" bind:tap="onSubmit">保存</t-button>
+  </view>
+</view>
