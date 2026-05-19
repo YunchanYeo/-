@@ -104,8 +104,19 @@ Page({
                 mimeType: file?.type ? `image/${file.type}` : 'image/jpeg',
                 base64Data,
             });
-            this.setData({ 'form.thumbnail': resolveAdminImageForDisplay(uploadRes.imageUrl) });
-            showMessage('图标上传成功', 'success');
+            const storedPath = toStoredProductImagePath(uploadRes.imageUrl);
+            const displayUrl = resolveAdminImageForDisplay(storedPath || uploadRes.imageUrl);
+            this.setData({ 'form.thumbnail': displayUrl });
+            if (this.data.isEdit && this.data.form.id) {
+                await updateAdminCategory(this.data.form.id, {
+                    thumbnail: storedPath || null,
+                });
+                bumpProductDataVersion();
+                showMessage('图标已保存到服务器', 'success');
+            }
+            else {
+                showMessage('图片上传成功，请点击保存', 'success');
+            }
         }
         catch (e) {
             showMessage(e?.errMsg || e?.message || '上传失败', 'error');

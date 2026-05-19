@@ -10,10 +10,25 @@ const DEFAULT_CATEGORY_THUMB_BY_NAME = {
     糖果: 'https://img.icons8.com/color/240/candy.png',
 };
 const FALLBACK_CATEGORY_THUMB = 'https://img.icons8.com/color/240/shopping-basket-2.png';
+function withThumbCacheBust(url, categoryRow) {
+    const u = String(url || '').trim();
+    if (!u || /icons8\.com/i.test(u))
+        return u;
+    const id = categoryRow?.id != null ? String(categoryRow.id) : '0';
+    return u.includes('?') ? `${u}&v=${id}` : `${u}?v=${id}`;
+}
 function resolveCategoryThumb(categoryRow, name) {
-    const fromApi = normalizeGoodsImageUrl(categoryRow?.thumb || categoryRow?.thumbnail || '');
-    if (fromApi)
-        return fromApi;
+    const raw = String(categoryRow?.thumbnail || '').trim();
+    if (raw) {
+        const custom = normalizeGoodsImageUrl(raw);
+        if (custom)
+            return withThumbCacheBust(custom, categoryRow);
+    }
+    const apiThumb = normalizeGoodsImageUrl(categoryRow?.thumb || '');
+    if (apiThumb && !/icons8\.com/i.test(apiThumb))
+        return withThumbCacheBust(apiThumb, categoryRow);
+    if (apiThumb)
+        return apiThumb;
     return DEFAULT_CATEGORY_THUMB_BY_NAME[name] || FALLBACK_CATEGORY_THUMB;
 }
 function mockFetchHome() {
@@ -35,7 +50,7 @@ function mockFetchHome() {
 }
 export function fetchHome() {
     return Promise.all([
-        requestJson('/api/categories', { method: 'GET' }).catch(() => []),
+        requestJson(`/api/categories?_=${Date.now()}`, { method: 'GET' }).catch(() => []),
         requestJson('/api/products', { method: 'GET' }).catch(() => []),
         requestJson('/api/promotions', { method: 'GET' }).catch(() => []),
     ]).then(([categories, products, promotions]) => {

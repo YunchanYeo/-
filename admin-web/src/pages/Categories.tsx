@@ -209,7 +209,10 @@ function CategoryEditorRow({
     onError('');
     try {
       const up = await uploadAdminImageMultipart(token, file, file.name || 'category.jpg', file.type || 'image/jpeg');
-      setThumb(up.imageUrl || '');
+      const imageUrl = up.imageUrl || '';
+      setThumb(imageUrl);
+      // 上传后立即写入 DB，避免只换图不点「保存」导致小程序首页仍是默认图标
+      await onSave(row, { thumbnail: imageUrl });
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : '图片上传失败');
     } finally {

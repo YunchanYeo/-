@@ -45,9 +45,11 @@ Page({
         if (tabBar && typeof tabBar.init === 'function') {
             tabBar.init();
         }
+        // 分类图标可能由后台（Web 管理端）更新：该流程不会写入小程序本地 version，
+        // 因此每次回到首页时都刷新顶部数据，确保首页分类图标及时生效。
+        void this.refreshHomeMarketingStrip();
         const currentVersion = getProductDataVersion();
         if (this._lastProductVersion && this._lastProductVersion !== currentVersion) {
-            void this.refreshHomeMarketingStrip();
             void this.loadGoodsList(true, { softRefresh: true });
         }
         this._lastProductVersion = currentVersion;
