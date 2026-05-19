@@ -7,12 +7,12 @@
 
     <view class="thumb-block">
       <text class="field-label">分类图标</text>
-      <view class="thumb-preview-wrap" wx:if="{{form.thumbnail}}">
-        <image class="thumb-preview" src="{{form.thumbnail}}" mode="aspectFit" />
+      <view class="thumb-preview-wrap">
+        <image class="thumb-preview" src="{{displayIconUrl}}" mode="aspectFit" />
       </view>
-      <view class="thumb-placeholder" wx:else>暂无图标</view>
+      <text class="thumb-hint">{{hasCustomThumb ? '当前为自定义图标' : '当前为系统默认图标'}}</text>
       <t-button variant="outline" block bind:tap="onPickImage">拍照/相册上传图标</t-button>
-      <t-button wx:if="{{form.thumbnail}}" variant="outline" block bind:tap="onClearImage">清除图标</t-button>
+      <t-button wx:if="{{hasCustomThumb}}" variant="outline" block bind:tap="onClearImage">恢复默认图标</t-button>
     </view>
 
     <t-input label="排序(数字越小越靠前)" type="number" value="{{form.sortOrder}}" data-key="sortOrder" bind:change="onInput" />

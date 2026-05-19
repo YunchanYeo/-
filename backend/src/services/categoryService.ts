@@ -34,8 +34,12 @@ export function createCategoryService({ db }: { db: Db }) {
   function adminListCategories(_req: Request, res: Response) {
     const rows = db
       .prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories ORDER BY sortOrder ASC, id ASC`)
-      .all();
-    res.json({ ok: true, data: rows });
+      .all() as Array<{ id: number; name: string; sortOrder: number; thumbnail: string | null; createdAt: string }>;
+    const data = rows.map((row) => ({
+      ...row,
+      thumb: resolveThumbnail(row.name, row.thumbnail),
+    }));
+    res.json({ ok: true, data });
   }
 
   function adminCreateCategory(req: Request, res: Response) {
@@ -102,8 +106,13 @@ export function createCategoryService({ db }: { db: Db }) {
     }
 
     db.prepare(`UPDATE product_categories SET name = ?, thumbnail = ?, sortOrder = ? WHERE id = ?`).run(nextName, nextThumb, nextSort, id);
-    const row = db.prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories WHERE id = ?`).get(id);
-    return res.json({ ok: true, data: row });
+    const row = db
+      .prepare(`SELECT id, name, sortOrder, thumbnail, createdAt FROM product_categories WHERE id = ?`)
+      .get(id) as { id: number; name: string; sortOrder: number; thumbnail: string | null; createdAt: string };
+    return res.json({
+      ok: true,
+      data: row ? { ...row, thumb: resolveThumbnail(row.name, row.thumbnail) } : row,
+    });
   }
 
   function adminDeleteCategory(req: Request, res: Response) {

@@ -10,6 +10,10 @@ const DEFAULT_CATEGORY_THUMB_BY_NAME = {
     糖果: 'https://img.icons8.com/color/240/candy.png',
 };
 const FALLBACK_CATEGORY_THUMB = 'https://img.icons8.com/color/240/shopping-basket-2.png';
+export function getDefaultCategoryThumb(name) {
+    const key = String(name || '').trim();
+    return DEFAULT_CATEGORY_THUMB_BY_NAME[key] || FALLBACK_CATEGORY_THUMB;
+}
 function withThumbCacheBust(url, categoryRow) {
     const u = String(url || '').trim();
     if (!u || /icons8\.com/i.test(u))
@@ -29,7 +33,7 @@ function resolveCategoryThumb(categoryRow, name) {
         return withThumbCacheBust(apiThumb, categoryRow);
     if (apiThumb)
         return apiThumb;
-    return DEFAULT_CATEGORY_THUMB_BY_NAME[name] || FALLBACK_CATEGORY_THUMB;
+    return getDefaultCategoryThumb(name);
 }
 function mockFetchHome() {
     const { delay } = require('../_utils/delay');

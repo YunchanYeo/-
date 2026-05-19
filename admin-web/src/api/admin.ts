@@ -38,6 +38,8 @@ export type CategoryRow = {
   name: string;
   sortOrder: number;
   thumbnail: string | null;
+  /** 无自定义图时为系统默认 Icons8 地址 */
+  thumb?: string | null;
   createdAt: string;
 };
 

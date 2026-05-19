@@ -10,6 +10,28 @@ import {
 } from '../api/admin';
 import { resolveUploadUrl } from '../api/client';
 
+const DEFAULT_CATEGORY_THUMB_BY_NAME: Record<string, string> = {
+  零食: 'https://img.icons8.com/color/240/potato-chips.png',
+  面: 'https://img.icons8.com/color/240/noodles.png',
+  饮料: 'https://img.icons8.com/color/240/water-bottle.png',
+  饭: 'https://img.icons8.com/color/240/rice-bowl.png',
+  罐头: 'https://img.icons8.com/color/240/tin-can.png',
+  糖果: 'https://img.icons8.com/color/240/candy.png',
+};
+const FALLBACK_CATEGORY_THUMB = 'https://img.icons8.com/color/240/shopping-basket-2.png';
+
+function getDefaultCategoryThumb(name: string) {
+  return DEFAULT_CATEGORY_THUMB_BY_NAME[name.trim()] || FALLBACK_CATEGORY_THUMB;
+}
+
+function getCategoryIconPreview(name: string, customThumb: string | null | undefined, resolvedThumb?: string | null) {
+  const custom = String(customThumb || '').trim();
+  if (custom) return resolveUploadUrl(custom);
+  const resolved = String(resolvedThumb || '').trim();
+  if (resolved) return resolveUploadUrl(resolved);
+  return getDefaultCategoryThumb(name);
+}
+
 export default function CategoriesPage() {
   const { token } = useAuth();
   const [rows, setRows] = useState<CategoryRow[]>([]);
@@ -129,18 +151,17 @@ export default function CategoriesPage() {
               onChange={(e) => onUploadNewThumb(e.target.files?.[0] || null)}
             />
           </label>
-          {newThumb ? (
-            <img
-              alt=""
-              src={resolveUploadUrl(newThumb)}
-              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'contain', background: '#f5f6f8' }}
-            />
-          ) : (
-            <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>可选，建议正方形 PNG</span>
-          )}
+          <img
+            alt=""
+            src={newThumb ? resolveUploadUrl(newThumb) : getDefaultCategoryThumb(newName || '分类')}
+            style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'contain', background: '#f5f6f8' }}
+          />
+          <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+            {newThumb ? '自定义图标' : '将使用系统默认图标'}
+          </span>
           {newThumb ? (
             <button type="button" className="btn btn-ghost" onClick={() => setNewThumb('')}>
-              清除图标
+              恢复默认图标
             </button>
           ) : null}
         </div>
@@ -203,6 +224,16 @@ function CategoryEditorRow({
     Number(sort) !== row.sortOrder ||
     (thumb || '') !== (row.thumbnail || '');
 
+  async function onClearThumb() {
+    setThumb('');
+    onError('');
+    try {
+      await onSave(row, { thumbnail: null });
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : '恢复默认失败');
+    }
+  }
+
   async function onPickThumb(file?: File | null) {
     if (!token || !file) return;
     setUploading(true);
@@ -224,15 +255,14 @@ function CategoryEditorRow({
     <tr>
       <td>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
-          {thumb ? (
-            <img
-              alt=""
-              src={resolveUploadUrl(thumb)}
-              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'contain', background: '#f5f6f8' }}
-            />
-          ) : (
-            <span className="badge">默认</span>
-          )}
+          <img
+            alt=""
+            src={getCategoryIconPreview(name, thumb, row.thumb)}
+            style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'contain', background: '#f5f6f8' }}
+          />
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+            {thumb ? '自定义' : '默认'}
+          </span>
           <label className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', cursor: uploading ? 'not-allowed' : 'pointer' }}>
             {uploading ? '…' : '换图'}
             <input
@@ -244,8 +274,8 @@ function CategoryEditorRow({
             />
           </label>
           {thumb ? (
-            <button type="button" className="btn btn-ghost" style={{ padding: 0, fontSize: '0.75rem' }} onClick={() => setThumb('')}>
-              清除
+            <button type="button" className="btn btn-ghost" style={{ padding: 0, fontSize: '0.75rem' }} onClick={() => void onClearThumb()}>
+              恢复默认
             </button>
           ) : null}
         </div>

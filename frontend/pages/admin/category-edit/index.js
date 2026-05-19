@@ -6,6 +6,7 @@ import {
 } from '../../../services/admin/adminApi';
 import { resolveAdminImageForDisplay, toStoredProductImagePath } from '../../../services/admin/adminImageUrl';
 import { bumpProductDataVersion } from '../../../services/good/productVersion';
+import { getDefaultCategoryThumb } from '../../../services/home/home';
 
 function showMessage(message, theme = 'none') {
     const icon = theme === 'success' ? 'success' : theme === 'error' ? 'error' : 'none';
@@ -23,6 +24,8 @@ Page({
             thumbnail: '',
             sortOrder: '',
         },
+        displayIconUrl: getDefaultCategoryThumb(''),
+        hasCustomThumb: false,
     },
     onLoad(query) {
         const id = query?.id ? String(query.id) : '';
@@ -31,7 +34,11 @@ Page({
             void this.loadCategory(id);
         }
         else {
-            this.setData({ loading: false });
+            this.setData({
+                loading: false,
+                displayIconUrl: getDefaultCategoryThumb(''),
+                hasCustomThumb: false,
+            });
         }
     },
     async loadCategory(id) {
@@ -44,13 +51,19 @@ Page({
                 wx.navigateBack();
                 return;
             }
+            const hasCustom = !!String(row.thumbnail || '').trim();
+            const name = row.name || '';
             this.setData({
                 form: {
                     id: String(row.id),
-                    name: row.name || '',
-                    thumbnail: resolveAdminImageForDisplay(row.thumbnail || ''),
+                    name,
+                    thumbnail: hasCustom ? resolveAdminImageForDisplay(row.thumbnail) : '',
                     sortOrder: String(row.sortOrder ?? 0),
                 },
+                hasCustomThumb: hasCustom,
+                displayIconUrl: hasCustom
+                    ? resolveAdminImageForDisplay(row.thumbnail)
+                    : getDefaultCategoryThumb(name),
             });
         }
         catch (e) {
@@ -63,7 +76,12 @@ Page({
     },
     onInput(e) {
         const { key } = e.currentTarget.dataset;
-        this.setData({ [`form.${key}`]: e.detail.value });
+        const value = e.detail.value;
+        const patch = { [`form.${key}`]: value };
+        if (key === 'name' && !this.data.hasCustomThumb) {
+            patch.displayIconUrl = getDefaultCategoryThumb(String(value || '').trim() || '分类');
+        }
+        this.setData(patch);
     },
     async onPickImage() {
         const action = await new Promise((resolve) => {
@@ -106,7 +124,11 @@ Page({
             });
             const storedPath = toStoredProductImagePath(uploadRes.imageUrl);
             const displayUrl = resolveAdminImageForDisplay(storedPath || uploadRes.imageUrl);
-            this.setData({ 'form.thumbnail': displayUrl });
+            this.setData({
+                'form.thumbnail': displayUrl,
+                displayIconUrl: displayUrl,
+                hasCustomThumb: true,
+            });
             if (this.data.isEdit && this.data.form.id) {
                 await updateAdminCategory(this.data.form.id, {
                     thumbnail: storedPath || null,
@@ -122,8 +144,27 @@ Page({
             showMessage(e?.errMsg || e?.message || '上传失败', 'error');
         }
     },
-    onClearImage() {
-        this.setData({ 'form.thumbnail': '' });
+    async onClearImage() {
+        const name = String(this.data.form.name || '').trim() || '分类';
+        const defaultThumb = getDefaultCategoryThumb(name);
+        this.setData({
+            'form.thumbnail': '',
+            displayIconUrl: defaultThumb,
+            hasCustomThumb: false,
+        });
+        if (this.data.isEdit && this.data.form.id) {
+            try {
+                await updateAdminCategory(this.data.form.id, { thumbnail: null });
+                bumpProductDataVersion();
+                showMessage('已恢复默认图标', 'success');
+            }
+            catch (e) {
+                showMessage(e?.message || '恢复失败', 'error');
+            }
+        }
+        else {
+            showMessage('将使用默认图标', 'none');
+        }
     },
     async onSubmit() {
         const f = this.data.form;

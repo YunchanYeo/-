@@ -518,10 +518,22 @@ Page({
         this.setData({ categoriesLoading: true });
         try {
             const rows = await fetchAdminCategories();
-            const adminCategories = (Array.isArray(rows) ? rows : []).map((r) => ({
-                ...r,
-                thumbDisplay: resolveAdminImageForDisplay(r?.thumbnail || r?.thumb || ''),
-            }));
+            const DEFAULT_THUMB = {
+                零食: 'https://img.icons8.com/color/240/potato-chips.png',
+                面: 'https://img.icons8.com/color/240/noodles.png',
+                饮料: 'https://img.icons8.com/color/240/water-bottle.png',
+                饭: 'https://img.icons8.com/color/240/rice-bowl.png',
+                罐头: 'https://img.icons8.com/color/240/tin-can.png',
+                糖果: 'https://img.icons8.com/color/240/candy.png',
+            };
+            const adminCategories = (Array.isArray(rows) ? rows : []).map((r) => {
+                const name = String(r?.name || '').trim();
+                const custom = String(r?.thumbnail || '').trim();
+                const thumbDisplay = custom
+                    ? resolveAdminImageForDisplay(custom)
+                    : (r?.thumb ? resolveAdminImageForDisplay(r.thumb) : (DEFAULT_THUMB[name] || 'https://img.icons8.com/color/240/shopping-basket-2.png'));
+                return { ...r, thumbDisplay };
+            });
             this.setData({ adminCategories });
         }
         catch (e) {

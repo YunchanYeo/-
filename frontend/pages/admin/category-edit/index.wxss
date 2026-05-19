@@ -53,9 +53,10 @@
   height: 160rpx;
 }
 
-.thumb-placeholder {
+.thumb-hint {
+  display: block;
   text-align: center;
-  color: #bbb;
-  font-size: 26rpx;
-  padding: 40rpx 0;
+  color: #999;
+  font-size: 24rpx;
+  margin-bottom: 16rpx;
 }
